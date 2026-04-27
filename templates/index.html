@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GLI | Lista de Precios</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+
+    <style>
+        :root { --primary-color: #524e9c; --accent-color: #635dbd; --bg-color: #f8f9fa; --white-pure: #ffffff; --text-dark: #2b2b36; --text-light: #6b7280; }
+        body { background-color: var(--bg-color); font-family: 'Inter', sans-serif; color: var(--text-dark); }
+        .text-brand { color: var(--primary-color) !important; }
+        .bg-brand { background-color: var(--primary-color) !important; color: white; }
+        .btn-outline-brand { color: var(--primary-color); border: 2px solid var(--primary-color); background: transparent; }
+        .btn-outline-brand:hover { background: var(--primary-color); color: white; }
+        .btn-config-lock { color: #4b5563; border: 2px solid #e5e7eb; background: var(--white-pure); transition: 0.3s; }
+        .btn-config-lock:hover { background: #e5e7eb; color: #1f2937; }
+        .navbar { background-color: var(--white-pure); box-shadow: 0 2px 10px rgba(82, 78, 156, 0.08); padding: 0.8rem 0; }
+        .brand-logo { font-weight: 800; font-size: 1.5rem; color: var(--primary-color); letter-spacing: -0.5px; line-height: 1; cursor: default; }
+        .brand-subtitle { font-size: 0.7rem; color: var(--text-light); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; cursor: default; }
+        
+        .card-pro { background: var(--white-pure); border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(82, 78, 156, 0.05); transition: all 0.3s ease; }
+        .upload-box { border: 2px dashed #e5e7eb; border-radius: 12px; padding: 1.2rem; text-align: center; transition: 0.2s; cursor: pointer; background: var(--white-pure); height: 100%; display: flex; flex-direction: column; justify-content: center; }
+        .upload-box:hover { border-color: var(--accent-color); background-color: rgba(82, 78, 156, 0.02); }
+        
+        .search-container { position: relative; max-width: 700px; margin: 0 auto; width: 100%; }
+        .search-input { border: 1px solid #e5e7eb; border-radius: 50px; padding: 1.2rem 1.5rem 1.2rem 3.5rem; font-size: 1.05rem; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); transition: all 0.2s; background: var(--white-pure); width: 100%; }
+        .search-input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 4px rgba(82, 78, 156, 0.15); }
+        .search-icon { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: var(--primary-color); font-size: 1.3rem; }
+        
+        .table-container { border-radius: 12px; overflow: hidden; background: var(--white-pure); box-shadow: 0 10px 30px rgba(82, 78, 156, 0.06); }
+        .scroll-wrapper { max-height: 75vh; overflow-y: auto; }
+        .table-pro { border-collapse: separate; border-spacing: 0; }
+        .table-pro thead th { position: sticky; top: 0; background-color: #f8f9fa; z-index: 10; border-bottom: 2px solid #e5e7eb; }
+        .table-pro th { color: #524e9c; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; border: none; padding: 1.2rem 0.5rem; vertical-align: middle; }
+        .table-pro td { padding: 1.25rem 0.5rem; vertical-align: middle; border-bottom: 1px solid #f0f0f5; color: var(--text-dark); font-size: 0.95rem; }
+        
+        .price-tag { font-family: 'Inter', sans-serif; font-weight: 700; color: var(--primary-color); font-size: 1.1rem; transition: 0.3s; }
+        .price-secondary { color: #6b7280; font-weight: 600; }
+        
+        .btn-edit-margen { background: rgba(82, 78, 156, 0.08); color: var(--primary-color); border: 1px solid rgba(82, 78, 156, 0.2); padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; transition: 0.2s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+        .btn-edit-margen:hover { background: var(--primary-color); color: white; border-color: var(--primary-color); }
+        
+        .input-simulador { width: 70px; text-align: center; font-weight: bold; color: #d97706; background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 4px; font-size: 0.85rem; transition: 0.2s; margin: 0 auto;}
+        .input-simulador:focus { outline: none; border-color: #d97706; box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.2); }
+
+        .badge-mode { background: rgba(82, 78, 156, 0.1); color: var(--primary-color); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; border: 1px solid rgba(82, 78, 156, 0.2); display: flex; align-items: center; }
+        .sede-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.5px; opacity: 0.7; }
+        
+        .badges-wrapper { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .badge-custom { font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+        
+        .row-coyuntural td { background-color: #fff1f2 !important; }
+        .row-coyuntural td:first-child { border-left: 4px solid #f43f5e !important; }
+
+        .btn-coyuntural-active { background-color: #f43f5e; color: white; border-color: #f43f5e; }
+        .btn-coyuntural-inactive { background-color: #ffffff; color: #4b5563; border-color: #d1d5db; }
+        .btn-coyuntural-inactive:hover { background-color: #e5e7eb; color: #1f2937; }
+
+        .admin-col { display: none; }
+        body.admin-mode .admin-col { display: table-cell; }
+        
+        /* 🚀 REGLA PARA OCULTAR LA COLUMNA DE VENDEDOR CUANDO ESTÁ EL ADMIN */
+        body.admin-mode .vendor-col { display: none !important; }
+        
+        @media (max-width: 768px) {
+            body.admin-mode .admin-col { display: flex; }
+            .navbar .container { padding: 0 10px; }
+            .brand-logo { font-size: 1.2rem; }
+            .brand-subtitle { font-size: 0.65rem; }
+            .mobile-hide-text { display: none !important; }
+            .btn-config-lock { padding: 6px 12px !important; }
+            
+            .table-container { background: transparent; box-shadow: none; border-radius: 0; }
+            .scroll-wrapper { max-height: none; overflow-y: visible; }
+            .table-pro thead { display: none; } 
+            .table-pro tbody { display: flex; flex-direction: column; gap: 15px; }
+            .table-pro tr { display: flex; flex-direction: column; background: var(--white-pure); border-radius: 12px; box-shadow: 0 4px 15px rgba(82, 78, 156, 0.08); border: 1px solid #e5e7eb; overflow: hidden; padding: 0; border-left: 4px solid transparent; }
+            
+            .table-pro td { padding: 12px 15px !important; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f3f4f6 !important; text-align: right; }
+            .table-pro td:last-child { border-bottom: none !important; background-color: #fafafa; }
+            
+            .row-coyuntural { border-left: 4px solid #f43f5e !important; }
+            
+            .table-pro td:nth-child(1) { flex-direction: column; align-items: flex-start; text-align: left; border-bottom: 2px solid #f0f0f5 !important; }
+            
+            .table-pro td::before { content: attr(data-label); font-weight: 700; color: #524e9c; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+            .table-pro td:nth-child(1)::before { display: none; } 
+            
+            .table-pro td > div { display: flex; flex-direction: row-reverse; gap: 8px; align-items: baseline; }
+            .table-pro td:nth-child(1) > div { flex-direction: column; width: 100%; }
+            .sede-label { font-size: 0.75rem; }
+            .search-input { padding: 1rem 1.2rem 1rem 3rem; font-size: 1rem; }
+            .search-icon { left: 15px; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar sticky-top">
+    <div class="container d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2 gap-md-3">
+            <div class="bg-brand rounded-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                <i class="bi bi-box-seam fs-5"></i>
+            </div>
+            <div style="line-height: 1.1;">
+                <div class="brand-logo">GLI</div>
+                <div class="brand-subtitle">Precios</div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 gap-md-3 align-items-center">
+            <button id="btnAlertas" class="btn btn-outline-warning rounded-pill px-3 fw-bold admin-col position-relative" style="display:none;" onclick="new bootstrap.Modal(document.getElementById('modalAlertas')).show()">
+                <i class="bi bi-bell-fill"></i> <span class="mobile-hide-text">Alertas</span>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="badgeAlertasCount" style="font-size:0.6rem;">0</span>
+            </button>
+            <span class="badge-mode" title="Multi-Moneda Dinámica (USD / PEN)">
+                <i class="bi bi-currency-exchange"></i> <span class="mobile-hide-text ms-1">USD/PEN</span>
+            </span>
+            <button id="btnConfig" class="btn btn-config-lock rounded-pill px-4 fw-bold" onclick="solicitarAccesoAdmin()" title="Panel de Administrador">
+                <i class="bi bi-lock-fill" id="iconLock"></i> <span class="mobile-hide-text ms-1">Data</span>
+            </button>
+        </div>
+    </div>
+</nav>
+
+<div class="container py-4 py-md-5" style="max-width: 1400px;">
+    
+    <div id="adminPanel" class="mb-4 mb-md-5" style="display:none;">
+        <div class="card-pro p-3 p-md-4 border-top border-4 border-danger">
+            <div class="d-flex justify-content-between mb-3 mb-md-4 align-items-center">
+                <h6 class="fw-bold text-danger m-0"><i class="bi bi-shield-lock-fill me-2"></i>Panel Admin</h6>
+                <button class="btn-close" onclick="cerrarPanel()"></button>
+            </div>
+            
+            <div class="row g-2 g-md-3">
+                <div class="col-12 col-md-4">
+                    <div class="upload-box" onclick="document.getElementById('fileMaestro').click()">
+                        <div class="mb-1 text-primary"><i class="bi bi-cloud-arrow-up-fill fs-3"></i></div>
+                        <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">Subir Excel Maestro</h6>
+                        <p class="text-muted small mb-0 d-none d-md-block" style="font-size: 0.7rem;">Sube archivo unificado (.csv o .xlsx)</p>
+                        <input type="file" id="fileMaestro" class="d-none" accept=".xlsx, .csv" onchange="subirArchivo('subir-maestro', 'fileMaestro')">
+                    </div>
+                </div>
+                
+                <div class="col-6 col-md-4">
+                    <div class="upload-box" onclick="abrirModalVariante()">
+                        <div class="mb-1 text-success"><i class="bi bi-plus-circle-dotted fs-3"></i></div>
+                        <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">Gestor Prod.</h6>
+                        <p class="text-muted small mb-0 d-none d-md-block" style="font-size: 0.7rem;">Clonar / Crear Manual</p>
+                    </div>
+                </div>
+                
+                <div class="col-6 col-md-4">
+                    <div class="upload-box" onclick="abrirModalExportar()">
+                        <div class="mb-1 text-secondary"><i class="bi bi-file-earmark-excel fs-3"></i></div>
+                        <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">Exportar Datos</h6>
+                        <p class="text-muted small mb-0 d-none d-md-block" style="font-size: 0.7rem;">Descargar Excel a medida</p>
+                    </div>
+                </div>
+            </div>
+            <div id="status" class="text-center mt-3 fw-bold small text-brand"></div>
+        </div>
+    </div>
+
+    <div class="text-center mb-4 mb-md-5 mt-2">
+        <h3 class="fw-bold mb-3 text-dark d-none d-md-block" style="letter-spacing: -0.5px;">Búsqueda Inteligente</h3>
+        <div class="search-container px-2 px-md-0">
+            <i class="bi bi-search search-icon"></i>
+            <input type="text" id="txtBuscar" class="form-control search-input" placeholder="Buscar producto, código o proveedor..." onkeyup="buscar()">
+        </div>
+        
+        <div class="mt-3">
+            <span class="badge bg-light text-secondary border px-3 py-2" style="font-size: 0.75rem; font-weight: 600;">
+                <i class="bi bi-clock-history me-1"></i> Base actualizada al: <b id="lblUltimaAct" class="text-dark">--/--/----</b>
+            </span>
+        </div>
+    </div>
+
+    <div class="table-container shadow-sm">
+        <div class="scroll-wrapper">
+            <table class="table table-pro mb-0 w-100" style="min-width: 1250px;">
+                <thead>
+                    <tr>
+                        <th style="width: 22%; padding-left: 1.5rem;">Producto Detallado</th>
+                        
+                        <th class="text-center vendor-col" style="width: 7%;"><i class="bi bi-calculator"></i> % Dscto</th>
+                        
+                        <th class="text-center admin-col" style="width: 7%;"><i class="bi bi-clipboard-data"></i> C. Real</th>
+                        <th class="text-center admin-col" style="width: 7%;"><i class="bi bi-gear"></i> C. Fab.</th>
+                        <th class="text-center admin-col" style="width: 7%;"><i class="bi bi-dash-circle"></i> Merma</th>
+                        <th class="text-center admin-col" style="width: 7%;">C. Total</th>
+                        <th class="text-center admin-col" style="width: 6%;"><i class="bi bi-graph-up-arrow"></i> Coyun.</th>
+                        
+                        <th class="text-center" style="width: 6%;">Dscto PV</th>
+                        <th class="text-center" style="width: 6%;">Dscto Dist.</th>
+                        
+                        <th class="text-center admin-col" style="width: 6%;">Margen</th>
+                        
+                        <th class="text-end" style="width: 9%;">Precio Lima</th>
+                        <th class="text-end" style="width: 10%; padding-right: 1.5rem;">Provincia</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaResultados"></tbody>
+            </table>
+        </div>
+        
+        <div id="loading" class="text-center py-5" style="display:none;">
+            <div class="spinner-border text-brand" style="width: 2.5rem; height: 2.5rem;"></div>
+            <p class="text-muted mt-2 small fw-bold">Buscando...</p>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalAlertas" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-warning text-dark border-0">
+        <h6 class="modal-title fw-bold"><i class="bi bi-bell-fill me-2"></i> Centro de Alertas</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body bg-light" id="bodyAlertas"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalCrearVariante" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-success text-white border-0">
+        <h6 class="modal-title fw-bold"><i class="bi bi-plus-circle-dotted me-2"></i> Gestor de Productos Manuales</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        
+        <div class="mb-4 text-center">
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="tipoCreacion" id="radioClon" value="clon" checked onchange="toggleCreacion()">
+                <label class="form-check-label fw-bold" for="radioClon">Clonar Producto</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="tipoCreacion" id="radioNuevo" value="nuevo" onchange="toggleCreacion()">
+                <label class="form-check-label fw-bold" for="radioNuevo">Crear de Cero</label>
+            </div>
+        </div>
+
+        <div id="divBase" class="mb-3">
+            <label class="form-label fw-bold text-dark" style="font-size: 0.85rem;">1. Selecciona el Producto Base a Clonar</label>
+            <input list="listaProductosBase" id="varBase" class="form-control" placeholder="Escribe para buscar...">
+            <datalist id="listaProductosBase"></datalist>
+            <small class="text-muted" style="font-size: 0.7rem;">Heredará costos y merma automáticamente.</small>
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label fw-bold text-dark" id="lblNuevoNombre" style="font-size: 0.85rem;">2. Nuevo Nombre (Añade el kilaje)</label>
+            <input type="text" id="varNuevo" class="form-control" placeholder="Ej: PRODUCTO X 1KG">
+        </div>
+        
+        <div id="divExtrasNuevo" style="display:none;">
+            <div class="mb-3">
+                <label class="form-label fw-bold text-dark" style="font-size: 0.85rem;">Código del Producto</label>
+                <input type="text" id="varCodigo" class="form-control" placeholder="Opcional (Ej: PROD-001)">
+            </div>
+            <div class="row">
+                <div class="col-6 mb-3">
+                    <label class="form-label fw-bold text-dark" style="font-size: 0.85rem;">Dscto. Dist (%)</label>
+                    <input type="number" id="varDsctoDist" class="form-control" placeholder="Ej: 10">
+                </div>
+                <div class="col-6 mb-3">
+                    <label class="form-label fw-bold text-dark" style="font-size: 0.85rem;">Dscto. PV (%)</label>
+                    <input type="number" id="varDsctoPV" class="form-control" placeholder="Ej: 5">
+                </div>
+            </div>
+        </div>
+
+        <div id="divCosto" class="mb-3" style="display:none;">
+            <div class="row">
+                <div class="col-6">
+                    <label class="form-label fw-bold text-dark" style="font-size: 0.85rem;">Costo Real (Base)</label>
+                    <input type="number" id="varCosto" class="form-control" placeholder="Ej: 12.500" step="0.001">
+                </div>
+                <div class="col-6">
+                    <label class="form-label fw-bold text-dark" style="font-size: 0.85rem;">Costo de Fab.</label>
+                    <input type="number" id="varCostoFab" class="form-control" placeholder="Ej: 0.500" step="0.001" value="0">
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-6">
+                <label class="form-label fw-bold text-dark" id="lblMargen" style="font-size: 0.85rem;">3. Margen (%)</label>
+                <input type="number" id="varMargen" class="form-control" placeholder="Ej: 25">
+            </div>
+            <div class="col-6">
+                <label class="form-label fw-bold text-dark" style="font-size: 0.85rem;">Merma (%)</label>
+                <input type="number" id="varMerma" class="form-control" placeholder="Ej: 5" value="0">
+            </div>
+        </div>
+
+      </div>
+      <div class="modal-footer border-0 bg-light">
+        <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success rounded-pill px-4" onclick="guardarVariante()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalExportar" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg"> 
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-secondary text-white border-0">
+        <h6 class="modal-title fw-bold"><i class="bi bi-file-earmark-excel me-2"></i> Exportar a Excel</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-3">Selecciona los productos específicos que deseas descargar en el archivo.</p>
+        
+        <div class="mb-3 position-relative">
+            <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+            <input type="text" id="buscadorExportar" class="form-control ps-5" placeholder="Buscar producto a exportar..." onkeyup="filtrarListaExportar()">
+        </div>
+        
+        <div class="d-flex justify-content-between mb-2">
+            <button class="btn btn-sm btn-outline-primary fw-bold" onclick="marcarTodosExportar(true)">Marcar Todos (Visibles)</button>
+            <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="marcarTodosExportar(false)">Desmarcar Todos (Visibles)</button>
+        </div>
+
+        <div id="listaProductosExportar" class="border rounded p-3" style="max-height: 350px; overflow-y: auto; background: #f8f9fa;">
+        </div>
+      </div>
+      <div class="modal-footer border-0 bg-light">
+        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success rounded-pill px-4 fw-bold" onclick="procesarDescarga()">
+            <i class="bi bi-download me-1"></i> Descargar Seleccionados
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const API = ""; 
+    
+    let timerBusqueda;
+    let isAdmin = false; 
+    let currentToken = ""; 
+    let allProductsData = []; 
+
+    document.addEventListener('DOMContentLoaded', () => { ejecutarBusqueda(); });
+
+    async function solicitarAccesoAdmin() {
+        if(isAdmin) {
+            let p = document.getElementById('adminPanel');
+            p.style.display = p.style.display === 'none' ? 'block' : 'none';
+            if(p.style.display === 'block') window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
+        let psw = prompt("🔒 ACCESO RESTRINGIDO\nIngresa la contraseña de administrador:");
+        if (!psw) return;
+
+        try {
+            let res = await fetch(`${API}/api/verify-admin`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({token: psw})
+            });
+
+            if(res.ok) {
+                isAdmin = true;
+                currentToken = psw; 
+                
+                document.body.classList.add('admin-mode');
+                document.getElementById('btnAlertas').style.display = 'inline-flex';
+                
+                let btn = document.getElementById('btnConfig');
+                btn.classList.remove('btn-config-lock');
+                btn.classList.add('btn-outline-danger');
+                document.getElementById('iconLock').classList.replace('bi-lock-fill', 'bi-unlock-fill');
+                
+                document.getElementById('adminPanel').style.display = 'block';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                ejecutarBusqueda(); 
+            } else {
+                alert("❌ Contraseña incorrecta. Solo puedes usar la vista de Vendedor.");
+            }
+        } catch(e) {
+            alert("❌ Error conectando con el servidor de seguridad. Verifica tu conexión o el enlace API.");
+        }
+    }
+
+    function cerrarPanel() {
+        document.getElementById('adminPanel').style.display = 'none';
+    }
+
+    function buscar() {
+        clearTimeout(timerBusqueda);
+        const loader = document.getElementById('loading');
+        const tbody = document.getElementById('tablaResultados');
+        tbody.innerHTML = ''; 
+        loader.style.display = 'block';
+        timerBusqueda = setTimeout(() => { ejecutarBusqueda(); }, 300);
+    }
+
+    function buscarDesdeAlerta(nombreProducto) {
+        var modalEl = document.getElementById('modalAlertas');
+        var modal = bootstrap.Modal.getInstance(modalEl);
+        if(modal) modal.hide();
+        
+        document.getElementById('txtBuscar').value = nombreProducto;
+        buscar();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function eliminarProducto(nombre) {
+        let confirmacion = confirm(`⚠️ ATENCIÓN\n¿Estás seguro de que quieres eliminar el producto:\n"${nombre}"?\n\nDesaparecerá de la lista de precios.`);
+        if(!confirmacion) return;
+
+        try {
+            let res = await fetch(`${API}/api/eliminar-producto`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({nombre: nombre, token: currentToken})
+            });
+            if(res.status === 403) alert("❌ Error de seguridad.");
+            else if(res.ok) ejecutarBusqueda();
+            else alert("❌ Ocurrió un error al eliminar.");
+        } catch(e) {
+            alert("❌ Falló la conexión con el servidor.");
+        }
+    }
+
+    function aplicarDescuentoVendedor(rowId, precioLima, precioProv, simbolo) {
+        let input = document.getElementById(`input_dscto_${rowId}`);
+        let dsctoVal = parseFloat(input.value);
+        if (isNaN(dsctoVal)) dsctoVal = 0;
+
+        let nLima = precioLima * (1 - dsctoVal / 100);
+        let nProv = precioProv * (1 - dsctoVal / 100);
+
+        let divLima = document.getElementById(`precio_lima_${rowId}`);
+        let divProv = document.getElementById(`precio_prov_${rowId}`);
+
+        divLima.innerText = `${simbolo} ${nLima.toFixed(2)}`;
+        divProv.innerText = `${simbolo} ${nProv.toFixed(2)}`;
+
+        if (dsctoVal > 0) {
+            divLima.style.color = '#d97706';
+            divProv.style.color = '#d97706';
+        } else {
+            divLima.style.color = '';
+            divProv.style.color = '';
+        }
+    }
+
+    async function ejecutarBusqueda() {
+        const q = document.getElementById('txtBuscar').value.trim();
+        const tbody = document.getElementById('tablaResultados');
+        const loader = document.getElementById('loading');
+        
+        try {
+            const res = await fetch(`${API}/buscar?q=${encodeURIComponent(q)}`);
+            const json = await res.json();
+            
+            const data = json.productos;
+            const alertas = json.alertas;
+            allProductsData = data; 
+
+            document.getElementById('lblUltimaAct').innerText = json.ultima_actualizacion;
+            
+            if(alertas.length > 0) {
+                document.getElementById('badgeAlertasCount').innerText = alertas.length;
+                let htmlA = '';
+                alertas.forEach(a => {
+                    let bColor = a.fecha === 'ACTIVA' ? 'bg-danger' : 'bg-secondary';
+                    let linkProducto = a.producto ? `<a href="#" onclick="buscarDesdeAlerta('${a.producto.replace(/'/g, "\\'")}')" class="text-decoration-underline text-dark fw-bold">Ver producto</a>` : '';
+                    
+                    htmlA += `
+                    <div class="alert bg-white border border-light shadow-sm mb-2 px-3 py-2 text-dark" style="font-size:0.85rem;">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <span class="badge ${bColor}">${a.fecha}</span>
+                            ${linkProducto}
+                        </div>
+                        ${a.msg}
+                    </div>`;
+                });
+                document.getElementById('bodyAlertas').innerHTML = htmlA;
+            } else {
+                document.getElementById('badgeAlertasCount').innerText = "0";
+                document.getElementById('bodyAlertas').innerHTML = "<p class='text-muted text-center py-4'>Todo en orden. No hay alertas.</p>";
+            }
+
+            loader.style.display = 'none';
+
+            if(data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="12" class="text-center py-5 text-muted fw-bold">No encontramos productos.</td></tr>';
+                return;
+            }
+
+            let htmlContent = '';
+            
+            data.forEach((p, index) => {
+                let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' 
+                    ? `<span class="badge-custom" style="background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb;"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` 
+                    : '';
+
+                let badgeEmpresa = '';
+                if (p.empresa && p.empresa !== "" && p.empresa !== "MANUAL") {
+                    badgeEmpresa = `<span class="badge-custom" style="background-color: #f3e8ff; color: #4338ca; border: 1px solid #e9d5ff;"><i class="bi bi-building"></i> ${p.empresa}</span>`;
+                }
+
+                let hasCoyuntural = p.costo_coyuntural > 0;
+                let rowClass = hasCoyuntural ? 'row-coyuntural' : '';
+                
+                let textCoyuntural = hasCoyuntural ? `${p.moneda_simbolo}${p.costo_coyuntural.toFixed(3)}` : `${p.moneda_simbolo}${p.costo_actual.toFixed(3)}`;
+                let btnCoyunturalClass = hasCoyuntural ? 'btn-coyuntural-active' : 'btn-coyuntural-inactive';
+
+                let btnDsctoDist = isAdmin ? `<button class="btn btn-sm btn-outline-secondary shadow-sm" style="font-size:0.75rem; border-radius:8px; padding:2px 8px; font-weight:bold;" onclick="editarDsctoDist('${p.nombre.replace(/'/g, "\\'")}', '${p.dscto_dist}')" title="Editar Descuento Distribuidor Exclusivo">${p.dscto_dist}% <i class="bi bi-pencil-fill ms-1" style="font-size:0.6rem;"></i></button>` : `<span class="fw-bold text-secondary">${p.dscto_dist}%</span>`;
+
+                let btnDscto = isAdmin ? `<button class="btn btn-sm btn-outline-secondary shadow-sm" style="font-size:0.75rem; border-radius:8px; padding:2px 8px; font-weight:bold;" onclick="editarDscto('${p.nombre.replace(/'/g, "\\'")}', '${p.dscto_pv}')" title="Editar Descuento PV">${p.dscto_pv}% <i class="bi bi-pencil-fill ms-1" style="font-size:0.6rem;"></i></button>` : `<span class="fw-bold text-secondary">${p.dscto_pv}%</span>`;
+                
+                let btnCostoFab = isAdmin ? 
+                    `<button class="btn btn-sm btn-outline-secondary" style="font-size: 0.85rem; border-radius: 8px; font-weight: bold; border-width: 1px; padding: 4px 10px;" onclick="editarCostoFab('${p.nombre.replace(/'/g, "\\'")}', ${p.costo_fab}, '${p.moneda_simbolo}')" title="Editar Costo Fabricación Manual">
+                        <i class="bi bi-pencil-square me-1"></i> ${p.costo_fab > 0 ? p.moneda_simbolo + p.costo_fab.toFixed(3) : p.moneda_simbolo + '0.000'}
+                    </button>` : '';
+
+                let btnCostoReal = isAdmin ? 
+                    `<button class="btn btn-sm btn-outline-secondary" style="font-size: 0.85rem; border-radius: 8px; font-weight: bold; border-width: 1px; padding: 4px 10px;" onclick="editarCostoReal('${p.nombre.replace(/'/g, "\\'")}', ${p.costo_base}, '${p.moneda_simbolo}')" title="Editar Costo Real Manual">
+                        <i class="bi bi-pencil-square me-1"></i> ${p.costo_base > 0 ? p.moneda_simbolo + p.costo_base.toFixed(3) : '-'}
+                    </button>` : '';
+
+                let valCostoTotal = `<div class="fw-bold text-secondary" style="font-size: 0.95rem;">${p.moneda_simbolo}${p.costo_actual.toFixed(3)}</div>`;
+
+                let btnEliminar = isAdmin ? `<button class="btn btn-sm btn-outline-danger ms-2 shadow-sm p-1 py-0 d-inline-flex align-items-center" style="font-size:0.75rem; border-radius:6px;" onclick="eliminarProducto('${p.nombre.replace(/'/g, "\\'")}')" title="Eliminar Producto"><i class="bi bi-trash-fill"></i></button>` : '';
+
+                let rowId = `row_${index}`;
+
+                htmlContent += `
+                <tr id="${rowId}" class="${rowClass}">
+                    <td data-label="Producto" class="ps-md-4">
+                        <div class="fw-bold d-md-flex align-items-md-center text-dark" style="font-size: 1.05rem; line-height: 1.2;">
+                            ${p.nombre} ${btnEliminar}
+                        </div>
+                        <div class="badges-wrapper">
+                            ${badgeEmpresa}
+                            ${badgeCodigo}
+                        </div>
+                    </td>
+                    
+                    <td data-label="% Dscto Vendedor" class="text-md-center vendor-col">
+                        <input type="number" id="input_dscto_${rowId}" class="form-control form-control-sm text-center input-simulador" placeholder="0" oninput="aplicarDescuentoVendedor('${rowId}', ${p.precio_lima}, ${p.precio_provincia}, '${p.moneda_simbolo}')" title="Simulador de Descuento">
+                    </td>
+                    
+                    <td data-label="C. Real" class="text-md-center admin-col">
+                        ${btnCostoReal}
+                    </td>
+
+                    <td data-label="C. Fab." class="text-md-center admin-col">
+                        ${btnCostoFab}
+                    </td>
+
+                    <td data-label="Merma %" class="text-md-center admin-col">
+                        <button class="btn btn-sm btn-outline-secondary" style="font-size: 0.8rem; border-radius: 8px; font-weight: bold; border-width: 1px; padding: 2px 8px; line-height: 1.1;" onclick="editarMerma('${p.nombre.replace(/'/g, "\\'")}', '${p.merma_porcentaje}')" title="Editar % Merma">
+                            <span class="text-dark">${p.merma_porcentaje}% <i class="bi bi-pencil-fill" style="font-size:0.6rem;"></i></span><br>
+                            <small class="text-muted" style="font-size: 0.7rem;">${p.moneda_simbolo}${p.merma_monto.toFixed(3)}</small>
+                        </button>
+                    </td>
+
+                    <td data-label="C. Total" class="text-md-center admin-col">
+                        ${valCostoTotal}
+                    </td>
+
+                    <td data-label="Coyun." class="text-md-center admin-col">
+                        <button class="btn btn-sm ${btnCoyunturalClass}" style="font-size: 0.85rem; border-radius: 8px; font-weight: bold; border-width: 1px; border-style: solid; padding: 4px 10px;" onclick="editarCostoCoyuntural('${p.nombre.replace(/'/g, "\\'")}', ${p.costo_actual}, ${p.costo_coyuntural}, '${p.moneda_simbolo}')">
+                            <i class="bi bi-graph-up-arrow me-1"></i> ${textCoyuntural}
+                        </button>
+                    </td>
+                    
+                    <td data-label="Dscto PV" class="text-md-center">
+                        ${btnDscto}
+                    </td>
+
+                    <td data-label="Dscto Dist." class="text-md-center">
+                        ${btnDsctoDist}
+                    </td>
+                    
+                    <td data-label="Margen %" class="text-md-center admin-col">
+                        <button id="btn_margen_${rowId}" class="btn-edit-margen m-0" onclick="procesarMargen('${rowId}', '${p.nombre.replace(/'/g, "\\'")}', '${p.margen}')">
+                            ${p.margen}% <i class="bi bi-pencil-fill ms-1" style="font-size: 0.65rem;"></i>
+                        </button>
+                    </td>
+
+                    <td data-label="Precio Lima" class="text-md-end">
+                        <div>
+                            <div id="precio_lima_${rowId}" class="price-tag">${p.moneda_simbolo} ${p.precio_lima.toFixed(2)}</div>
+                            <div class="text-muted sede-label d-none d-md-block">LIMA (${p.moneda_texto})</div>
+                        </div>
+                    </td>
+
+                    <td data-label="Provincia" class="text-md-end pe-md-4">
+                        <div>
+                            <div id="precio_prov_${rowId}" class="price-tag price-secondary">${p.moneda_simbolo} ${p.precio_provincia.toFixed(2)}</div>
+                            <div class="text-muted sede-label d-none d-md-block">AQP / TRU (${p.moneda_texto})</div>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+            
+            tbody.innerHTML = htmlContent;
+        } catch(e) { loader.style.display = 'none'; }
+    }
+
+    function toggleCreacion() {
+        let isNuevo = document.getElementById('radioNuevo').checked;
+        document.getElementById('divBase').style.display = isNuevo ? 'none' : 'block';
+        document.getElementById('divCosto').style.display = isNuevo ? 'block' : 'none';
+        document.getElementById('divExtrasNuevo').style.display = isNuevo ? 'block' : 'none'; 
+        document.getElementById('lblNuevoNombre').innerText = isNuevo ? "1. Nombre del Producto" : "2. Nuevo Nombre (Añade el kilaje)";
+    }
+
+    async function abrirModalVariante() {
+        let dl = document.getElementById('listaProductosBase');
+        dl.innerHTML = '';
+        allProductsData.forEach(p => {
+            let opt = document.createElement('option');
+            opt.value = p.nombre;
+            dl.appendChild(opt);
+        });
+        
+        document.getElementById('varBase').value = '';
+        document.getElementById('varNuevo').value = '';
+        document.getElementById('varMargen').value = '';
+        document.getElementById('varMerma').value = '0';
+        document.getElementById('varCosto').value = '';
+        document.getElementById('varCostoFab').value = '0'; 
+        
+        document.getElementById('varCodigo').value = '';
+        document.getElementById('varDsctoDist').value = '';
+        document.getElementById('varDsctoPV').value = '';
+        
+        new bootstrap.Modal(document.getElementById('modalCrearVariante')).show();
+    }
+
+    async function guardarVariante() {
+        let isNuevo = document.getElementById('radioNuevo').checked;
+        let base = document.getElementById('varBase').value.trim();
+        let nuevo = document.getElementById('varNuevo').value.trim();
+        let margen = document.getElementById('varMargen').value.trim();
+        let merma = document.getElementById('varMerma').value.trim();
+        let costo = document.getElementById('varCosto').value.trim();
+        let costo_fab = document.getElementById('varCostoFab').value.trim();
+        
+        let codigo = document.getElementById('varCodigo').value.trim();
+        let dscto_dist = document.getElementById('varDsctoDist').value.trim();
+        let dscto_pv = document.getElementById('varDsctoPV').value.trim();
+        
+        if(isNuevo) {
+            if(!nuevo || !margen || !costo) return alert("Por favor completa al menos Nombre, Costo Real y Margen");
+        } else {
+            if(!base || !nuevo || !margen) return alert("Por favor completa Base, Nuevo Nombre y Margen");
+        }
+        
+        let payload = {
+            tipo: isNuevo ? 'nuevo' : 'clon',
+            base: base,
+            nombre_nuevo: nuevo,
+            margen: margen,
+            merma: merma,
+            costo: costo,
+            costo_fab: costo_fab,
+            codigo: codigo,
+            dscto_dist: dscto_dist,
+            dscto_pv: dscto_pv,
+            token: currentToken
+        };
+
+        let res = await fetch(`${API}/api/crear-producto`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        
+        if(res.status === 403) alert("❌ Error de seguridad.");
+        else {
+            bootstrap.Modal.getInstance(document.getElementById('modalCrearVariante')).hide();
+            ejecutarBusqueda(); 
+        }
+    }
+
+    async function editarCostoFab(nombre, costoFabActual, monedaSimbolo) {
+        let mensaje = `🛠️ EDITAR COSTO FABRICACIÓN (ADMIN)\nVas a sobreescribir el costo de fabricación. El Costo Total se actualizará automáticamente.\n\nCosto Fab. Actual: ${monedaSimbolo}${costoFabActual.toFixed(3)}\n\nIngresa el nuevo costo de fabricación para:\n${nombre}\n\n(Para volver al valor original del Excel, pon -1)`;
+        let nuevoStr = prompt(mensaje, costoFabActual);
+        if(nuevoStr !== null && !isNaN(nuevoStr)) {
+            let res = await fetch(`${API}/api/editar-costo-fab`, {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({nombre: nombre, costo: nuevoStr, token: currentToken})
+            });
+            if(res.status === 403) alert("❌ Error de seguridad.");
+            else ejecutarBusqueda(); 
+        }
+    }
+
+    async function editarCostoReal(nombre, costoBaseActual, monedaSimbolo) {
+        let mensaje = `🛠️ EDITAR COSTO REAL MANUAL (ADMIN)\nVas a sobreescribir el costo real que viene del Excel. El Costo Total se calculará sumando la Fabricación automáticamente.\n\nCosto Real Actual: ${monedaSimbolo}${costoBaseActual.toFixed(3)}\n\nIngresa el nuevo costo real para:\n${nombre}\n\n(Para volver al costo original del Excel, pon 0)`;
+        let nuevoStr = prompt(mensaje, costoBaseActual);
+        if(nuevoStr !== null && !isNaN(nuevoStr)) {
+            let res = await fetch(`${API}/api/editar-costo-real`, {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({nombre: nombre, costo: nuevoStr, token: currentToken})
+            });
+            if(res.status === 403) alert("❌ Error de seguridad.");
+            else ejecutarBusqueda(); 
+        }
+    }
+    
+    async function editarMerma(nombre, valorActual) {
+        let n = prompt(`ADMIN: Editar Merma (%) para:\n${nombre}\n\n(Ejemplo: 5. Deja vacío para borrar el manual y volver al del Excel)`, valorActual > 0 ? valorActual : "");
+        if(n !== null && (n === "" || !isNaN(n))) {
+            let res = await fetch(`${API}/api/editar-merma`, {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({nombre: nombre, merma: n, token: currentToken})
+            });
+            if(res.status === 403) alert("❌ Error de seguridad.");
+            else ejecutarBusqueda();
+        }
+    }
+
+    async function editarDsctoDist(nombre, valorActual) {
+        let n = prompt(`ADMIN: Editar Descuento Distribuidor Exclusivo (%) para:\n${nombre}\n\n(Ejemplo: 20. Deja vacío para borrar el manual y volver al del Excel)`, valorActual > 0 ? valorActual : "");
+        if(n !== null && (n === "" || !isNaN(n))) {
+            let res = await fetch(`${API}/api/editar-dscto-dist`, {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({nombre: nombre, valor: n, token: currentToken})
+            });
+            if(res.status === 403) alert("❌ Error de seguridad.");
+            else ejecutarBusqueda();
+        }
+    }
+
+    async function editarDscto(nombre, valorActual) {
+        let n = prompt(`ADMIN: Editar Descuento Punto de Venta (%) para:\n${nombre}\n\n(Ejemplo: 15. Deja vacío para borrar el manual y volver al del Excel)`, valorActual > 0 ? valorActual : "");
+        if(n !== null && (n === "" || !isNaN(n))) {
+            let res = await fetch(`${API}/api/editar-dscto`, {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({nombre: nombre, valor: n, token: currentToken})
+            });
+            if(res.status === 403) alert("❌ Error de seguridad.");
+            else ejecutarBusqueda();
+        }
+    }
+
+    async function procesarMargen(rowId, nombre, valActual) {
+        let nuevoStr = prompt(`🛠️ MODO ADMINISTRADOR\nCambio PERMANENTE de margen.\n\nNuevo margen % para:\n${nombre}`, valActual);
+        if(nuevoStr !== null && !isNaN(nuevoStr)) {
+            let res = await fetch(`${API}/api/editar-margen`, {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({nombre: nombre, margen: nuevoStr, token: currentToken})
+            });
+            if(res.status === 403) alert("❌ Error de seguridad.");
+            else ejecutarBusqueda(); 
+        }
+    }
+
+    async function editarCostoCoyuntural(nombre, costoActual, costoCoyunturalActual, monedaSimbolo) {
+        let valorSugerido = costoCoyunturalActual > 0 ? costoCoyunturalActual : costoActual;
+        let mensaje = `🚨 COSTO COYUNTURAL MANUAL (ADMIN)\nVas a sobreescribir el costo base temporalmente.\n\nCosto Total Actual: ${monedaSimbolo}${costoActual.toFixed(3)}\n\nIngresa el nuevo costo para:\n${nombre}\n\n(Para borrarlo y volver a la normalidad, pon 0)`;
+        let nuevoStr = prompt(mensaje, valorSugerido);
+        if(nuevoStr !== null && !isNaN(nuevoStr)) {
+            let res = await fetch(`${API}/api/editar-costo-coyuntural`, {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({nombre: nombre, costo: nuevoStr, token: currentToken})
+            });
+            if(res.status === 403) alert("❌ Error de seguridad.");
+            else ejecutarBusqueda(); 
+        }
+    }
+
+    function abrirModalExportar() {
+        let divLista = document.getElementById('listaProductosExportar');
+        divLista.innerHTML = '';
+        document.getElementById('buscadorExportar').value = '';
+        
+        allProductsData.forEach((p, idx) => {
+            divLista.innerHTML += `
+                <div class="form-check item-exportar mb-2 pb-1 border-bottom border-light">
+                    <input class="form-check-input chk-exportar" type="checkbox" value="${p.nombre}" id="chk_exp_${idx}" checked>
+                    <label class="form-check-label text-dark fw-bold" for="chk_exp_${idx}" style="font-size:0.85rem; cursor:pointer;">
+                        ${p.nombre}
+                    </label>
+                </div>
+            `;
+        });
+        
+        new bootstrap.Modal(document.getElementById('modalExportar')).show();
+    }
+
+    function filtrarListaExportar() {
+        let filtro = document.getElementById('buscadorExportar').value.toLowerCase();
+        let items = document.querySelectorAll('.item-exportar');
+        items.forEach(item => {
+            let texto = item.innerText.toLowerCase();
+            item.style.display = texto.includes(filtro) ? 'block' : 'none';
+        });
+    }
+
+    function marcarTodosExportar(estado) {
+        let checkboxes = document.querySelectorAll('.item-exportar:not([style*="display: none"]) .chk-exportar');
+        checkboxes.forEach(chk => chk.checked = estado);
+    }
+
+    async function procesarDescarga() {
+        let seleccionados = [];
+        document.querySelectorAll('.chk-exportar:checked').forEach(chk => {
+            seleccionados.push(chk.value);
+        });
+
+        if(seleccionados.length === 0) {
+            alert("⚠️ Debes seleccionar al menos un producto para exportar.");
+            return;
+        }
+
+        document.getElementById('status').innerText = "Generando Excel...";
+        bootstrap.Modal.getInstance(document.getElementById('modalExportar')).hide();
+        
+        try {
+            let res = await fetch(`${API}/api/exportar`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({token: currentToken, productos: seleccionados})
+            });
+            
+            if(res.status === 403) {
+                alert("❌ Error de seguridad. Inicia sesión.");
+                document.getElementById('status').innerText = "";
+                return;
+            }
+            
+            if(!res.ok) {
+                alert("❌ Error al exportar los datos.");
+                document.getElementById('status').innerText = "";
+                return;
+            }
+            
+            let blob = await res.blob();
+            let url = window.URL.createObjectURL(blob);
+            let a = document.createElement('a');
+            a.href = url;
+            
+            let fecha = new Date();
+            let fechaStr = fecha.getFullYear() + "" + (fecha.getMonth()+1).toString().padStart(2, '0') + "" + fecha.getDate().toString().padStart(2, '0');
+            a.download = `Precios_Personalizados_GLI_${fechaStr}.xlsx`; 
+            
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            
+            document.getElementById('status').innerText = "✅ Descarga completa";
+            setTimeout(() => { document.getElementById('status').innerText=''; }, 3000);
+        } catch(e) {
+            document.getElementById('status').innerText = "❌ Error en la descarga";
+        }
+    }
+
+    async function subirArchivo(endpoint, id) {
+        let input = document.getElementById(id);
+        if(!input.files[0]) return;
+        
+        let fd = new FormData(); 
+        fd.append('archivo', input.files[0]);
+        fd.append('token', currentToken); 
+
+        document.getElementById('status').innerHTML = "<span class='text-primary fw-bold'><i class='bi bi-arrow-repeat spin'></i> Procesando Maestro...</span>";
+        
+        try {
+            let res = await fetch(`${API}/${endpoint}`, {method:'POST', body:fd});
+            
+            if(res.status === 403) {
+                document.getElementById('status').innerHTML = "<span class='text-danger'>❌ Token o contraseña inválida</span>";
+                return;
+            }
+            if(!res.ok) {
+                let errorMsg = "Error desconocido del servidor.";
+                try {
+                    let errData = await res.json();
+                    errorMsg = errData.error || errorMsg;
+                } catch(e) {
+                    errorMsg = "El archivo es demasiado pesado o está dañado.";
+                }
+                document.getElementById('status').innerHTML = `<span class='text-danger fw-bold'>❌ Error: ${errorMsg}</span>`;
+                return;
+            }
+            
+            document.getElementById('status').innerHTML = "<span class='text-success fw-bold'>✅ Datos cargados correctamente</span>";
+            setTimeout(() => { document.getElementById('status').innerText=''; }, 3500);
+            ejecutarBusqueda();
+        } catch(e) {
+            document.getElementById('status').innerHTML = "<span class='text-danger fw-bold'>❌ Falló la conexión con el servidor</span>";
+        }
+    }
+</script>
+
+</body>
+</html>

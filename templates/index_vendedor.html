@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GLI | Panel de Ventas</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+
+    <style>
+        :root { --primary-color: #059669; --bg-color: #f8f9fa; --text-dark: #2b2b36; }
+        body { background-color: var(--bg-color); font-family: 'Inter', sans-serif; color: var(--text-dark); }
+        .navbar { background-color: #ffffff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 0.8rem 0; }
+        .brand-logo { font-weight: 800; font-size: 1.5rem; color: var(--primary-color); letter-spacing: -0.5px; line-height: 1;}
+        
+        .search-container { position: relative; max-width: 700px; margin: 0 auto; width: 100%; }
+        .search-input { border: 1px solid #e5e7eb; border-radius: 50px; padding: 1.2rem 1.5rem 1.2rem 3.5rem; font-size: 1.05rem; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); width: 100%; }
+        .search-input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.15); }
+        .search-icon { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: var(--primary-color); font-size: 1.3rem; }
+        
+        .table-container { border-radius: 12px; overflow: hidden; background: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.06); }
+        .scroll-wrapper { max-height: 75vh; overflow-y: auto; }
+        .table-pro { border-collapse: separate; border-spacing: 0; min-width: 900px; }
+        .table-pro thead th { position: sticky; top: 0; background-color: #f8f9fa; z-index: 10; border-bottom: 2px solid #e5e7eb; color: var(--primary-color); font-size: 0.75rem; text-transform: uppercase; padding: 1.2rem 0.5rem; }
+        .table-pro td { padding: 1.25rem 0.5rem; vertical-align: middle; border-bottom: 1px solid #f0f0f5; font-size: 1rem; }
+        
+        .price-tag { font-weight: 800; color: var(--primary-color); font-size: 1.2rem; }
+        .price-secondary { color: #6b7280; font-weight: 700;}
+        .sede-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px; opacity: 0.7; }
+        
+        .input-simulador { width: 80px; text-align: center; font-weight: bold; color: #d97706; background-color: #fffbeb; border: 2px solid #fde68a; border-radius: 8px; padding: 6px; font-size: 1rem; transition: 0.2s; margin: 0 auto;}
+        .input-simulador:focus { outline: none; border-color: #d97706; box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.2); }
+        
+        .badge-custom { font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar sticky-top">
+    <div class="container d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+            <div class="bg-success rounded-3 d-flex align-items-center justify-content-center text-white" style="width: 40px; height: 40px;">
+                <i class="bi bi-cart-check-fill fs-5"></i>
+            </div>
+            <div>
+                <div class="brand-logo">GLI Ventas</div>
+            </div>
+        </div>
+        <a href="/logout" class="btn btn-outline-secondary rounded-pill px-3 fw-bold">
+            <i class="bi bi-box-arrow-right"></i> Salir
+        </a>
+    </div>
+</nav>
+
+<div class="container py-4 py-md-5" style="max-width: 1200px;">
+    
+    <div class="text-center mb-4 mb-md-5">
+        <div class="search-container px-2 px-md-0">
+            <i class="bi bi-search search-icon"></i>
+            <input type="text" id="txtBuscar" class="form-control search-input" placeholder="Buscar producto o código..." onkeyup="buscar()">
+        </div>
+        <p class="text-muted mt-3 mb-0" style="font-size: 0.85rem;">💡 Escribe un porcentaje en <b>% Dscto</b> para ver los precios finales al cliente.</p>
+    </div>
+
+    <div class="table-container shadow-sm">
+        <div class="scroll-wrapper">
+            <table class="table table-pro mb-0 w-100">
+                <thead>
+                    <tr>
+                        <th style="width: 35%; padding-left: 1.5rem;">Producto Detallado</th>
+                        <th class="text-center" style="width: 12%;"><i class="bi bi-calculator-fill"></i> % Dscto (Venta)</th>
+                        <th class="text-center" style="width: 10%;">% P.V.</th>
+                        <th class="text-center" style="width: 13%;">% Dscto Dist.</th>
+                        <th class="text-end" style="width: 15%;">Precio Lima</th>
+                        <th class="text-end" style="width: 15%; padding-right: 1.5rem;">Provincia</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaResultados"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    let timerBusqueda;
+
+    document.addEventListener('DOMContentLoaded', () => { ejecutarBusqueda(); });
+
+    function buscar() {
+        clearTimeout(timerBusqueda);
+        document.getElementById('tablaResultados').innerHTML = ''; 
+        timerBusqueda = setTimeout(() => { ejecutarBusqueda(); }, 300);
+    }
+
+    function aplicarDescuentoVendedor(rowId, precioLima, precioProv, simbolo) {
+        let input = document.getElementById(`input_dscto_${rowId}`);
+        let dsctoVal = parseFloat(input.value);
+        if (isNaN(dsctoVal)) dsctoVal = 0;
+
+        let nLima = precioLima * (1 - dsctoVal / 100);
+        let nProv = precioProv * (1 - dsctoVal / 100);
+
+        let divLima = document.getElementById(`precio_lima_${rowId}`);
+        let divProv = document.getElementById(`precio_prov_${rowId}`);
+
+        divLima.innerText = `${simbolo} ${nLima.toFixed(2)}`;
+        divProv.innerText = `${simbolo} ${nProv.toFixed(2)}`;
+
+        if (dsctoVal > 0) {
+            divLima.style.color = '#d97706';
+            divProv.style.color = '#d97706';
+        } else {
+            divLima.style.color = '';
+            divProv.style.color = '';
+        }
+    }
+
+    async function ejecutarBusqueda() {
+        const q = document.getElementById('txtBuscar').value.trim();
+        const tbody = document.getElementById('tablaResultados');
+        
+        try {
+            const res = await fetch(`/buscar?q=${encodeURIComponent(q)}`);
+            const json = await res.json();
+            const data = json.productos;
+
+            if(data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted fw-bold">No hay resultados.</td></tr>';
+                return;
+            }
+
+            let htmlContent = '';
+            
+            data.forEach((p, index) => {
+                let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' 
+                    ? `<span class="badge-custom"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
+
+                let rowId = `row_${index}`;
+
+                htmlContent += `
+                <tr>
+                    <td class="ps-md-4">
+                        <div class="fw-bold text-dark mb-1">${p.nombre}</div>
+                        ${badgeCodigo}
+                    </td>
+                    
+                    <td class="text-center">
+                        <input type="number" id="input_dscto_${rowId}" class="form-control form-control-sm input-simulador" placeholder="0" oninput="aplicarDescuentoVendedor('${rowId}', ${p.precio_lima}, ${p.precio_provincia}, '${p.moneda_simbolo}')">
+                    </td>
+                    
+                    <td class="text-center fw-bold text-secondary">${p.dscto_pv}%</td>
+                    
+                    <td class="text-center fw-bold text-secondary">${p.dscto_dist}%</td>
+
+                    <td class="text-end">
+                        <div id="precio_lima_${rowId}" class="price-tag">${p.moneda_simbolo} ${p.precio_lima.toFixed(2)}</div>
+                        <div class="text-muted sede-label">LIMA (${p.moneda_texto})</div>
+                    </td>
+
+                    <td class="text-end pe-4">
+                        <div id="precio_prov_${rowId}" class="price-tag price-secondary">${p.moneda_simbolo} ${p.precio_provincia.toFixed(2)}</div>
+                        <div class="text-muted sede-label">AQP / TRU (${p.moneda_texto})</div>
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = htmlContent;
+        } catch(e) { console.error(e); }
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+Flask
+Flask-SQLAlchemy
+Flask-Login
+pandas
+openpyxl
+psycopg2-binary
+gunicorn
+Werkzeug
