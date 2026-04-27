@@ -219,8 +219,15 @@ def logout():
 
 @app.route('/')
 def home():
-    # Mantenemos esto por ahora para que tu viejo index.html siga funcionando
-    return render_template('index.html')
+    # Si el usuario NO ha iniciado sesión, lo mandamos al Login
+    if not current_user.is_authenticated:
+        return redirect(url_for('login'))
+    
+    # Si YA inició sesión, lo mandamos a su vista según su rol
+    if current_user.role == 'Vendedor':
+        return redirect(url_for('vista_vendedor'))
+    else:
+        return redirect(url_for('vista_admin'))
 
 @app.route('/admin')
 @login_required
