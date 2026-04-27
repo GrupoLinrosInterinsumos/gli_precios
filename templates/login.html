@@ -2,32 +2,175 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>GLI | Iniciar Sesión</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GLI | Acceso Corporativo</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+
     <style>
-        body { background: #f4f7f6; display: flex; align-items: center; justify-content: center; height: 100vh; }
-        .login-card { width: 100%; max-width: 400px; padding: 2rem; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); background: white; }
+        :root { 
+            --primary-color: #524e9c; 
+            --accent-color: #635dbd; 
+            --bg-color: #f8f9fa; 
+            --text-dark: #2b2b36; 
+            --text-light: #6b7280; 
+        }
+        
+        body { 
+            background-color: var(--bg-color); 
+            font-family: 'Inter', sans-serif; 
+            color: var(--text-dark); 
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-image: radial-gradient(circle at top right, rgba(82, 78, 156, 0.05), transparent 400px);
+        }
+
+        .login-wrapper {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+        }
+
+        .card-login {
+            background: #ffffff;
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 15px 35px rgba(82, 78, 156, 0.08);
+            padding: 2.5rem 2rem;
+        }
+
+        .bg-brand { background-color: var(--primary-color) !important; color: white; }
+        .brand-logo { font-weight: 800; font-size: 1.8rem; color: var(--primary-color); letter-spacing: -0.5px; line-height: 1; }
+        .brand-subtitle { font-size: 0.75rem; color: var(--text-light); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+        
+        .input-icon-wrapper { position: relative; margin-bottom: 1.2rem; }
+        
+        .input-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-light);
+            font-size: 1.1rem;
+            z-index: 10;
+        }
+
+        .form-control-custom {
+            width: 100%;
+            padding: 0.9rem 1rem 0.9rem 2.8rem;
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+            font-size: 0.95rem;
+            color: var(--text-dark);
+            background-color: #fafafa;
+            transition: all 0.2s;
+        }
+
+        .form-control-custom:focus {
+            outline: none;
+            background-color: #ffffff;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 4px rgba(82, 78, 156, 0.15);
+        }
+
+        .form-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 0.4rem;
+            display: block;
+        }
+
+        .btn-brand {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 0.9rem;
+            font-weight: 700;
+            font-size: 1rem;
+            width: 100%;
+            transition: all 0.3s;
+            margin-top: 1rem;
+        }
+
+        .btn-brand:hover {
+            background-color: var(--accent-color);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(82, 78, 156, 0.25);
+        }
+
+        .alert-custom {
+            background-color: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            border-radius: 10px;
+            padding: 0.8rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
     </style>
 </head>
 <body>
-    <div class="login-card text-center">
-        <h3 class="fw-bold text-primary mb-4">GLI Precios</h3>
-        <form method="POST">
-            <div class="mb-3 text-start">
-                <label class="form-label">Correo Electrónico</label>
-                <input type="email" name="email" class="form-control" required placeholder="correo@gli.com">
+
+    <div class="login-wrapper">
+        <div class="card-login text-center">
+            
+            <div class="d-flex justify-content-center align-items-center gap-3 mb-4 pb-2">
+                <div class="bg-brand rounded-3 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                    <i class="bi bi-box-seam fs-4"></i>
+                </div>
+                <div class="text-start" style="line-height: 1.1;">
+                    <div class="brand-logo">GLI</div>
+                    <div class="brand-subtitle">Precios y Costos</div>
+                </div>
             </div>
-            <div class="mb-4 text-start">
+
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                <div class="alert-custom text-start">
+                    <i class="bi bi-exclamation-circle-fill"></i>
+                    {{ messages[0] }}
+                </div>
+              {% endif %}
+            {% endwith %}
+
+            <form method="POST" class="text-start">
+                
+                <label class="form-label">Correo Corporativo</label>
+                <div class="input-icon-wrapper">
+                    <i class="bi bi-envelope-fill input-icon"></i>
+                    <input type="email" name="email" class="form-control-custom" required placeholder="tu.correo@gli.com">
+                </div>
+                
                 <label class="form-label">Contraseña</label>
-                <input type="password" name="password" class="form-control" required placeholder="••••••••">
+                <div class="input-icon-wrapper">
+                    <i class="bi bi-lock-fill input-icon"></i>
+                    <input type="password" name="password" class="form-control-custom" required placeholder="••••••••">
+                </div>
+                
+                <button type="submit" class="btn-brand">
+                    Ingresar al Sistema <i class="bi bi-arrow-right ms-1"></i>
+                </button>
+
+            </form>
+
+            <div class="mt-4 pt-2 border-top">
+                <p class="text-muted mb-0" style="font-size: 0.7rem;">&copy; 2026 Grupo Linros Interinsumos</p>
             </div>
-            <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">Entrar al Sistema</button>
-        </form>
-        {% with messages = get_flashed_messages() %}
-          {% if messages %}
-            <div class="alert alert-danger mt-3">{{ messages[0] }}</div>
-          {% endif %}
-        {% endwith %}
+
+        </div>
     </div>
+
 </body>
 </html>
