@@ -1,6 +1,7 @@
 Flask
 Flask-SQLAlchemy
 Flask-Login
+Flask-Cors
 pandas
 openpyxl
 psycopg2-binary
