@@ -12,31 +12,19 @@
     <style>
         :root { --primary-color: #524e9c; --bg-color: #f8f9fa; }
         body { background-color: var(--bg-color); font-family: 'Inter', sans-serif; overflow-x: hidden; }
-        .navbar-custom { background: #ffffff; border-bottom: 1px solid #e5e7eb; padding: 0.8rem 1.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
+        .navbar-custom { background: #ffffff; border-bottom: 2px solid var(--primary-color); padding: 0.8rem 1.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
         .card-custom { border: none; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); background: #fff; }
         .btn-primary-custom { background: var(--primary-color); border: none; padding: 0.8rem; border-radius: 10px; font-weight: 700; color: white; transition: 0.3s; font-size: 0.95rem; }
-        .btn-primary-custom:hover { background: #4338ca; color: white; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(82, 78, 156, 0.2); }
-        .form-control, .form-select { border-radius: 10px; padding: 0.75rem 1rem; border: 1px solid #e5e7eb; background: #f9fafb; font-size: 0.95rem; }
-        .form-control:focus, .form-select:focus { box-shadow: 0 0 0 4px rgba(82, 78, 156, 0.1); border-color: var(--primary-color); background: #fff; }
-        
+        .btn-primary-custom:hover { background: #4338ca; color: white; }
         .table-users { font-size: 0.9rem; }
-        .table-users th { background: #f8f9fa; color: #6b7280; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; }
-        .table-users td { vertical-align: middle; padding: 1rem 0.5rem; border-bottom: 1px solid #f0f0f5; }
-        
+        .table-users th { background: #f8f9fa; color: #6b7280; text-transform: uppercase; font-size: 0.75rem; border-bottom: 2px solid #e5e7eb; }
         .badge-role { font-size: 0.75rem; padding: 5px 10px; border-radius: 6px; font-weight: 600; }
-        .bg-vendedor { background: #dcfce7; color: #166534; }
-        .bg-admin { background: #dbeafe; color: #1e40af; }
-        .bg-superadmin { background: #fee2e2; color: #991b1b; }
-        .bg-tc { background: #f3e8ff; color: #6b21a8; }
     </style>
 </head>
 <body>
 
 <nav class="navbar-custom d-flex justify-content-between align-items-center sticky-top mb-4">
-    <div class="d-flex align-items-center gap-3">
-        <div class="fw-bold fs-4" style="color: var(--primary-color); letter-spacing: -1px;">GLI</div>
-        <span class="badge bg-light text-secondary border border-secondary-subtle">Recursos Humanos</span>
-    </div>
+    <div class="fw-bold fs-4" style="color: var(--primary-color);">GLI <span class="fs-6 text-muted fw-normal ms-2">Recursos Humanos</span></div>
     <a href="/admin" class="btn btn-outline-secondary btn-sm rounded-pill px-4 fw-bold shadow-sm">
         <i class="bi bi-arrow-left me-1"></i> Volver al Panel
     </a>
@@ -47,42 +35,36 @@
         
         <div class="col-12 col-lg-4">
             <div class="card-custom p-4">
-                <h5 class="fw-bold mb-1" style="color: #1f2937;">Nuevo Acceso</h5>
+                <h5 class="fw-bold mb-1">Nuevo Acceso</h5>
                 <p class="text-muted small mb-4">Registra un miembro del equipo</p>
                 
                 <div class="mb-3">
-                    <label class="form-label small fw-bold text-muted text-uppercase mb-1">Correo Corporativo</label>
-                    <input type="email" id="email" class="form-control" placeholder="usuario@gli.com" required>
+                    <input type="email" id="email" class="form-control" placeholder="Correo Corporativo" required>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-bold text-muted text-uppercase mb-1">Contraseña</label>
-                    <input type="password" id="pass" class="form-control" placeholder="••••••••" required>
+                    <input type="password" id="pass" class="form-control" placeholder="Contraseña" required>
                 </div>
                 <div class="mb-4">
-                    <label class="form-label small fw-bold text-muted text-uppercase mb-1">Rol en el Sistema</label>
                     <select id="role" class="form-select">
                         <option value="Vendedor">Vendedor (Solo vista)</option>
                         <option value="Admin">Admin (Edición y Excel)</option>
-                        <option value="TC">Operador TC (Tipo de Cambio)</option>
+                        <option value="TC">Operador TC (Moneda)</option>
                         <option value="SuperAdmin">SuperAdmin (Control total)</option>
                     </select>
                 </div>
-                <button onclick="crearUsuario()" class="btn-primary-custom w-100">
-                    <i class="bi bi-person-plus-fill me-1"></i> Registrar Usuario
-                </button>
+                <button onclick="crearUsuario()" class="btn-primary-custom w-100">Registrar Usuario</button>
             </div>
         </div>
 
         <div class="col-12 col-lg-8">
             <div class="card-custom p-4 h-100">
-                <h5 class="fw-bold mb-4" style="color: #1f2937;"><i class="bi bi-people-fill me-2" style="color: var(--primary-color);"></i>Usuarios Activos</h5>
-                
+                <h5 class="fw-bold mb-4" style="color: var(--primary-color);"><i class="bi bi-people-fill me-2"></i>Usuarios Activos</h5>
                 <div class="table-responsive">
-                    <table class="table table-users table-borderless mb-0">
+                    <table class="table table-users table-borderless mb-0 align-middle">
                         <thead>
                             <tr>
-                                <th>Email Corporativo</th>
-                                <th>Rol Asignado</th>
+                                <th>Email</th>
+                                <th>Rol</th>
                                 <th class="text-end">Acciones</th>
                             </tr>
                         </thead>
@@ -91,21 +73,19 @@
                             <tr>
                                 <td class="fw-bold text-dark">{{ u.email }}</td>
                                 <td>
-                                    {% if u.role == 'Vendedor' %}<span class="badge-role bg-vendedor"><i class="bi bi-tag-fill me-1"></i>Vendedor</span>
-                                    {% elif u.role == 'Admin' %}<span class="badge-role bg-admin"><i class="bi bi-gear-fill me-1"></i>Admin</span>
-                                    {% elif u.role == 'TC' %}<span class="badge-role bg-tc"><i class="bi bi-currency-exchange me-1"></i>TC</span>
-                                    {% else %}<span class="badge-role bg-superadmin"><i class="bi bi-shield-lock-fill me-1"></i>SuperAdmin</span>{% endif %}
+                                    {% if u.role == 'Vendedor' %}<span class="badge-role" style="background:#dcfce7; color:#166534;">Vendedor</span>
+                                    {% elif u.role == 'Admin' %}<span class="badge-role" style="background:#dbeafe; color:#1e40af;">Admin</span>
+                                    {% elif u.role == 'TC' %}<span class="badge-role" style="background:#f3e8ff; color:#6b21a8;">TC</span>
+                                    {% else %}<span class="badge-role" style="background:#fee2e2; color:#991b1b;">SuperAdmin</span>{% endif %}
                                 </td>
                                 <td class="text-end">
-                                    <button onclick="abrirModalEdicion({{ u.id }}, '{{ u.email }}', '{{ u.role }}')" class="btn btn-sm btn-outline-primary border-0" title="Editar Rol y Clave">
-                                        <i class="bi bi-pencil-square fs-6"></i>
+                                    <button onclick="abrirModalEdicion({{ u.id }}, '{{ u.email }}', '{{ u.role }}')" class="btn btn-sm btn-outline-primary border-0" title="Editar Rol o Clave">
+                                        <i class="bi bi-pencil-square fs-5"></i>
                                     </button>
                                     {% if u.id != current_user.id %}
                                     <button onclick="eliminarUsuario({{ u.id }}, '{{ u.email }}')" class="btn btn-sm btn-outline-danger border-0" title="Revocar Acceso">
-                                        <i class="bi bi-trash3-fill fs-6"></i>
+                                        <i class="bi bi-trash3-fill fs-5"></i>
                                     </button>
-                                    {% else %}
-                                    <span class="text-muted small fw-bold ms-2">Tú</span>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -122,7 +102,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header" style="background: var(--primary-color); color: white;">
-                <h6 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Editar Usuario</h6>
+                <h6 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Editar Configuración de Usuario</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
@@ -134,8 +114,8 @@
                 </div>
                 
                 <div class="mb-3">
-                    <label class="form-label small fw-bold text-muted text-uppercase mb-1">Rol en el Sistema</label>
-                    <select id="editUserRole" class="form-select">
+                    <label class="form-label small fw-bold text-muted text-uppercase mb-1">Modificar Rol</label>
+                    <select id="editUserRole" class="form-select border-primary">
                         <option value="Vendedor">Vendedor</option>
                         <option value="Admin">Admin</option>
                         <option value="TC">Operador TC</option>
@@ -145,7 +125,7 @@
 
                 <div class="mb-2">
                     <label class="form-label small fw-bold text-muted text-uppercase mb-1">Nueva Contraseña</label>
-                    <input type="password" id="editUserPass" class="form-control" placeholder="Escribe aquí para cambiarla...">
+                    <input type="password" id="editUserPass" class="form-control border-primary" placeholder="Escribe aquí la nueva clave...">
                     <small class="text-danger fw-bold" style="font-size: 0.7rem;">*Déjalo en blanco si NO deseas cambiar la contraseña actual.</small>
                 </div>
             </div>
