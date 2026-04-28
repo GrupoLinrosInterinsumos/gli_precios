@@ -435,7 +435,45 @@ def buscar():
 # =========================================================
 # 🛠️ RUTAS DE EDICIÓN Y CREACIÓN MANUAL
 # =========================================================
+@app.route('/api/crear-usuario', methods=['POST'])
+@login_required
+def crear_usuario():
+    if current_user.role != 'SuperAdmin':
+        return jsonify({"error": "No autorizado"}), 403
+    
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
+    role = data.get('role')
 
+    if User.query.filter_by(email=email).first():
+        return jsonify({"error": "El usuario ya existe"}), 400
+
+    nuevo_usuario = User(
+        email=email,
+        password=generate_password_hash(password),
+        role=role
+    )
+    db.session.add(nuevo_usuario)
+    db.session.commit()
+    
+    return jsonify({"success": True})
+
+@app.route('/api/eliminar-usuario/<int:id>', methods=['POST'])
+@login_required
+def eliminar_usuario(id):
+    if current_user.role != 'SuperAdmin':
+        return jsonify({"error": "No autorizado"}), 403
+    
+    user = User.query.get(id)
+    if user:
+        # Evitar que el SuperAdmin se borre a sí mismo
+        if user.id == current_user.id:
+            return jsonify({"error": "No puedes eliminar tu propia cuenta"}), 400
+        db.session.delete(user)
+        db.session.commit()
+    return jsonify({"success": True})
+    
 @app.route('/api/crear-producto', methods=['POST'])
 def crear_producto():
     if not is_admin_api(request): return jsonify({"error": "No autorizado"}), 403
