@@ -22,8 +22,9 @@
         .table-pro th { background: #f8f9fa; color: var(--primary); padding: 1rem 0.5rem; text-align: center; border-bottom: 2px solid #e5e7eb; white-space: nowrap; }
         .table-pro td { padding: 0.8rem 0.5rem; vertical-align: middle; border-bottom: 1px solid #f0f0f5; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        .w-prod { width: 50%; text-align: left !important; padding-left: 1.5rem !important; }
-        .w-precio { width: 25%; text-align: right !important; padding-right: 1.5rem !important; }
+        .w-prod { width: 40%; text-align: left !important; padding-left: 1.5rem !important; }
+        .w-desc { width: 10%; }
+        .w-precio { width: 20%; text-align: right !important; padding-right: 1.5rem !important; }
 
         .price-tag { font-weight: 700; color: var(--primary); font-size: 1.1rem; }
     </style>
@@ -61,6 +62,8 @@
         <thead>
             <tr>
                 <th class="w-prod">Detalle del Producto</th>
+                <th class="w-desc">% PV</th>
+                <th class="w-desc">% Dist</th>
                 <th class="w-precio">Precio Final LIMA</th>
                 <th class="w-precio">Precio Final PROVINCIA</th>
             </tr>
@@ -93,7 +96,7 @@
 
     function buscar() {
         clearTimeout(timerBusqueda);
-        document.getElementById('tablaResultados').innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted">Buscando...</td></tr>';
+        document.getElementById('tablaResultados').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Buscando...</td></tr>';
         timerBusqueda = setTimeout(ejecutarBusqueda, 300);
     }
 
@@ -119,6 +122,8 @@
                     <div class="fw-bold text-dark text-truncate" style="font-size: 1.05rem;">${p.nombre}</div>
                     <div class="text-muted" style="font-size: 0.75rem;">${p.codigo} | ${p.empresa}</div>
                 </td>
+                <td class="w-desc fw-bold" style="color: #4b5563;">${p.dscto_pv}%</td>
+                <td class="w-desc fw-bold" style="color: #4b5563;">${p.dscto_dist}%</td>
                 <td class="w-precio">
                     <div class="price-tag">${sim} ${vl.toFixed(2)}</div>
                     <div class="text-muted" style="font-size: 0.7rem; font-weight: 700;">LIMA (${txt})</div>
