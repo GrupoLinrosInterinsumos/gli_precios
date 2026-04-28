@@ -4,99 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GLI | Gestión de Personal</title>
-    
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    
     <style>
-        :root { 
-            --primary-color: #524e9c; 
-            --bg-color: #f8f9fa; 
-        }
-        body { 
-            background-color: var(--bg-color); 
-            font-family: 'Inter', sans-serif; 
-            overflow-x: hidden; 
-        }
-        
-        .navbar-custom { 
-            background: #ffffff; 
-            border-bottom: 1px solid #e5e7eb; 
-            padding: 0.8rem 1.5rem; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.03); 
-        }
-        
-        .card-custom { 
-            border: none; 
-            border-radius: 16px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.05); 
-            background: #fff; 
-        }
-        
-        .btn-primary-custom { 
-            background: var(--primary-color); 
-            border: none; 
-            padding: 0.8rem; 
-            border-radius: 10px; 
-            font-weight: 700; 
-            color: white;
-            transition: 0.3s; 
-            font-size: 0.95rem; 
-        }
-        .btn-primary-custom:hover { 
-            background: #4338ca; 
-            color: white;
-            transform: translateY(-2px); 
-            box-shadow: 0 8px 20px rgba(82, 78, 156, 0.2); 
-        }
-        
-        .form-control, .form-select { 
-            border-radius: 10px; 
-            padding: 0.75rem 1rem; 
-            border: 1px solid #e5e7eb; 
-            background: #f9fafb; 
-            font-size: 0.95rem; 
-        }
-        .form-control:focus, .form-select:focus { 
-            box-shadow: 0 0 0 4px rgba(82, 78, 156, 0.1); 
-            border-color: var(--primary-color); 
-            background: #fff; 
-        }
-        
-        .table-users { font-size: 0.9rem; }
-        .table-users th { 
-            background: #f8f9fa; 
-            color: #6b7280; 
-            text-transform: uppercase; 
-            font-size: 0.75rem; 
-            letter-spacing: 0.5px; 
-            border-bottom: 2px solid #e5e7eb; 
-        }
-        .table-users td { 
-            vertical-align: middle; 
-            padding: 1rem 0.5rem; 
-            border-bottom: 1px solid #f0f0f5; 
-        }
-        
-        .badge-role { 
-            font-size: 0.75rem; 
-            padding: 5px 10px; 
-            border-radius: 6px; 
-            font-weight: 600; 
-        }
-        .bg-vendedor { background: #dcfce7; color: #166534; }
-        .bg-admin { background: #dbeafe; color: #1e40af; }
-        .bg-superadmin { background: #fee2e2; color: #991b1b; }
+        body { background: #f4f6f9; font-family: 'Inter', sans-serif; }
+        .navbar-custom { background: #ffffff; border-bottom: 1px solid #e5e7eb; padding: 0.8rem 1.5rem; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); background: #fff; }
+        .badge-tc { background: #3f3f46; color: #fff; }
     </style>
 </head>
 <body>
 
-<nav class="navbar-custom d-flex justify-content-between align-items-center sticky-top mb-4">
-    <div class="d-flex align-items-center gap-3">
-        <div class="fw-bold fs-4" style="color: var(--primary-color); letter-spacing: -1px;">GLI</div>
-        <span class="badge bg-light text-secondary border border-secondary-subtle">Recursos Humanos</span>
-    </div>
+<nav class="navbar-custom d-flex justify-content-between align-items-center mb-4 sticky-top">
+    <div class="fw-bold fs-4 text-primary">GLI <span class="fs-6 text-muted ms-2">Recursos Humanos</span></div>
     <a href="/admin" class="btn btn-outline-secondary btn-sm rounded-pill px-4 fw-bold shadow-sm">
         <i class="bi bi-arrow-left me-1"></i> Volver al Panel
     </a>
@@ -105,86 +26,50 @@
 <div class="container py-2 px-4">
     <div class="row g-4">
         
-        {% if current_user.role == 'SuperAdmin' %}
         <div class="col-12 col-lg-4">
             <div class="card-custom p-4">
-                <h5 class="fw-bold mb-1" style="color: #1f2937;">Nuevo Acceso</h5>
-                <p class="text-muted small mb-4">Registra un miembro del equipo</p>
-                
+                <h6 class="fw-bold mb-3">Registrar Nuevo Miembro</h6>
+                <div class="mb-3"><input type="email" id="email" class="form-control" placeholder="usuario@gli.com"></div>
+                <div class="mb-3"><input type="password" id="pass" class="form-control" placeholder="Contraseña"></div>
                 <div class="mb-3">
-                    <label class="form-label small fw-bold text-muted text-uppercase mb-1">Correo Corporativo</label>
-                    <input type="email" id="email" class="form-control" placeholder="usuario@gli.com" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold text-muted text-uppercase mb-1">Contraseña</label>
-                    <input type="password" id="pass" class="form-control" placeholder="••••••••" required>
-                </div>
-                <div class="mb-4">
-                    <label class="form-label small fw-bold text-muted text-uppercase mb-1">Rol en el Sistema</label>
                     <select id="role" class="form-select">
-                        <option value="Vendedor">Vendedor (Solo vista ventas)</option>
-                        <option value="Admin">Admin (Edición y Excel)</option>
-                        <option value="SuperAdmin">SuperAdmin (Control total)</option>
+                        <option value="Vendedor">Vendedor</option>
+                        <option value="Admin">Admin</option>
+                        <option value="TC">Operador TC (Moneda)</option>
+                        <option value="SuperAdmin">SuperAdmin</option>
                     </select>
                 </div>
-                <button onclick="crearUsuario()" class="btn-primary-custom w-100">
-                    <i class="bi bi-person-plus-fill me-1"></i> Registrar Usuario
-                </button>
+                <button onclick="crearUsuario()" class="btn btn-primary w-100 fw-bold">Guardar</button>
             </div>
         </div>
-        {% endif %}
 
-        <div class="col-12 {% if current_user.role == 'SuperAdmin' %}col-lg-8{% else %}col-lg-12{% endif %}">
-            <div class="card-custom p-4 h-100">
-                <h5 class="fw-bold mb-4" style="color: #1f2937;"><i class="bi bi-people-fill me-2" style="color: var(--primary-color);"></i>Usuarios Activos</h5>
-                
-                <div class="table-responsive">
-                    <table class="table table-users table-borderless mb-0">
-                        <thead>
-                            <tr>
-                                <th>Email Corporativo</th>
-                                <th>Rol Asignado</th>
-                                {% if current_user.role == 'SuperAdmin' %}
-                                <th class="text-end">Acciones</th>
+        <div class="col-12 col-lg-8">
+            <div class="card-custom p-4">
+                <h6 class="fw-bold mb-3">Personal Activo</h6>
+                <table class="table table-borderless align-middle" style="font-size:0.9rem;">
+                    <thead class="border-bottom">
+                        <tr class="text-muted small text-uppercase"><th>Email</th><th>Rol</th><th class="text-end">Acciones</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for u in usuarios %}
+                        <tr>
+                            <td class="fw-bold">{{ u.email }}</td>
+                            <td>
+                                {% if u.role == 'SuperAdmin' %}<span class="badge bg-danger">SuperAdmin</span>
+                                {% elif u.role == 'TC' %}<span class="badge badge-tc">TC</span>
+                                {% elif u.role == 'Admin' %}<span class="badge bg-primary">Admin</span>
+                                {% else %}<span class="badge bg-success">Vendedor</span>{% endif %}
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-primary border-0" onclick="editarUsuario({{ u.id }}, '{{ u.role }}', '{{ u.email }}')" title="Editar Rol o Clave"><i class="bi bi-pencil-square"></i></button>
+                                {% if u.id != current_user.id %}
+                                <button class="btn btn-sm btn-outline-danger border-0" onclick="eliminarUsuario({{ u.id }}, '{{ u.email }}')"><i class="bi bi-trash3-fill"></i></button>
                                 {% endif %}
-                            </tr>
-                        </thead>
-                        <tbody class="border-top">
-                            {% for u in usuarios %}
-                            <tr>
-                                <td class="fw-bold text-dark">{{ u.email }}</td>
-                                <td>
-                                    {% if u.role == 'Vendedor' %}
-                                        <span class="badge-role bg-vendedor"><i class="bi bi-tag-fill me-1"></i>Vendedor</span>
-                                    {% elif u.role == 'Admin' %}
-                                        <span class="badge-role bg-admin"><i class="bi bi-gear-fill me-1"></i>Admin</span>
-                                    {% else %}
-                                        <span class="badge-role bg-superadmin"><i class="bi bi-shield-lock-fill me-1"></i>SuperAdmin</span>
-                                    {% endif %}
-                                </td>
-                                
-                                {% if current_user.role == 'SuperAdmin' %}
-                                <td class="text-end">
-                                    {% if u.id != current_user.id %}
-                                    <button onclick="eliminarUsuario({{ u.id }}, '{{ u.email }}')" class="btn btn-sm btn-outline-danger border-0" title="Revocar Acceso">
-                                        <i class="bi bi-trash3-fill fs-6"></i>
-                                    </button>
-                                    {% else %}
-                                    <span class="text-muted small fw-bold">Tú</span>
-                                    {% endif %}
-                                </td>
-                                {% endif %}
-                            </tr>
-                            {% endfor %}
-                            
-                            {% if not usuarios %}
-                            <tr>
-                                <td colspan="3" class="text-center py-4 text-muted">No hay usuarios registrados.</td>
-                            </tr>
-                            {% endif %}
-                        </tbody>
-                    </table>
-                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
         
@@ -192,59 +77,27 @@
 </div>
 
 <script>
-    {% if current_user.role == 'SuperAdmin' %}
     async function crearUsuario() {
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('pass').value;
-        const role = document.getElementById('role').value;
+        const data = { email: document.getElementById('email').value, password: document.getElementById('pass').value, role: document.getElementById('role').value };
+        const res = await fetch('/api/crear-usuario', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+        if(res.ok) location.reload(); else alert("Error al registrar.");
+    }
 
-        if(!email || !password) {
-            return alert("⚠️ Debes completar correo corporativo y contraseña.");
-        }
-
-        const btn = document.querySelector('.btn-primary-custom');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Registrando...';
-
-        try {
-            const res = await fetch('/api/crear-usuario', { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify({email, password, role}) 
-            });
-            
-            if(res.ok) {
-                location.reload(); 
-            } else {
-                const data = await res.json();
-                alert("❌ Error: " + (data.error || "No se pudo crear el usuario."));
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-person-plus-fill me-1"></i> Registrar Usuario';
-            }
-        } catch (e) {
-            alert("❌ Error de conexión al crear el usuario.");
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-person-plus-fill me-1"></i> Registrar Usuario';
-        }
+    async function editarUsuario(id, roleActual, email) {
+        let nuevoRol = prompt(`Editar Rol para ${email} (Vendedor, Admin, SuperAdmin, TC):`, roleActual);
+        if(!nuevoRol) return;
+        let nuevaPass = prompt(`Ingresa nueva contraseña para ${email} (O deja en blanco para no cambiarla):`);
+        
+        let res = await fetch('/api/editar-usuario', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id: id, role: nuevoRol, password: nuevaPass}) });
+        if(res.ok) location.reload(); else alert("Error al editar.");
     }
 
     async function eliminarUsuario(id, email) {
-        if(confirm(`🚨 ¿Estás totalmente seguro de revocar el acceso a:\n${email}?`)) { 
-            try {
-                const res = await fetch(`/api/eliminar-usuario/${id}`, {method: 'POST'}); 
-                if(res.ok) {
-                    location.reload();
-                } else {
-                    alert("❌ Error al intentar eliminar el acceso.");
-                }
-            } catch (e) {
-                alert("❌ Error de conexión al eliminar el usuario.");
-            }
+        if(confirm(`¿Revocar acceso a ${email}?`)) {
+            let res = await fetch(`/api/eliminar-usuario/${id}`, {method: 'POST'});
+            if(res.ok) location.reload();
         }
     }
-    {% endif %}
 </script>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
