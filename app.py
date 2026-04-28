@@ -11,17 +11,15 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 
 os.environ['TZ'] = 'America/Lima'
-try:
-    time.tzset()
-except AttributeError:
-    pass 
+try: time.tzset()
+except AttributeError: pass 
 
-app = Flask(__name__, template_folder='templates')
+app = Flask(__name__)
 CORS(app)
 
-app.config['SECRET_KEY'] = 'GLI_SECURITY_KEY_FINAL_2026'
+app.config['SECRET_KEY'] = 'GLI_SECURITY_MASTER_2026_FINAL'
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///gli_database.sqlite')
-if app.config['SQLALCHEMY_DATABASE_URI'].startswith("postgres://"):
+if app.config['SQLALCHEMY_DATABASE_URI'] and app.config['SQLALCHEMY_DATABASE_URI'].startswith("postgres://"):
     app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace("postgres://", "postgresql://", 1)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -30,13 +28,13 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
 # =========================================================
-# 📊 MODELOS DE BASE DE DATOS
+# 📊 MODELOS DE DATOS
 # =========================================================
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(100), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(20), nullable=False) 
+    role = db.Column(db.String(20), nullable=False) # 'SuperAdmin', 'Admin', 'Vendedor', 'TC'
 
 class Config(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -47,19 +45,16 @@ class Producto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(250), unique=True, nullable=False)
     codigo = db.Column(db.String(100), default='S/C')
-    categoria = db.Column(db.String(100), default='GENERAL')
     empresa = db.Column(db.String(100), default='')
     proveedor = db.Column(db.String(100), default='')
     moneda_simbolo = db.Column(db.String(10), default='$')
     moneda_texto = db.Column(db.String(10), default='USD')
-    
     costo_base_ex = db.Column(db.Float, default=0.0)
     costo_fab_ex = db.Column(db.Float, default=0.0)
     coyuntural_ex = db.Column(db.Float, default=0.0)
     margen_ex = db.Column(db.Float, default=0.20)
     dscto_pv_ex = db.Column(db.Float, default=0.0)
     dscto_dist_ex = db.Column(db.Float, default=0.0)
-    
     costo_base_man = db.Column(db.Float, nullable=True)
     costo_fab_man = db.Column(db.Float, nullable=True)
     coyuntural_man = db.Column(db.Float, nullable=True)
@@ -67,26 +62,26 @@ class Producto(db.Model):
     merma_pct_man = db.Column(db.Float, default=0.0)
     dscto_pv_man = db.Column(db.Float, nullable=True)
     dscto_dist_man = db.Column(db.Float, nullable=True)
-    
     es_manual = db.Column(db.Boolean, default=False)
     oculto = db.Column(db.Boolean, default=False)
     fecha_act = db.Column(db.DateTime, default=datetime.utcnow)
 
-with app.app_context():
-    db.create_all()
+with app.app_context(): db.create_all()
 
 @login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
+def load_user(user_id): return User.query.get(int(user_id))
 
 # =========================================================
-# 📘 LÓGICA DE FLETE Y MONEDA
+# 🛠️ LÓGICA DE TC Y FLETES
 # =========================================================
 def get_tc_actual():
     conf = Config.query.filter_by(clave='tipo_cambio').first()
-    return conf.valor if conf else 3.80
+    if not conf:
+        conf = Config(clave='tipo_cambio', valor=3.80)
+        db.session.add(conf); db.session.commit()
+    return conf.valor
 
-TARIFA_FLETE_DEFECTO = 0.11
+TARIFA_FLETE_DEFECTO = 0.08
 
 def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
     if "CRAMER" in str(nombre_odoo).upper(): return "CRAMER"
@@ -94,27 +89,42 @@ def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
     return str(empresa_col).strip().upper()
 
 def get_currency_info(nombre, proveedor):
-    nombre_clean = re.sub(r'\s+', '', nombre.upper())
-    if "COLAGENOHIDROLIZADOGELNEX" in nombre_clean: return "S/", "PEN"
-    
+    n_clean = re.sub(r'\s+', '', nombre.upper())
+    if "COLAGENOHIDROLIZADOGELNEX" in n_clean: return "S/", "PEN"
     es_usd = True
     if proveedor == "SACCO" or "SACCO" in nombre.upper():
         es_usd = False
         for exc in ["LYOTO", "LYOFASTAB", "LYOFASTY", "MIXPROFUXION"]:
-            if exc in nombre_clean:
-                es_usd = True
-                break
+            if exc in n_clean: es_usd = True; break
     return ("$", "USD") if es_usd else ("S/", "PEN")
 
+def robust_numeric(val):
+    if pd.isna(val): return 0.0
+    s = str(val).strip().replace('$', '').replace('S/', '').replace('%', '')
+    if ',' in s and '.' in s: s = s.replace(',', '')
+    elif ',' in s: s = s.replace(',', '.')
+    try: return float(s)
+    except: return 0.0
+
+def parse_percentage(val, default=0.0):
+    if pd.isna(val): return default
+    s = str(val).strip()
+    if s.lower() == 'nan' or s == '': return default
+    has_percent = '%' in s
+    s = s.replace('%', '').replace(',', '.')
+    try:
+        v = float(s)
+        return v / 100.0 if has_percent or v >= 10 else v
+    except: return default
+
 # =========================================================
-# 🔐 RUTAS DE ACCESO, USUARIOS Y TC
+# 🔐 RUTAS Y SEGURIDAD
 # =========================================================
 @app.route('/setup-admin')
 def setup_admin():
     if not User.query.filter_by(role='SuperAdmin').first():
         db.session.add(User(email='admin@gli.com', password=generate_password_hash('admin123'), role='SuperAdmin'))
-    if not Config.query.filter_by(clave='tipo_cambio').first():
-        db.session.add(Config(clave='tipo_cambio', valor=3.80))
+    get_tc_actual() # Fuerza la creación del TC
     db.session.commit()
     return "✅ OK"
 
@@ -124,22 +134,18 @@ def login():
         user = User.query.filter_by(email=request.form.get('email')).first()
         if user and check_password_hash(user.password, request.form.get('password')):
             login_user(user)
-            if user.role == 'Vendedor': return redirect(url_for('vista_vendedor'))
-            return redirect(url_for('vista_admin'))
+            return redirect(url_for('home'))
         flash('Credenciales incorrectas')
     return render_template('login.html')
 
 @app.route('/logout')
 @login_required
-def logout():
-    logout_user()
-    return redirect(url_for('login'))
+def logout(): logout_user(); return redirect(url_for('login'))
 
 @app.route('/')
 def home():
     if not current_user.is_authenticated: return redirect(url_for('login'))
-    if current_user.role == 'Vendedor': return redirect(url_for('vista_vendedor'))
-    return redirect(url_for('vista_admin'))
+    return redirect(url_for('vista_vendedor')) if current_user.role == 'Vendedor' else redirect(url_for('vista_admin'))
 
 @app.route('/admin')
 @login_required
@@ -149,16 +155,17 @@ def vista_admin():
 
 @app.route('/vendedor')
 @login_required
-def vista_vendedor():
-    return render_template('index_vendedor.html')
+def vista_vendedor(): return render_template('index_vendedor.html')
 
+# =========================================================
+# ⚙️ GESTIÓN DE USUARIOS Y TC
+# =========================================================
 @app.route('/usuarios')
 @login_required
 def gestion_usuarios():
     if current_user.role != 'SuperAdmin': return redirect(url_for('home'))
     return render_template('superadmin.html', usuarios=User.query.all())
 
-# --- APIS DE PERSONAL Y TIPO DE CAMBIO ---
 @app.route('/api/crear-usuario', methods=['POST'])
 @login_required
 def crear_usuario():
@@ -194,41 +201,80 @@ def eliminar_usuario(id):
 @app.route('/api/update-tc', methods=['POST'])
 @login_required
 def update_tc():
-    # El usuario debe tener rol TC o SuperAdmin para guardar el nuevo Tipo de Cambio
     if current_user.role not in ['TC', 'SuperAdmin']: return jsonify({"error": "No autorizado"}), 403
     try:
         conf = Config.query.filter_by(clave='tipo_cambio').first()
+        if not conf:
+            conf = Config(clave='tipo_cambio', valor=3.80)
+            db.session.add(conf)
         conf.valor = float(request.json['tc'])
         db.session.commit()
         return jsonify({"success": True, "tc": conf.valor})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    except Exception as e: return jsonify({"error": str(e)}), 400
 
 # =========================================================
-# 🚀 GESTIÓN DE PRODUCTOS Y EXCEL (RUTAS RESTAURADAS)
+# 🚀 DATOS: EXCEL, CREAR, EXPORTAR
 # =========================================================
+@app.route('/subir-maestro', methods=['POST'])
+@login_required
+def subir_maestro():
+    if current_user.role not in ['Admin', 'SuperAdmin']: return jsonify({"error": "No autorizado"}), 403
+    f = request.files.get('archivo')
+    if not f: return jsonify({"error": "Sin archivo"}), 400
+    try: df = pd.read_excel(f, header=None)
+    except: return jsonify({"error": "Error al leer"}), 400
+    
+    header_idx = 0
+    for idx, row in df.iterrows():
+        rs = ' '.join(str(x).lower() for x in row.values if pd.notna(x))
+        if 'nombre' in rs and 'costo' in rs: header_idx = idx; break
+    f.seek(0)
+    df = pd.read_excel(f, header=header_idx)
+    df.columns = [str(c).strip().lower() for c in df.columns]
+    
+    for _, row in df.iterrows():
+        nombre = str(row.get('nombre', '')).strip().upper()
+        if not nombre or nombre == 'NAN': continue
+        
+        c_base = robust_numeric(row.get('costo base', 0))
+        c_fab = robust_numeric(row.get('costo de fabricación', 0))
+        if c_base + c_fab <= 0.0001: continue
+        
+        emp = str(row.get('empresa', '')).strip().upper()
+        p = Producto.query.filter_by(nombre=nombre).first()
+        if not p:
+            p = Producto(nombre=nombre); db.session.add(p)
+            
+        p.codigo = str(row.get('código', 'S/C'))
+        p.empresa = emp
+        p.proveedor = detectar_proveedor_exacto(nombre, emp)
+        p.moneda_simbolo, p.moneda_texto = get_currency_info(nombre, p.proveedor)
+        
+        p.costo_base_ex = c_base
+        p.costo_fab_ex = c_fab
+        p.coyuntural_ex = robust_numeric(row.get('costo coyuntural', 0))
+        p.margen_ex = parse_percentage(row.get('margen'), 0.20)
+        p.dscto_pv_ex = parse_percentage(row.get('dscto pv'), 0.0)
+        p.dscto_dist_ex = parse_percentage(row.get('dscto dist'), 0.0)
+        p.fecha_act = datetime.utcnow()
+
+    db.session.commit()
+    return jsonify({"success": True})
+
 @app.route('/api/crear-producto', methods=['POST'])
 @login_required
 def crear_producto():
     if current_user.role not in ['Admin', 'SuperAdmin']: return jsonify({"error": "No autorizado"}), 403
     d = request.json
-    nombre_upper = d['nombre'].upper().strip()
+    nombre = d['nombre'].upper().strip()
+    if Producto.query.filter_by(nombre=nombre).first(): return jsonify({"error": "Ya existe"}), 400
     
-    if Producto.query.filter_by(nombre=nombre_upper).first():
-        return jsonify({"error": "El producto ya existe"}), 400
-        
-    p = Producto(
-        nombre=nombre_upper,
-        codigo=d.get('codigo', 'S/C').upper(),
-        proveedor=detectar_proveedor_exacto(nombre_upper, d.get('empresa', '')),
-        empresa=d.get('empresa', '').upper(),
-        costo_base_man=float(d.get('costo_base', 0)),
-        costo_fab_man=float(d.get('costo_fab', 0)),
-        margen_man=float(d.get('margen', 20)) / 100.0,
-        es_manual=True
-    )
-    sim, txt = get_currency_info(p.nombre, p.proveedor)
-    p.moneda_simbolo, p.moneda_texto = sim, txt
+    p = Producto(nombre=nombre, codigo=d.get('codigo', 'S/C').upper(), empresa=d.get('empresa', '').upper(), es_manual=True)
+    p.proveedor = detectar_proveedor_exacto(nombre, p.empresa)
+    p.moneda_simbolo, p.moneda_texto = get_currency_info(nombre, p.proveedor)
+    p.costo_base_man = float(d.get('costo_base', 0))
+    p.costo_fab_man = float(d.get('costo_fab', 0))
+    p.margen_man = float(d.get('margen', 20)) / 100.0
     
     db.session.add(p); db.session.commit()
     return jsonify({"success": True})
@@ -236,64 +282,53 @@ def crear_producto():
 @app.route('/api/exportar', methods=['POST'])
 @login_required
 def exportar_excel():
-    if current_user.role not in ['Admin', 'SuperAdmin', 'TC']: return jsonify({"error": "No"}), 403
     nombres = request.json.get('productos', [])
-    if not nombres: return jsonify({"error": "No hay productos"}), 400
-    
+    if not nombres: return jsonify({"error": "Vacío"}), 400
     prods = Producto.query.filter(Producto.nombre.in_(nombres)).all()
     data = []
     tc = get_tc_actual()
-    
     for p in prods:
-        c_base = p.costo_base_man if p.costo_base_man is not None else p.costo_base_ex
-        c_fab = p.costo_fab_man if p.costo_fab_man is not None else p.costo_fab_ex
-        margen = p.margen_man if p.margen_man is not None else p.margen_ex
-        coyun = p.coyuntural_man if p.coyuntural_man is not None else p.coyuntural_ex
-        
-        merma = c_base * p.merma_pct_man
-        c_total = c_base + c_fab + merma
-        c_ref = coyun if (coyun > 0 and c_total <= coyun) else c_total
+        cb = p.costo_base_man if p.costo_base_man is not None else p.costo_base_ex
+        cf = p.costo_fab_man if p.costo_fab_man is not None else p.costo_fab_ex
+        mg = p.margen_man if p.margen_man is not None else p.margen_ex
+        cy = p.coyuntural_man if p.coyuntural_man is not None else p.coyuntural_ex
+        merma = cb * p.merma_pct_man
+        ct = cb + cf + merma
+        cr = cy if (cy > 0 and ct <= cy) else ct
         
         flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
-        p_lima = c_ref * (1 + margen)
-        p_prov = p_lima + flete
-        
+        pl = cr * (1 + mg)
+        pp = pl + flete
         data.append({
-            "Producto": p.nombre, "Código": p.codigo, "Empresa": p.empresa, "Proveedor": p.proveedor,
-            "Moneda": p.moneda_texto, "Costo Base": c_base, "Costo Fab": c_fab,
-            "Merma (%)": p.merma_pct_man * 100, "Costo Total": c_total,
-            "Coyuntural": coyun, "Margen (%)": margen * 100, "Precio LIMA": p_lima, "Precio PROVINCIA": p_prov
+            "Producto": p.nombre, "Código": p.codigo, "Empresa": p.empresa, "Moneda": p.moneda_texto,
+            "Costo Real": cb, "Costo Fab": cf, "Merma (%)": p.merma_pct_man*100, "Costo Total": ct,
+            "Coyuntural": cy, "Margen (%)": mg*100, "Precio LIMA": pl, "Precio PROVINCIA": pp
         })
-        
     df = pd.DataFrame(data)
     output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Precios GLI')
+    with pd.ExcelWriter(output, engine='openpyxl') as writer: df.to_excel(writer, index=False)
     output.seek(0)
-    return send_file(output, download_name='Precios_GLI.xlsx', as_attachment=True, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    return send_file(output, download_name='Precios_GLI.xlsx', as_attachment=True)
 
 @app.route('/api/eliminar-producto', methods=['POST'])
 @login_required
 def eliminar_producto():
     if current_user.role not in ['Admin', 'SuperAdmin']: return jsonify({"error": "No"}), 403
-    prod = Producto.query.filter_by(nombre=request.json['nombre']).first()
-    if prod:
-        if prod.es_manual: db.session.delete(prod)
-        else: prod.oculto = True
+    p = Producto.query.filter_by(nombre=request.json['nombre']).first()
+    if p:
+        if p.es_manual: db.session.delete(p)
+        else: p.oculto = True
         db.session.commit()
     return jsonify({"success": True})
 
-# --- APIS DE EDICIÓN RÁPIDA (CELDAS DE TABLA) ---
+# --- EDICIÓN EN TABLA ---
 @app.route('/api/editar-<tipo>', methods=['POST'])
 @login_required
 def editar_celdas(tipo):
     if current_user.role not in ['Admin', 'SuperAdmin']: return jsonify({"error": "No"}), 403
-    d = request.json
-    p = Producto.query.filter_by(nombre=d['nombre']).first()
+    p = Producto.query.filter_by(nombre=request.json['nombre']).first()
     if not p: return jsonify({"error": "No existe"}), 404
-    
-    val = float(d.get('valor', d.get('costo', d.get('merma', d.get('margen', 0)))))
-    
+    val = float(request.json.get('valor', request.json.get('costo', request.json.get('merma', request.json.get('margen', 0)))))
     if tipo == 'margen': p.margen_man = val / 100.0
     elif tipo == 'merma': p.merma_pct_man = val / 100.0
     elif tipo == 'costo-real': p.costo_base_man = val if val > 0 else None
@@ -301,7 +336,6 @@ def editar_celdas(tipo):
     elif tipo == 'costo-coyuntural': p.coyuntural_man = val if val > 0 else -1.0
     elif tipo == 'dscto': p.dscto_pv_man = val / 100.0
     elif tipo == 'dscto-dist': p.dscto_dist_man = val / 100.0
-    
     db.session.commit()
     return jsonify({"success": True})
 
@@ -315,33 +349,27 @@ def buscar():
     
     for p in prods:
         if q and q not in p.nombre.upper() and q not in str(p.codigo).upper(): continue
-        
         c_base = p.costo_base_man if p.costo_base_man is not None else p.costo_base_ex
         c_fab = p.costo_fab_man if p.costo_fab_man is not None else p.costo_fab_ex
         margen = p.margen_man if p.margen_man is not None else p.margen_ex
         coyun = p.coyuntural_man if p.coyuntural_man is not None else p.coyuntural_ex
         if coyun < 0: coyun = 0.0
         
-        merma_monto = c_base * p.merma_pct_man
-        c_total = c_base + c_fab + merma_monto
+        merma = c_base * p.merma_pct_man
+        c_total = c_base + c_fab + merma
         c_ref = coyun if (coyun > 0 and c_total <= coyun) else c_total
-        
         flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
         p_lima = c_ref * (1 + margen)
-        p_prov = p_lima + flete
         
         res.append({
-            "nombre": p.nombre, "codigo": p.codigo, "empresa": p.empresa,
-            "costo_base": c_base, "costo_fab": c_fab, "merma_porcentaje": round(p.merma_pct_man * 100, 2),
-            "merma_monto": merma_monto, "costo_actual": c_total, "costo_coyuntural": coyun,
-            "margen": round(margen * 100, 2), "precio_lima": p_lima, "precio_provincia": p_prov,
+            "nombre": p.nombre, "codigo": p.codigo, "empresa": p.empresa, "costo_base": c_base, "costo_fab": c_fab,
+            "merma_porcentaje": round(p.merma_pct_man * 100, 2), "merma_monto": merma, "costo_actual": c_total,
+            "costo_coyuntural": coyun, "margen": round(margen * 100, 2), "precio_lima": p_lima, "precio_provincia": p_lima + flete,
             "moneda_simbolo": p.moneda_simbolo, "moneda_texto": p.moneda_texto, 
             "dscto_pv": round((p.dscto_pv_man if p.dscto_pv_man is not None else p.dscto_pv_ex)*100, 2),
             "dscto_dist": round((p.dscto_dist_man if p.dscto_dist_man is not None else p.dscto_dist_ex)*100, 2)
         })
-    
     res.sort(key=lambda x: x['nombre'])
-    return jsonify({"productos": res, "ultima_actualizacion": datetime.now().strftime("%d/%m/%Y %H:%M"), "tc_actual": tc})
+    return jsonify({"productos": res, "tc_actual": tc})
 
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == '__main__': app.run(debug=True)
