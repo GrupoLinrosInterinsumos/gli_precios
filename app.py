@@ -14,7 +14,7 @@ os.environ['TZ'] = 'America/Lima'
 try: time.tzset()
 except AttributeError: pass 
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates')
 CORS(app)
 
 app.config['SECRET_KEY'] = 'GLI_SECURITY_MASTER_2026_FINAL'
@@ -118,13 +118,13 @@ def parse_percentage(val, default=0.0):
     except: return default
 
 # =========================================================
-# 🔐 RUTAS Y SEGURIDAD
+# 🔐 RUTAS Y SEGURIDAD PRINCIPAL
 # =========================================================
 @app.route('/setup-admin')
 def setup_admin():
     if not User.query.filter_by(role='SuperAdmin').first():
         db.session.add(User(email='admin@gli.com', password=generate_password_hash('admin123'), role='SuperAdmin'))
-    get_tc_actual() # Fuerza la creación del TC
+    get_tc_actual()
     db.session.commit()
     return "✅ OK"
 
@@ -145,17 +145,22 @@ def logout(): logout_user(); return redirect(url_for('login'))
 @app.route('/')
 def home():
     if not current_user.is_authenticated: return redirect(url_for('login'))
-    return redirect(url_for('vista_vendedor')) if current_user.role == 'Vendedor' else redirect(url_for('vista_admin'))
+    # 🔴 El rol TC y Vendedor van a la misma vista (ventas)
+    if current_user.role in ['Vendedor', 'TC']: return redirect(url_for('vista_vendedor'))
+    return redirect(url_for('vista_admin'))
 
 @app.route('/admin')
 @login_required
 def vista_admin():
-    if current_user.role not in ['Admin', 'SuperAdmin', 'TC']: return redirect(url_for('home'))
+    # 🔴 El rol TC ya NO puede entrar aquí
+    if current_user.role not in ['Admin', 'SuperAdmin']: return redirect(url_for('home'))
     return render_template('index_admin.html')
 
 @app.route('/vendedor')
 @login_required
-def vista_vendedor(): return render_template('index_vendedor.html')
+def vista_vendedor(): 
+    if current_user.role not in ['Vendedor', 'TC', 'Admin', 'SuperAdmin']: return redirect(url_for('home'))
+    return render_template('index_vendedor.html')
 
 # =========================================================
 # ⚙️ GESTIÓN DE USUARIOS Y TC
@@ -201,6 +206,7 @@ def eliminar_usuario(id):
 @app.route('/api/update-tc', methods=['POST'])
 @login_required
 def update_tc():
+    # 🔴 TC y SuperAdmin pueden actualizar el valor de moneda
     if current_user.role not in ['TC', 'SuperAdmin']: return jsonify({"error": "No autorizado"}), 403
     try:
         conf = Config.query.filter_by(clave='tipo_cambio').first()
@@ -212,13 +218,16 @@ def update_tc():
         return jsonify({"success": True, "tc": conf.valor})
     except Exception as e: return jsonify({"error": str(e)}), 400
 
+def is_admin_api():
+    return current_user.is_authenticated and current_user.role in ['Admin', 'SuperAdmin']
+
 # =========================================================
 # 🚀 DATOS: EXCEL, CREAR, EXPORTAR
 # =========================================================
 @app.route('/subir-maestro', methods=['POST'])
 @login_required
 def subir_maestro():
-    if current_user.role not in ['Admin', 'SuperAdmin']: return jsonify({"error": "No autorizado"}), 403
+    if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
     f = request.files.get('archivo')
     if not f: return jsonify({"error": "Sin archivo"}), 400
     try: df = pd.read_excel(f, header=None)
@@ -264,7 +273,7 @@ def subir_maestro():
 @app.route('/api/crear-producto', methods=['POST'])
 @login_required
 def crear_producto():
-    if current_user.role not in ['Admin', 'SuperAdmin']: return jsonify({"error": "No autorizado"}), 403
+    if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
     d = request.json
     nombre = d['nombre'].upper().strip()
     if Producto.query.filter_by(nombre=nombre).first(): return jsonify({"error": "Ya existe"}), 400
@@ -282,6 +291,7 @@ def crear_producto():
 @app.route('/api/exportar', methods=['POST'])
 @login_required
 def exportar_excel():
+    if not is_admin_api(): return jsonify({"error": "No"}), 403
     nombres = request.json.get('productos', [])
     if not nombres: return jsonify({"error": "Vacío"}), 400
     prods = Producto.query.filter(Producto.nombre.in_(nombres)).all()
@@ -313,7 +323,7 @@ def exportar_excel():
 @app.route('/api/eliminar-producto', methods=['POST'])
 @login_required
 def eliminar_producto():
-    if current_user.role not in ['Admin', 'SuperAdmin']: return jsonify({"error": "No"}), 403
+    if not is_admin_api(): return jsonify({"error": "No"}), 403
     p = Producto.query.filter_by(nombre=request.json['nombre']).first()
     if p:
         if p.es_manual: db.session.delete(p)
@@ -325,7 +335,7 @@ def eliminar_producto():
 @app.route('/api/editar-<tipo>', methods=['POST'])
 @login_required
 def editar_celdas(tipo):
-    if current_user.role not in ['Admin', 'SuperAdmin']: return jsonify({"error": "No"}), 403
+    if not is_admin_api(): return jsonify({"error": "No"}), 403
     p = Producto.query.filter_by(nombre=request.json['nombre']).first()
     if not p: return jsonify({"error": "No existe"}), 404
     val = float(request.json.get('valor', request.json.get('costo', request.json.get('merma', request.json.get('margen', 0)))))
@@ -349,27 +359,33 @@ def buscar():
     
     for p in prods:
         if q and q not in p.nombre.upper() and q not in str(p.codigo).upper(): continue
+        
         c_base = p.costo_base_man if p.costo_base_man is not None else p.costo_base_ex
         c_fab = p.costo_fab_man if p.costo_fab_man is not None else p.costo_fab_ex
         margen = p.margen_man if p.margen_man is not None else p.margen_ex
         coyun = p.coyuntural_man if p.coyuntural_man is not None else p.coyuntural_ex
         if coyun < 0: coyun = 0.0
         
-        merma = c_base * p.merma_pct_man
-        c_total = c_base + c_fab + merma
+        merma_monto = c_base * p.merma_pct_man
+        c_total = c_base + c_fab + merma_monto
         c_ref = coyun if (coyun > 0 and c_total <= coyun) else c_total
+        
         flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
         p_lima = c_ref * (1 + margen)
+        p_prov = p_lima + flete
         
         res.append({
-            "nombre": p.nombre, "codigo": p.codigo, "empresa": p.empresa, "costo_base": c_base, "costo_fab": c_fab,
-            "merma_porcentaje": round(p.merma_pct_man * 100, 2), "merma_monto": merma, "costo_actual": c_total,
-            "costo_coyuntural": coyun, "margen": round(margen * 100, 2), "precio_lima": p_lima, "precio_provincia": p_lima + flete,
+            "nombre": p.nombre, "codigo": p.codigo, "empresa": p.empresa,
+            "costo_base": c_base, "costo_fab": c_fab, "merma_porcentaje": round(p.merma_pct_man * 100, 2),
+            "merma_monto": merma_monto, "costo_actual": c_total, "costo_coyuntural": coyun,
+            "margen": round(margen * 100, 2), "precio_lima": p_lima, "precio_provincia": p_prov,
             "moneda_simbolo": p.moneda_simbolo, "moneda_texto": p.moneda_texto, 
             "dscto_pv": round((p.dscto_pv_man if p.dscto_pv_man is not None else p.dscto_pv_ex)*100, 2),
             "dscto_dist": round((p.dscto_dist_man if p.dscto_dist_man is not None else p.dscto_dist_ex)*100, 2)
         })
+    
     res.sort(key=lambda x: x['nombre'])
-    return jsonify({"productos": res, "tc_actual": tc})
+    return jsonify({"productos": res, "ultima_actualizacion": datetime.now().strftime("%d/%m/%Y %H:%M"), "tc_actual": tc})
 
-if __name__ == '__main__': app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True)
