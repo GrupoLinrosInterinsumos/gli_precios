@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GLI | Lista de Precios</title>
+    <title>GLI | Ventas y TC</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -11,29 +11,29 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 
     <style>
-        :root { --primary-color: #065f46; --bg-color: #f4f6f9; --text-dark: #1f2937; }
-        body { background-color: var(--bg-color); font-family: 'Poppins', sans-serif; color: var(--text-dark); }
+        :root { --primary-color: #3b3874; --bg-color: #f4f6f9; --text-dark: #1f2937; }
+        body { background-color: var(--bg-color); font-family: 'Poppins', sans-serif; color: var(--text-dark); margin:0; }
         .navbar { background-color: #ffffff; box-shadow: 0 2px 10px rgba(0,0,0,0.04); padding: 0.6rem 1.5rem; border-bottom: 1px solid #e5e7eb;}
         .brand-logo { font-weight: 700; font-size: 1.4rem; color: var(--primary-color); letter-spacing: -0.5px; line-height: 1;}
         
         .search-container { position: relative; max-width: 700px; margin: 0 auto; width: 100%; }
         .search-input { border: 1px solid #d1d5db; border-radius: 6px; padding: 0.6rem 1.5rem 0.6rem 2.2rem; font-size: 0.95rem; background: #ffffff; width: 100%; transition: 0.2s;}
-        .search-input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(6, 95, 70, 0.1); }
+        .search-input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(59, 56, 116, 0.1); }
         .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 1rem; }
         
         .table-container { border-radius: 6px; overflow: hidden; background: #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border: 1px solid #e5e7eb;}
         .scroll-wrapper { max-height: 75vh; overflow-y: auto; overflow-x: auto;}
         
         .table-pro { border-collapse: separate; border-spacing: 0; min-width: 1100px; width: 100%; }
-        .table-pro thead th { position: sticky; top: 0; background-color: #f1f3f5; z-index: 10; border-bottom: 2px solid #e5e7eb; color: var(--primary-color); font-size: 0.75rem; text-transform: uppercase; padding: 1rem 0.5rem; font-weight: 600;}
+        .table-pro thead th { position: sticky; top: 0; background-color: #f1f3f5; z-index: 10; border-bottom: 1px solid #e5e7eb; color: var(--text-dark); font-size: 0.75rem; text-transform: uppercase; padding: 1rem 0.5rem; font-weight: 600;}
         .table-pro td { padding: 1rem 0.5rem; vertical-align: middle; border-bottom: 1px solid #f0f0f5; font-size: 0.9rem; }
         
-        .price-tag { font-weight: 600; color: var(--primary-color); font-size: 1.05rem; }
+        .price-tag { font-weight: 600; color: var(--text-dark); font-size: 1.05rem; }
         .price-secondary { color: #4b5563; font-weight: 600;}
         .sede-label { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.5px; opacity: 0.7; }
         
-        .input-simulador { width: 70px; text-align: center; font-weight: 600; color: #92400e; background-color: #fef3c7; border: 1px solid #fcd34d; border-radius: 6px; padding: 4px; font-size: 0.9rem; margin: 0 auto;}
-        .input-simulador:focus { outline: none; border-color: #d97706; box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.15);}
+        .input-simulador { width: 70px; text-align: center; font-weight: 600; color: #1f2937; background-color: #f9fafb; border: 1px solid #d1d5db; border-radius: 6px; padding: 4px; font-size: 0.9rem; margin: 0 auto;}
+        .input-simulador:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 2px rgba(59, 56, 116, 0.15);}
         
         .badge-custom { font-size: 0.65rem; padding: 3px 6px; border-radius: 4px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb; }
     </style>
@@ -76,7 +76,7 @@
             <i class="bi bi-search search-icon"></i>
             <input type="text" id="txtBuscar" class="form-control search-input" placeholder="Buscar producto o código..." onkeyup="buscar()">
         </div>
-        <p class="text-muted mt-3 mb-0" style="font-size: 0.85rem;"><i class="bi bi-info-circle-fill" style="color:var(--primary-color);"></i> Ingresa un porcentaje en <b>% Dscto</b> para calcular precios al cliente al instante.</p>
+        <p class="text-muted mt-3 mb-0" style="font-size: 0.85rem;"><i class="bi bi-info-circle-fill text-secondary"></i> Ingresa un porcentaje en <b>% Dscto</b> para calcular precios al cliente al instante.</p>
     </div>
 
     <div class="table-container shadow-sm mx-auto">
@@ -107,11 +107,11 @@
             </div>
             <div class="modal-body p-4 bg-light text-center">
                 <label id="modalEdicionLabel" class="form-label small fw-bold text-muted text-uppercase mb-2">Nuevo valor de TC</label>
-                <input type="number" id="inputEdicionUniversal" class="form-control text-center fw-bold text-success fs-5 rounded" step="any" placeholder="0.00">
+                <input type="number" id="inputEdicionUniversal" class="form-control text-center fw-bold text-dark fs-5 rounded" step="any" placeholder="0.00">
             </div>
             <div class="modal-footer bg-light border-0">
                 <button type="button" class="btn btn-secondary btn-sm rounded px-3 fw-bold" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success btn-sm rounded px-4 fw-bold" onclick="guardarEdicionUniversal()">Guardar</button>
+                <button type="button" class="btn btn-dark btn-sm rounded px-4 fw-bold" onclick="guardarEdicionUniversal()">Guardar</button>
             </div>
         </div>
     </div>
@@ -225,8 +225,8 @@
         divProv.innerText = `${simbolo} ${nProv.toFixed(2)}`;
 
         if (dsctoVal > 0) {
-            divLima.style.color = '#d97706';
-            divProv.style.color = '#d97706';
+            divLima.style.color = 'var(--primary-color)';
+            divProv.style.color = 'var(--primary-color)';
         } else {
             divLima.style.color = '';
             divProv.style.color = '';
