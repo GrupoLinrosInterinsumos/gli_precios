@@ -16,12 +16,12 @@
         body { background-color: var(--bg-color); font-family: 'Poppins', sans-serif; color: var(--text-dark); margin:0; overflow-x: hidden; }
         .text-brand { color: var(--primary-color) !important; }
         .bg-brand { background-color: var(--primary-color) !important; color: white; }
-        .navbar { background-color: var(--white-pure); box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 0.6rem 1.5rem; border-bottom: 1px solid #e5e7eb;}
+        .navbar { background-color: var(--white-pure); box-shadow: 0 2px 10px rgba(0,0,0,0.03); padding: 0.6rem 1.5rem; border-bottom: 1px solid #e5e7eb;}
         .brand-logo { font-weight: 700; font-size: 1.4rem; color: var(--primary-color); letter-spacing: -0.5px; line-height: 1; cursor: default; }
         .brand-subtitle { font-size: 0.65rem; color: var(--text-light); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; cursor: default; }
         
         .card-pro { background: var(--white-pure); border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
-        .upload-box { border: 2px dashed #d1d5db; border-radius: 6px; padding: 1.2rem; text-align: center; transition: 0.2s; cursor: pointer; background: #f9fafb; height: 100%; display: flex; flex-direction: column; justify-content: center; }
+        .upload-box { border: 1px solid #d1d5db; border-radius: 6px; padding: 1.2rem; text-align: center; transition: 0.2s; cursor: pointer; background: #f9fafb; height: 100%; display: flex; flex-direction: column; justify-content: center; }
         .upload-box:hover { border-color: var(--primary-color); background-color: #f3f4f6; }
         
         .search-container { position: relative; max-width: 700px; margin: 0 auto; width: 100%; }
@@ -29,33 +29,33 @@
         .search-input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(59, 56, 116, 0.1); }
         .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 1rem; }
         
-        /* 🔥 CERO SCROLL HORIZONTAL: LA TABLA ENCAJA PERFECTO 🔥 */
-        .table-container { border-radius: 6px; overflow: hidden; background: var(--white-pure); box-shadow: 0 4px 10px rgba(0,0,0,0.04); border: 1px solid #e5e7eb; width: 100%; }
+        .table-container { border-radius: 6px; overflow: hidden; background: var(--white-pure); box-shadow: 0 4px 10px rgba(0,0,0,0.02); border: 1px solid #e5e7eb; width: 100%; }
         .scroll-wrapper { width: 100%; max-height: 75vh; overflow-y: auto; overflow-x: hidden; }
         
         .table-pro { table-layout: fixed; width: 100%; font-size: 0.75rem; margin-bottom: 0; border-collapse: separate; border-spacing: 0;}
-        .table-pro thead th { position: sticky; top: 0; background-color: #f1f3f5; z-index: 10; border-bottom: 2px solid #e5e7eb; color: var(--primary-color); font-size: 0.7rem; text-transform: uppercase; padding: 0.8rem 0.2rem; font-weight: 600; text-align: center;}
+        .table-pro thead th { position: sticky; top: 0; background-color: #f1f3f5; z-index: 10; border-bottom: 1px solid #e5e7eb; color: var(--text-dark); font-size: 0.7rem; text-transform: uppercase; padding: 0.8rem 0.2rem; font-weight: 600; text-align: center;}
         .table-pro td { padding: 0.6rem 0.2rem; vertical-align: middle; border-bottom: 1px solid #f0f0f5; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        /* Ajuste matemático para sumar 100% sin barras abajo */
         .w-prod { width: 18%; text-align: left !important; padding-left: 1rem !important; }
         .w-col { width: 7.5%; }
         .w-desc { width: 6.5%; }
         .w-precio { width: 10.5%; text-align: right !important; padding-right: 1rem !important; }
         
-        .price-tag { font-weight: 600; color: var(--primary-color); font-size: 0.95rem; }
-        .price-secondary { color: #4b5563; }
-        .btn-edit-margen { background: rgba(59, 56, 116, 0.08); color: var(--primary-color); border: 1px solid rgba(59, 56, 116, 0.2); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: 0.2s; width: 100%;}
-        .btn-edit-margen:hover { background: var(--primary-color); color: white; }
+        .price-tag { font-weight: 600; color: var(--text-dark); font-size: 0.95rem; }
+        .price-secondary { color: #6b7280; }
+        
+        .btn-edit-margen { background: #f3f4f6; color: var(--text-dark); border: 1px solid #d1d5db; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: 0.2s; width: 100%;}
+        .btn-edit-margen:hover { background: #e5e7eb; border-color: #9ca3af; }
         
         .badges-wrapper { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
         .badge-custom { font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: 500; display: inline-flex; align-items: center; gap: 3px; background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb;}
         
-        .row-coyuntural td { background-color: #fdf2f8 !important; }
-        .btn-coyuntural-active { background-color: #dc2626; color: white; border-color: #b91c1c; }
+        /* Coyuntural Sobrio */
+        .row-coyuntural td { background-color: #f8fafc !important; }
+        .btn-coyuntural-active { background-color: #4b5563; color: white; border-color: #374151; }
         .btn-coyuntural-inactive { background-color: #ffffff; color: #4b5563; border: 1px solid #d1d5db; }
         
-        .btn-accion { background: #ffffff; border: 1px solid #d1d5db; border-radius: 6px; padding: 3px 5px; font-weight: 500; color: #374151; font-size: 0.75rem; width: 100%; transition: 0.2s;}
+        .btn-accion { background: #ffffff; border: 1px solid #d1d5db; border-radius: 4px; padding: 3px 5px; font-weight: 500; color: #374151; font-size: 0.75rem; width: 100%; transition: 0.2s;}
         .btn-accion:hover { background: #f3f4f6; border-color: #9ca3af; }
 
         @media (max-width: 768px) { .mobile-hide-text { display: none !important; } }
@@ -76,23 +76,23 @@
         </div>
 
         <div class="d-flex gap-2 gap-md-3 align-items-center">
-            <button class="btn btn-warning btn-sm rounded fw-bold shadow-sm" onclick="toggleMoneda()">
+            <button class="btn btn-outline-secondary btn-sm rounded fw-bold shadow-sm px-3" onclick="toggleMoneda()">
                 <i class="bi bi-currency-exchange"></i> <span id="lblMoneda" class="mobile-hide-text ms-1">Original</span>
             </button>
 
             {% if current_user.role == 'TC' or current_user.role == 'SuperAdmin' %}
-            <button class="btn btn-dark btn-sm rounded fw-bold shadow-sm" onclick="abrirModalTC()">
+            <button class="btn btn-dark btn-sm rounded fw-bold shadow-sm px-3" onclick="abrirModalTC()">
                 TC: <span id="valTC">3.80</span> <i class="bi bi-pencil-fill ms-1" style="font-size:0.6rem;"></i>
             </button>
             {% endif %}
 
             {% if current_user.role == 'SuperAdmin' %}
-            <a href="/usuarios" class="btn bg-brand text-white btn-sm rounded px-3 fw-bold shadow-sm">
+            <a href="/usuarios" class="btn btn-outline-secondary btn-sm rounded px-3 fw-bold shadow-sm">
                 <i class="bi bi-people-fill"></i> <span class="mobile-hide-text ms-1">Personal</span>
             </a>
             {% endif %}
 
-            <button class="btn btn-outline-danger btn-sm rounded px-3 fw-bold" onclick="toggleAdminPanel()">
+            <button class="btn btn-outline-dark btn-sm rounded px-3 fw-bold shadow-sm" onclick="toggleAdminPanel()">
                 <i class="bi bi-database-fill"></i> <span class="mobile-hide-text ms-1">Datos</span>
             </button>
             <a href="/logout" class="btn btn-light btn-sm border rounded px-2 fw-bold text-dark">
@@ -105,28 +105,28 @@
 <div class="container-fluid py-4 py-md-5" style="max-width: 1400px;">
     
     <div id="adminPanel" class="mb-4 mb-md-5" style="display:none;">
-        <div class="card-pro p-3 p-md-4 border-top border-4 border-danger">
+        <div class="card-pro p-3 p-md-4 border-top border-4 border-secondary">
             <div class="d-flex justify-content-between mb-3 mb-md-4 align-items-center">
-                <h6 class="fw-bold text-danger m-0"><i class="bi bi-shield-lock-fill me-2"></i>Herramientas de Gerencia</h6>
+                <h6 class="fw-bold text-dark m-0"><i class="bi bi-database-fill-gear me-2"></i>Herramientas de Gerencia</h6>
                 <button class="btn-close" onclick="toggleAdminPanel()"></button>
             </div>
             <div class="row g-2 g-md-3">
                 <div class="col-12 col-md-4">
                     <div class="upload-box" onclick="document.getElementById('fileMaestro').click()">
-                        <div class="mb-1 text-primary"><i class="bi bi-cloud-arrow-up-fill fs-3"></i></div>
+                        <div class="mb-1 text-brand"><i class="bi bi-cloud-arrow-up-fill fs-3"></i></div>
                         <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.85rem;">Subir Excel Maestro</h6>
                         <input type="file" id="fileMaestro" class="d-none" accept=".xlsx, .csv" onchange="subirArchivo()">
                     </div>
                 </div>
                 <div class="col-6 col-md-4">
                     <div class="upload-box" onclick="abrirModalVariante()">
-                        <div class="mb-1 text-success"><i class="bi bi-plus-circle-dotted fs-3"></i></div>
+                        <div class="mb-1 text-brand"><i class="bi bi-file-earmark-plus-fill fs-3"></i></div>
                         <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.85rem;">Crear Producto</h6>
                     </div>
                 </div>
                 <div class="col-6 col-md-4">
                     <div class="upload-box" onclick="abrirModalExportar()">
-                        <div class="mb-1 text-secondary"><i class="bi bi-file-earmark-excel fs-3"></i></div>
+                        <div class="mb-1 text-brand"><i class="bi bi-file-earmark-excel-fill fs-3"></i></div>
                         <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.85rem;">Exportar Excel</h6>
                     </div>
                 </div>
@@ -147,7 +147,7 @@
         </div>
     </div>
 
-    <div class="table-container shadow-sm mx-auto">
+    <div class="table-container mx-auto">
         <div class="scroll-wrapper">
             <table class="table table-pro mb-0">
                 <thead>
@@ -184,11 +184,11 @@
             </div>
             <div class="modal-body p-4 bg-light text-center">
                 <label id="modalEdicionLabel" class="form-label small fw-bold text-muted text-uppercase mb-2">Nuevo Valor</label>
-                <input type="number" id="inputEdicionUniversal" class="form-control text-center fw-bold text-primary fs-5 rounded" step="any" placeholder="0.00">
+                <input type="number" id="inputEdicionUniversal" class="form-control text-center fw-bold text-dark fs-5 rounded" step="any" placeholder="0.00">
             </div>
             <div class="modal-footer bg-light border-0">
                 <button type="button" class="btn btn-secondary btn-sm rounded px-3 fw-bold" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary btn-sm rounded px-4 fw-bold" style="background:var(--primary-color); border:none;" onclick="guardarEdicionUniversal()">Guardar</button>
+                <button type="button" class="btn btn-dark btn-sm rounded px-4 fw-bold" border:none;" onclick="guardarEdicionUniversal()">Guardar</button>
             </div>
         </div>
     </div>
@@ -213,7 +213,7 @@
         </div>
         <div class="modal-footer bg-light border-0">
           <button type="button" class="btn btn-secondary btn-sm rounded px-4 fw-bold" data-bs-dismiss="modal">Cancelar</button>
-          <button type="button" class="btn btn-primary btn-sm rounded px-4 fw-bold" style="background:var(--primary-color); border:none;" onclick="guardarVariante()">Guardar</button>
+          <button type="button" class="btn btn-dark btn-sm rounded px-4 fw-bold" onclick="guardarVariante()">Guardar</button>
         </div>
       </div>
     </div>
@@ -228,13 +228,13 @@
         </div>
         <div class="modal-body bg-light p-4">
           <div class="d-flex justify-content-between mb-3">
-              <button class="btn btn-sm btn-outline-primary rounded fw-bold bg-white" onclick="marcarTodosExportar(true)">Marcar Todos</button>
+              <button class="btn btn-sm btn-outline-secondary rounded fw-bold bg-white" onclick="marcarTodosExportar(true)">Marcar Todos</button>
               <button class="btn btn-sm btn-outline-secondary rounded fw-bold bg-white" onclick="marcarTodosExportar(false)">Desmarcar Todos</button>
           </div>
           <div id="listaProductosExportar" class="border rounded p-3 bg-white" style="max-height: 350px; overflow-y: auto; border-color:#e5e7eb;"></div>
         </div>
         <div class="modal-footer bg-light border-0">
-          <button type="button" class="btn btn-success btn-sm rounded px-4 fw-bold w-100" onclick="procesarDescarga()">Descargar Excel</button>
+          <button type="button" class="btn btn-dark btn-sm rounded px-4 fw-bold w-100" onclick="procesarDescarga()">Descargar Excel</button>
         </div>
       </div>
     </div>
@@ -243,7 +243,6 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     let timerBusqueda, allProductsData = [], modoMoneda = 'ORIGINAL', tcGlobal = 3.80;
-    
     let editContext = { tipo: '', nombre: '' };
     const modalEdicion = new bootstrap.Modal(document.getElementById('modalEdicionUniversal'));
 
@@ -330,7 +329,7 @@
                 let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' 
                     ? `<span class="badge-custom"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
                 let badgeEmpresa = p.empresa && p.empresa !== "MANUAL" 
-                    ? `<span class="badge-custom" style="background-color: #f3f4f6; color: #374151;"><i class="bi bi-building"></i> ${p.empresa}</span>` : '';
+                    ? `<span class="badge-custom" style="background-color: #f8fafc; color: #4b5563;"><i class="bi bi-building"></i> ${p.empresa}</span>` : '';
 
                 let hasCoyuntural = vcy > 0;
                 let textCoyuntural = hasCoyuntural ? `${sim}${vcy.toFixed(3)}` : `${sim}${vt.toFixed(3)}`;
@@ -344,8 +343,8 @@
                     <td class="text-start ps-2" title="${p.nombre}">
                         <div class="fw-bold text-dark" style="font-size: 0.85rem;">
                             ${p.nombre} 
-                            <button class="btn btn-sm btn-light border p-1 py-0 ms-1" style="color:var(--primary-color);" onclick="clonarProducto('${safeName}')" title="Clonar"><i class="bi bi-copy"></i></button>
-                            <button class="btn btn-sm btn-light border text-danger p-1 py-0" onclick="eliminarProducto('${safeName}')" title="Eliminar"><i class="bi bi-trash-fill"></i></button>
+                            <button class="btn btn-sm btn-light border p-1 py-0 ms-1 text-secondary" onclick="clonarProducto('${safeName}')" title="Clonar"><i class="bi bi-copy"></i></button>
+                            <button class="btn btn-sm btn-light border text-secondary p-1 py-0" onclick="eliminarProducto('${safeName}')" title="Eliminar"><i class="bi bi-trash-fill"></i></button>
                         </div>
                         <div class="badges-wrapper mt-1">${badgeEmpresa} ${badgeCodigo}</div>
                     </td>
@@ -410,7 +409,7 @@
     function abrirModalExportar() {
         let divLista = document.getElementById('listaProductosExportar');
         divLista.innerHTML = '';
-        allProductsData.forEach(p => { divLista.innerHTML += `<div class="form-check mb-1 border-bottom border-light"><input class="form-check-input chk-exportar" type="checkbox" value="${p.nombre}" checked> <label class="form-check-label text-dark fw-bold" style="font-size:0.8rem;">${p.nombre}</label></div>`; });
+        allProductsData.forEach(p => { divLista.innerHTML += `<div class="form-check mb-1 border-bottom border-light"><input class="form-check-input chk-exportar" type="checkbox" value="${p.nombre}" checked> <label class="form-check-label text-dark fw-bold" style="font-size:0.85rem;">${p.nombre}</label></div>`; });
         new bootstrap.Modal(document.getElementById('modalExportar')).show();
     }
     
