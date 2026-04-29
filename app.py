@@ -17,7 +17,7 @@ except AttributeError: pass
 app = Flask(__name__, template_folder='templates')
 CORS(app)
 
-app.config['SECRET_KEY'] = 'GLI_SECURITY_MASTER_2026_FINAL'
+app.config['SECRET_KEY'] = 'GLI_EXECUTIVE_PRO_2026'
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///gli_database.sqlite')
 if app.config['SQLALCHEMY_DATABASE_URI'] and app.config['SQLALCHEMY_DATABASE_URI'].startswith("postgres://"):
     app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace("postgres://", "postgresql://", 1)
@@ -28,7 +28,7 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
 # =========================================================
-# 📊 MODELOS DE DATOS
+# 📊 MODELOS DE BASE DE DATOS
 # =========================================================
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -72,16 +72,16 @@ with app.app_context(): db.create_all()
 def load_user(user_id): return User.query.get(int(user_id))
 
 # =========================================================
-# 🛠️ LÓGICA DE TC Y FLETES
+# 🛠️ FUNCIONES DE APOYO Y FLETES
 # =========================================================
 def get_tc_actual():
-    conf = Config.query.filter_by(clave='tipo_cambio').first()
-    if not conf:
-        conf = Config(clave='tipo_cambio', valor=3.80)
-        db.session.add(conf); db.session.commit()
-    return conf.valor
+    c = Config.query.filter_by(clave='tipo_cambio').first()
+    if not c:
+        c = Config(clave='tipo_cambio', valor=3.80)
+        db.session.add(c); db.session.commit()
+    return c.valor
 
-TARIFA_FLETE_DEFECTO = 0.08
+TARIFA_FLETE_DEFECTO = 0.11
 
 def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
     if "CRAMER" in str(nombre_odoo).upper(): return "CRAMER"
@@ -94,7 +94,7 @@ def get_currency_info(nombre, proveedor):
     es_usd = True
     if proveedor == "SACCO" or "SACCO" in nombre.upper():
         es_usd = False
-        for exc in ["LYOTO", "LYOFASTAB", "LYOFASTY", "MIXPROFUXION"]:
+        for exc in ["LYOTO", "LYOFAST", "MIXPROFUXION"]:
             if exc in n_clean: es_usd = True; break
     return ("$", "USD") if es_usd else ("S/", "PEN")
 
@@ -118,7 +118,7 @@ def parse_percentage(val, default=0.0):
     except: return default
 
 # =========================================================
-# 🔐 RUTAS Y SEGURIDAD PRINCIPAL
+# 🔐 RUTAS Y SEGURIDAD
 # =========================================================
 @app.route('/setup-admin')
 def setup_admin():
@@ -131,11 +131,11 @@ def setup_admin():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        user = User.query.filter_by(email=request.form.get('email')).first()
-        if user and check_password_hash(user.password, request.form.get('password')):
-            login_user(user)
+        u = User.query.filter_by(email=request.form.get('email')).first()
+        if u and check_password_hash(u.password, request.form.get('password')):
+            login_user(u)
             return redirect(url_for('home'))
-        flash('Credenciales incorrectas')
+        flash('Acceso denegado')
     return render_template('login.html')
 
 @app.route('/logout')
@@ -145,21 +145,18 @@ def logout(): logout_user(); return redirect(url_for('login'))
 @app.route('/')
 def home():
     if not current_user.is_authenticated: return redirect(url_for('login'))
-    # 🔴 El rol TC y Vendedor van a la misma vista (ventas)
     if current_user.role in ['Vendedor', 'TC']: return redirect(url_for('vista_vendedor'))
     return redirect(url_for('vista_admin'))
 
 @app.route('/admin')
 @login_required
 def vista_admin():
-    # 🔴 El rol TC ya NO puede entrar aquí
     if current_user.role not in ['Admin', 'SuperAdmin']: return redirect(url_for('home'))
     return render_template('index_admin.html')
 
 @app.route('/vendedor')
 @login_required
-def vista_vendedor(): 
-    if current_user.role not in ['Vendedor', 'TC', 'Admin', 'SuperAdmin']: return redirect(url_for('home'))
+def vista_vendedor():
     return render_template('index_vendedor.html')
 
 # =========================================================
@@ -189,8 +186,7 @@ def editar_usuario():
     u = User.query.get(d['id'])
     if u:
         u.role = d['role']
-        if d.get('password') and d['password'].strip() != "":
-            u.password = generate_password_hash(d['password'])
+        if d.get('password'): u.password = generate_password_hash(d['password'])
         db.session.commit()
     return jsonify({"success": True})
 
@@ -206,17 +202,14 @@ def eliminar_usuario(id):
 @app.route('/api/update-tc', methods=['POST'])
 @login_required
 def update_tc():
-    # 🔴 TC y SuperAdmin pueden actualizar el valor de moneda
-    if current_user.role not in ['TC', 'SuperAdmin']: return jsonify({"error": "No autorizado"}), 403
-    try:
-        conf = Config.query.filter_by(clave='tipo_cambio').first()
-        if not conf:
-            conf = Config(clave='tipo_cambio', valor=3.80)
-            db.session.add(conf)
-        conf.valor = float(request.json['tc'])
-        db.session.commit()
-        return jsonify({"success": True, "tc": conf.valor})
-    except Exception as e: return jsonify({"error": str(e)}), 400
+    if current_user.role not in ['TC', 'SuperAdmin']: return jsonify({"error": "No"}), 403
+    c = Config.query.filter_by(clave='tipo_cambio').first()
+    if not c:
+        c = Config(clave='tipo_cambio', valor=3.80)
+        db.session.add(c)
+    c.valor = float(request.json['tc'])
+    db.session.commit()
+    return jsonify({"success": True, "tc": c.valor})
 
 def is_admin_api():
     return current_user.is_authenticated and current_user.role in ['Admin', 'SuperAdmin']
@@ -273,7 +266,7 @@ def subir_maestro():
 @app.route('/api/crear-producto', methods=['POST'])
 @login_required
 def crear_producto():
-    if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
+    if not is_admin_api(): return jsonify({"error": "No"}), 403
     d = request.json
     nombre = d['nombre'].upper().strip()
     if Producto.query.filter_by(nombre=nombre).first(): return jsonify({"error": "Ya existe"}), 400
@@ -331,7 +324,6 @@ def eliminar_producto():
         db.session.commit()
     return jsonify({"success": True})
 
-# --- EDICIÓN EN TABLA ---
 @app.route('/api/editar-<tipo>', methods=['POST'])
 @login_required
 def editar_celdas(tipo):
@@ -385,7 +377,7 @@ def buscar():
         })
     
     res.sort(key=lambda x: x['nombre'])
-    return jsonify({"productos": res, "ultima_actualizacion": datetime.now().strftime("%d/%m/%Y %H:%M"), "tc_actual": tc})
+    return jsonify({"productos": res, "tc_actual": tc})
 
 if __name__ == '__main__':
     app.run(debug=True)
