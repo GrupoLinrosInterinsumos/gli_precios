@@ -169,9 +169,6 @@ def vista_admin():
 def vista_vendedor():
     return render_template('index_vendedor.html')
 
-# =========================================================
-# ⚙️ GESTIÓN DE USUARIOS Y TC
-# =========================================================
 @app.route('/usuarios')
 @login_required
 def gestion_usuarios():
@@ -253,7 +250,8 @@ def subir_maestro():
         
         c_base = robust_numeric(row.get('costo real', 0))
         c_fab = robust_numeric(row.get('costo de fabricacion', 0))
-        if c_base + c_fab <= 0.0001: continue
+        
+        # 🔴 AQUÍ SE QUITÓ EL BLOQUEO: AHORA SUBE AUNQUE NO TENGA COSTO
         
         emp = str(row.get('empresa', '')).strip().upper()
         p = Producto.query.filter_by(nombre=nombre).first()
@@ -348,7 +346,7 @@ def editar_celdas(tipo):
     val = float(request.json.get('valor', request.json.get('costo', request.json.get('merma', request.json.get('margen', 0)))))
     if tipo == 'margen': p.margen_man = val / 100.0
     elif tipo == 'merma': p.merma_pct_man = val / 100.0
-    elif tipo == 'costo-real': p.costo_base_man = val if val > 0 else None
+    elif tipo == 'costo-real': p.costo_base_man = val if val >= 0 else None
     elif tipo == 'costo-fab': p.costo_fab_man = val if val >= 0 else None
     elif tipo == 'costo-coyuntural': p.coyuntural_man = val if val > 0 else -1.0
     elif tipo == 'dscto': p.dscto_pv_man = val / 100.0
@@ -381,9 +379,12 @@ def buscar():
         merma_monto = c_base * p.merma_pct_man
         c_total = c_base + c_fab + merma_monto
         
-        # 🔴 GENERADOR DE ALERTAS
+        # 🔴 GENERADOR AUTOMÁTICO DE ALERTAS (AHORA SON 2 TIPOS)
         if coyun > 0 and c_total > coyun:
             db.session.add(Alerta(fecha="ACTIVA", msg="Superó Costo Coyuntural", producto=p.nombre, tipo="ACTIVA"))
+            
+        if (c_base + c_fab) <= 0.0001:
+            db.session.add(Alerta(fecha="ACTIVA", msg="Sin Costo Asignado", producto=p.nombre, tipo="ACTIVA"))
             
         c_ref = coyun if (coyun > 0 and c_total <= coyun) else c_total
         
@@ -404,7 +405,7 @@ def buscar():
     db.session.commit()
     res.sort(key=lambda x: x['nombre'])
     
-    # 🔴 OBTENER ALERTAS
+    # 🔴 EXTRAER ALERTAS AL FRONTEND
     alertas_activas = [{"producto": a.producto, "msg": a.msg} for a in Alerta.query.filter_by(tipo="ACTIVA").all()]
     
     return jsonify({"productos": res, "tc_actual": tc, "alertas": alertas_activas})
