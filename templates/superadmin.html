@@ -11,25 +11,25 @@
     <style>
         :root { --primary-color: #3b3874; --bg-color: #f4f6f9; }
         body { background-color: var(--bg-color); font-family: 'Inter', sans-serif; overflow-x: hidden; }
-        .navbar-custom { background: #ffffff; border-bottom: 2px solid var(--primary-color); padding: 0.8rem 1.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
-        .card-custom { border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); background: #fff; }
-        .btn-primary-custom { background: var(--primary-color); border: none; padding: 0.8rem; border-radius: 6px; font-weight: 700; color: white; transition: 0.2s; width: 100%; font-size: 0.95rem; }
+        .navbar-custom { background: #ffffff; border-bottom: 1px solid #e5e7eb; padding: 0.6rem 1.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
+        .card-custom { border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); background: #fff; }
+        .btn-primary-custom { background: var(--primary-color); border: none; padding: 0.7rem; border-radius: 6px; font-weight: 700; color: white; transition: 0.2s; width: 100%; font-size: 0.85rem; }
         .btn-primary-custom:hover { background: #2a2852; color: white; }
         
         .form-control, .form-select { border-radius: 6px; border: 1px solid #d1d5db; background: #f9fafb;}
         .form-control:focus, .form-select:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(59, 56, 116, 0.1); background: #ffffff;}
         
-        .table-users { font-size: 0.9rem; }
-        .table-users th { background: #374151; color: #ffffff; text-transform: uppercase; font-size: 0.75rem; padding: 12px; font-weight: 700; letter-spacing: 0.5px;}
-        .table-users td { vertical-align: middle; padding: 15px 12px; border-bottom: 1px solid #e5e7eb; }
-        .badge-role { font-size: 0.75rem; padding: 5px 10px; border-radius: 4px; font-weight: 700; }
+        .table-users { font-size: 0.85rem; }
+        .table-users th { background: #374151; color: #ffffff; text-transform: uppercase; font-size: 0.7rem; padding: 10px; font-weight: 700; letter-spacing: 0.5px;}
+        .table-users td { vertical-align: middle; padding: 12px 10px; border-bottom: 1px solid #e5e7eb; }
+        .badge-role { font-size: 0.7rem; padding: 4px 8px; border-radius: 4px; font-weight: 700; }
     </style>
 </head>
 <body>
 
 <nav class="navbar-custom d-flex justify-content-between align-items-center sticky-top mb-4">
     <div class="fw-bold fs-4" style="color: var(--primary-color);">GLI <span class="fs-6 text-muted fw-normal ms-2">Recursos Humanos</span></div>
-    <a href="/admin" class="btn btn-outline-secondary btn-sm px-4 fw-bold shadow-sm">
+    <a href="/admin" class="btn btn-outline-secondary btn-sm rounded px-4 fw-bold shadow-sm">
         <i class="bi bi-arrow-left me-1"></i> Volver al Panel
     </a>
 </nav>
@@ -86,11 +86,11 @@
                                 {% else %}<span class="badge-role" style="background:#fee2e2; color:#991b1b;">SUPERADMIN</span>{% endif %}
                             </td>
                             <td class="text-end pe-4">
-                                <button onclick="abrirModalEdicion({{ u.id }}, '{{ u.email }}', '{{ u.role }}')" class="btn btn-sm btn-light border" title="Editar Rol y Clave">
+                                <button onclick="abrirModalEdicion({{ u.id }}, '{{ u.email }}', '{{ u.role }}')" class="btn btn-sm btn-light border rounded" title="Editar Rol y Clave">
                                     <i class="bi bi-gear-fill" style="color:var(--primary-color);"></i>
                                 </button>
                                 {% if u.id != current_user.id %}
-                                <button onclick="eliminarUsuario({{ u.id }}, '{{ u.email }}')" class="btn btn-sm btn-light border ms-1" title="Revocar Acceso">
+                                <button onclick="eliminarUsuario({{ u.id }}, '{{ u.email }}')" class="btn btn-sm btn-light border ms-1 rounded" title="Revocar Acceso">
                                     <i class="bi bi-trash3-fill text-danger"></i>
                                 </button>
                                 {% else %}
@@ -108,7 +108,7 @@
 
 <div class="modal fade" id="modalEditarUsuario" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
+        <div class="modal-content border-0 shadow-lg rounded">
             <div class="modal-header" style="background: #374151; color: white;">
                 <h6 class="modal-title fw-bold"><i class="bi bi-gear-fill me-2"></i>Editar Usuario</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -135,8 +135,8 @@
                 </div>
             </div>
             <div class="modal-footer border-0 bg-light">
-                <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary px-4 fw-bold" style="background: var(--primary-color); border:none;" onclick="guardarEdicionUsuario()">Guardar Cambios</button>
+                <button type="button" class="btn btn-secondary btn-sm rounded px-3 fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-sm rounded px-4 fw-bold" style="background: var(--primary-color); border:none;" onclick="guardarEdicionUsuario()">Guardar Cambios</button>
             </div>
         </div>
     </div>
