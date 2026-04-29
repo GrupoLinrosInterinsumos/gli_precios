@@ -3,16 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GLI | Panel de Ventas</title>
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <title>GLI | Lista de Precios</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 
     <style>
         :root { --primary-color: #059669; --bg-color: #f8f9fa; --text-dark: #2b2b36; }
-        body { background-color: var(--bg-color); font-family: 'Inter', sans-serif; color: var(--text-dark); overflow-x: hidden; }
+        body { background-color: var(--bg-color); font-family: 'Inter', sans-serif; color: var(--text-dark); }
         .navbar { background-color: #ffffff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 0.8rem 0; }
         .brand-logo { font-weight: 800; font-size: 1.5rem; color: var(--primary-color); letter-spacing: -0.5px; line-height: 1;}
         
@@ -21,26 +19,19 @@
         .search-input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.15); }
         .search-icon { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: var(--primary-color); font-size: 1.3rem; }
         
-        /* 🚫 TABLA SIN SCROLL HORIZONTAL 🚫 */
         .table-container { border-radius: 12px; overflow: hidden; background: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.06); width: 100%; }
-        .scroll-wrapper { max-height: 75vh; overflow-y: auto; }
+        .scroll-wrapper { max-height: 75vh; overflow-x: auto; overflow-y: auto; }
         
-        .table-pro { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 0; }
-        .table-pro thead th { position: sticky; top: 0; background-color: #f8f9fa; z-index: 10; border-bottom: 2px solid #e5e7eb; color: var(--primary-color); font-size: 0.75rem; text-transform: uppercase; padding: 1rem 0.2rem; text-align: center; }
-        .table-pro td { padding: 0.8rem 0.2rem; vertical-align: middle; border-bottom: 1px solid #f0f0f5; font-size: 0.95rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .table-pro { border-collapse: separate; border-spacing: 0; min-width: 1100px; width: 100%; }
+        .table-pro thead th { position: sticky; top: 0; background-color: #f8f9fa; z-index: 10; border-bottom: 2px solid #e5e7eb; color: var(--primary-color); font-size: 0.75rem; text-transform: uppercase; padding: 1rem 0.5rem; }
+        .table-pro td { padding: 1rem 0.5rem; vertical-align: middle; border-bottom: 1px solid #f0f0f5; font-size: 0.95rem; }
         
-        /* ANCHOS PROPORCIONALES PARA EVITAR EL SCROLL */
-        .w-prod { width: 32%; text-align: left !important; padding-left: 1.5rem !important; }
-        .w-simulador { width: 14%; }
-        .w-desc { width: 10%; }
-        .w-precio { width: 17%; text-align: right !important; padding-right: 1.5rem !important; }
-
         .price-tag { font-weight: 800; color: var(--primary-color); font-size: 1.15rem; }
         .price-secondary { color: #6b7280; font-weight: 700;}
         .sede-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.5px; opacity: 0.7; }
         
-        .input-simulador { width: 70px; text-align: center; font-weight: bold; color: #d97706; background-color: #fffbeb; border: 2px solid #fde68a; border-radius: 8px; padding: 4px; font-size: 0.9rem; transition: 0.2s; margin: 0 auto;}
-        .input-simulador:focus { outline: none; border-color: #d97706; box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.2); }
+        .input-simulador { width: 70px; text-align: center; font-weight: bold; color: #d97706; background-color: #fffbeb; border: 2px solid #fde68a; border-radius: 8px; padding: 4px; font-size: 0.9rem; margin: 0 auto;}
+        .input-simulador:focus { outline: none; border-color: #d97706; }
         
         .badge-custom { font-size: 0.7rem; padding: 3px 6px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb; }
     </style>
@@ -83,7 +74,6 @@
             <i class="bi bi-search search-icon"></i>
             <input type="text" id="txtBuscar" class="form-control search-input" placeholder="Buscar producto o código..." onkeyup="buscar()">
         </div>
-        <p class="text-muted mt-3 mb-0" style="font-size: 0.85rem;">💡 Escribe un porcentaje en <b>% Dscto</b> para ver los precios finales al cliente.</p>
     </div>
 
     <div class="table-container shadow-sm mx-auto">
@@ -91,12 +81,12 @@
             <table class="table table-pro mb-0">
                 <thead>
                     <tr>
-                        <th class="w-prod">Producto Detallado</th>
-                        <th class="w-simulador"><i class="bi bi-calculator-fill"></i> % Dscto (Venta)</th>
-                        <th class="w-desc">% P.V.</th>
-                        <th class="w-desc">% Dist.</th>
-                        <th class="w-precio">Precio Lima</th>
-                        <th class="w-precio">Provincia</th>
+                        <th style="width: 40%; padding-left: 1.5rem; text-align: left;">Producto Detallado</th>
+                        <th style="width: 15%; text-align: center;"><i class="bi bi-calculator-fill"></i> % Dscto (Venta)</th>
+                        <th style="width: 10%; text-align: center;">% P.V.</th>
+                        <th style="width: 10%; text-align: center;">% Dist.</th>
+                        <th style="width: 12.5%; text-align: right;">Precio Lima</th>
+                        <th style="width: 12.5%; text-align: right; padding-right: 1.5rem;">Provincia</th>
                     </tr>
                 </thead>
                 <tbody id="tablaResultados"></tbody>
@@ -158,35 +148,28 @@
             let sim = p.moneda_simbolo, txt = p.moneda_texto;
             let vl = p.precio_lima, vp = p.precio_provincia;
 
-            // CONVERSOR VISUAL
             if (modoMoneda === 'PEN' && txt === 'USD') { vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN'; } 
             else if (modoMoneda === 'USD' && txt === 'PEN') { vl/=tcGlobal; vp/=tcGlobal; sim='$'; txt='USD'; }
 
-            let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' 
-                ? `<span class="badge-custom mt-1"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
-
+            let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' ? `<span class="badge-custom mt-1"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
             let rowId = `row_${index}`;
 
             htmlContent += `
             <tr>
-                <td class="w-prod" title="${p.nombre}">
+                <td style="padding-left: 1.5rem;" title="${p.nombre}">
                     <div class="fw-bold text-dark text-truncate" style="font-size: 0.95rem;">${p.nombre}</div>
                     ${badgeCodigo}
                 </td>
-                
-                <td class="w-simulador">
+                <td class="text-center">
                     <input type="number" id="input_dscto_${rowId}" class="form-control form-control-sm input-simulador" placeholder="0" oninput="aplicarDescuentoVendedor('${rowId}', ${vl}, ${vp}, '${sim}')">
                 </td>
-                
-                <td class="w-desc fw-bold text-secondary">${p.dscto_pv}%</td>
-                <td class="w-desc fw-bold text-secondary">${p.dscto_dist}%</td>
-
-                <td class="w-precio">
+                <td class="text-center fw-bold text-secondary">${p.dscto_pv}%</td>
+                <td class="text-center fw-bold text-secondary">${p.dscto_dist}%</td>
+                <td class="text-end">
                     <div id="precio_lima_${rowId}" class="price-tag">${sim} ${vl.toFixed(2)}</div>
                     <div class="text-muted sede-label">LIMA (${txt})</div>
                 </td>
-
-                <td class="w-precio">
+                <td class="text-end pe-4">
                     <div id="precio_prov_${rowId}" class="price-tag price-secondary">${sim} ${vp.toFixed(2)}</div>
                     <div class="text-muted sede-label">PROV (${txt})</div>
                 </td>
