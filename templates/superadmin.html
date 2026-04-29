@@ -2,7 +2,6 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GLI | Gestión de Personal</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -10,7 +9,7 @@
     
     <style>
         :root { --primary-color: #3b3874; --bg-color: #f4f6f9; }
-        body { background-color: var(--bg-color); font-family: 'Poppins', sans-serif; overflow-x: hidden; }
+        body { background-color: var(--bg-color); font-family: 'Poppins', sans-serif; overflow-x: hidden; display: flex; flex-direction: column; min-height: 100vh;}
         .navbar-custom { background: #ffffff; border-bottom: 1px solid #e5e7eb; padding: 0.6rem 1.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
         .card-custom { border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); background: #fff; }
         .btn-primary-custom { background: var(--primary-color); border: none; padding: 0.7rem; border-radius: 6px; font-weight: 600; color: white; transition: 0.2s; width: 100%; font-size: 0.85rem; }
@@ -23,6 +22,9 @@
         .table-users th { background: #f1f3f5; color: var(--text-dark); text-transform: uppercase; font-size: 0.7rem; padding: 10px; font-weight: 600; letter-spacing: 0.5px;}
         .table-users td { vertical-align: middle; padding: 12px 10px; border-bottom: 1px solid #e5e7eb; }
         .badge-role { font-size: 0.65rem; padding: 4px 8px; border-radius: 4px; font-weight: 600; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+        
+        main { flex-grow: 1; }
+        .footer-copyright { background: transparent; padding: 1.5rem 0; text-align: center; font-size: 0.75rem; color: #9ca3af; font-weight: 500; letter-spacing: 0.3px; }
     </style>
 </head>
 <body>
@@ -34,7 +36,7 @@
     </a>
 </nav>
 
-<div class="container py-2 px-4">
+<main class="container py-2 px-4">
     <div class="row g-4">
         
         <div class="col-12 col-lg-4">
@@ -101,12 +103,16 @@
             </div>
         </div>
     </div>
-</div>
+</main>
+
+<footer class="footer-copyright">
+    &copy; 2026 Grupo Linros Interinsumos (GLI). Todos los derechos reservados.
+</footer>
 
 <div class="modal fade" id="modalEditarUsuario" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded">
-            <div class="modal-header bg-dark text-white border-0">
+            <div class="modal-header" style="background: #374151; color: white;">
                 <h6 class="modal-title fw-bold"><i class="bi bi-gear-fill me-2"></i>Editar Usuario</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
