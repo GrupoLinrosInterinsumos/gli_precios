@@ -2,112 +2,165 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GLI | Panel Administrador</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GLI | Panel de Administrador</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    <style>
-        :root { --primary: #524e9c; --bg: #f4f6f9; }
-        body { background: var(--bg); font-family: 'Inter', sans-serif; overflow-x: hidden; margin:0; }
-        
-        .navbar-custom { background: white; border-bottom: 1px solid #e5e7eb; padding: 0.7rem 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
-        .text-brand { color: var(--primary) !important; }
-        
-        /* HERRAMIENTAS */
-        .toolbar { background: white; padding: 1rem 1.5rem; border-radius: 12px; margin: 15px 15px 0 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
-        .search-input { border-radius: 50px; padding: 0.5rem 1rem 0.5rem 2.2rem; border: 1px solid #d1d5db; width: 350px; }
-        
-        /* 🚫 CERO SCROLL HORIZONTAL 🚫 */
-        .table-container { background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin: 15px; overflow: hidden; width: calc(100% - 30px); }
-        .table-pro { table-layout: fixed; width: 100%; margin-bottom: 0; font-size: 0.75rem; }
-        .table-pro th { background: #f8f9fa; color: var(--primary); padding: 0.7rem 0.2rem; text-align: center; border-bottom: 2px solid #e5e7eb; white-space: nowrap; }
-        .table-pro td { padding: 0.5rem 0.2rem; vertical-align: middle; border-bottom: 1px solid #f0f0f5; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        
-        /* ANCHOS EXACTOS */
-        .w-prod { width: 19%; text-align: left !important; padding-left: 1rem !important; }
-        .w-col { width: 8%; }
-        .w-margen { width: 7%; }
-        .w-precio { width: 10%; text-align: right !important; padding-right: 1rem !important; }
 
-        .btn-accion { background: transparent; border: 1px solid #e5e7eb; border-radius: 6px; padding: 2px 6px; font-weight: 700; color: #4b5563; width: 100%; font-size: 0.75rem;}
-        .btn-accion:hover { background: #f3f4f6; }
-        .btn-coyuntural-active { background-color: #fee2e2; color: #dc2626; border-color: #fca5a5; }
-        .btn-brand-bg { background: var(--primary); color: white; }
-        .btn-brand-bg:hover { background: #4338ca; color: white; }
+    <style>
+        :root { --primary-color: #524e9c; --accent-color: #635dbd; --bg-color: #f8f9fa; --white-pure: #ffffff; --text-dark: #2b2b36; --text-light: #6b7280; }
+        body { background-color: var(--bg-color); font-family: 'Inter', sans-serif; color: var(--text-dark); }
+        .text-brand { color: var(--primary-color) !important; }
+        .bg-brand { background-color: var(--primary-color) !important; color: white; }
+        .navbar { background-color: var(--white-pure); box-shadow: 0 2px 10px rgba(82, 78, 156, 0.08); padding: 0.8rem 0; }
+        .brand-logo { font-weight: 800; font-size: 1.5rem; color: var(--primary-color); letter-spacing: -0.5px; line-height: 1; cursor: default; }
+        .brand-subtitle { font-size: 0.7rem; color: var(--text-light); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; cursor: default; }
+        
+        .card-pro { background: var(--white-pure); border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(82, 78, 156, 0.05); }
+        .upload-box { border: 2px dashed #e5e7eb; border-radius: 12px; padding: 1.2rem; text-align: center; transition: 0.2s; cursor: pointer; background: var(--white-pure); height: 100%; display: flex; flex-direction: column; justify-content: center; }
+        .upload-box:hover { border-color: var(--accent-color); background-color: rgba(82, 78, 156, 0.02); }
+        
+        .search-container { position: relative; max-width: 700px; margin: 0 auto; width: 100%; }
+        .search-input { border: 1px solid #e5e7eb; border-radius: 50px; padding: 1.2rem 1.5rem 1.2rem 3.5rem; font-size: 1.05rem; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); transition: all 0.2s; width: 100%; }
+        .search-input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 4px rgba(82, 78, 156, 0.15); }
+        .search-icon { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: var(--primary-color); font-size: 1.3rem; }
+        
+        .table-container { border-radius: 12px; overflow: hidden; background: var(--white-pure); box-shadow: 0 10px 30px rgba(82, 78, 156, 0.06); }
+        .scroll-wrapper { max-height: 75vh; overflow-x: auto; overflow-y: auto; }
+        
+        /* 🔥 SCROLL HORIZONTAL RESTAURADO 🔥 */
+        .table-pro { border-collapse: separate; border-spacing: 0; min-width: 1300px; width: 100%; }
+        
+        .table-pro thead th { position: sticky; top: 0; background-color: #f8f9fa; z-index: 10; border-bottom: 2px solid #e5e7eb; color: #524e9c; font-size: 0.75rem; text-transform: uppercase; padding: 1.2rem 0.5rem; }
+        .table-pro td { padding: 1rem 0.5rem; vertical-align: middle; border-bottom: 1px solid #f0f0f5; font-size: 0.95rem; }
+        
+        .price-tag { font-weight: 700; color: var(--primary-color); font-size: 1.1rem; }
+        .price-secondary { color: #6b7280; }
+        .btn-edit-margen { background: rgba(82, 78, 156, 0.08); color: var(--primary-color); border: 1px solid rgba(82, 78, 156, 0.2); padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; cursor: pointer; }
+        .btn-edit-margen:hover { background: var(--primary-color); color: white; }
+        
+        .badges-wrapper { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .badge-custom { font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+        
+        .row-coyuntural td { background-color: #fff1f2 !important; }
+        .btn-coyuntural-active { background-color: #f43f5e; color: white; border-color: #f43f5e; }
+        .btn-coyuntural-inactive { background-color: #ffffff; color: #4b5563; border-color: #d1d5db; }
+        
+        @media (max-width: 768px) { .mobile-hide-text { display: none !important; } }
     </style>
 </head>
 <body>
 
-<nav class="navbar-custom d-flex justify-content-between align-items-center sticky-top">
-    <div class="d-flex align-items-center gap-3">
-        <div class="fw-bold fs-4 text-brand">GLI</div>
-        <span class="badge bg-light text-secondary border">Admin</span>
-    </div>
-    
-    <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-warning btn-sm fw-bold rounded-pill shadow-sm" onclick="toggleMoneda()">
-            <i class="bi bi-currency-exchange me-1"></i> <span id="lblMoneda">Moneda Original</span>
-        </button>
+<nav class="navbar sticky-top">
+    <div class="container d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2 gap-md-3">
+            <div class="bg-brand rounded-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                <i class="bi bi-shield-lock-fill fs-5"></i>
+            </div>
+            <div style="line-height: 1.1;">
+                <div class="brand-logo">GLI</div>
+                <div class="brand-subtitle">Administrador</div>
+            </div>
+        </div>
 
-        {% if current_user.role == 'TC' or current_user.role == 'SuperAdmin' %}
-        <button class="btn btn-dark btn-sm fw-bold rounded-pill shadow-sm" onclick="cambiarTC()">
-            TC: <span id="valTC">3.80</span> <i class="bi bi-pencil-fill ms-1" style="font-size:0.6rem;"></i>
-        </button>
-        {% endif %}
+        <div class="d-flex gap-2 gap-md-3 align-items-center">
+            
+            <button class="btn btn-warning rounded-pill px-3 fw-bold shadow-sm" onclick="toggleMoneda()">
+                <i class="bi bi-currency-exchange"></i> <span id="lblMoneda" class="mobile-hide-text ms-1">Original</span>
+            </button>
 
-        {% if current_user.role == 'SuperAdmin' %}
-        <a href="/usuarios" class="btn btn-brand-bg btn-sm rounded-pill px-3 fw-bold shadow-sm">Personal</a>
-        {% endif %}
-        
-        <a href="/logout" class="btn btn-light btn-sm border rounded-circle"><i class="bi bi-box-arrow-right"></i></a>
+            {% if current_user.role == 'TC' or current_user.role == 'SuperAdmin' %}
+            <button class="btn btn-dark rounded-pill px-3 fw-bold shadow-sm" onclick="cambiarTC()">
+                TC: <span id="valTC">3.80</span> <i class="bi bi-pencil-fill ms-1" style="font-size:0.6rem;"></i>
+            </button>
+            {% endif %}
+
+            {% if current_user.role == 'SuperAdmin' %}
+            <a href="/usuarios" class="btn bg-brand text-white rounded-pill px-3 px-md-4 fw-bold shadow-sm">
+                <i class="bi bi-people-fill"></i> <span class="mobile-hide-text ms-1">Personal</span>
+            </a>
+            {% endif %}
+
+            <button class="btn btn-outline-danger rounded-pill px-4 fw-bold" onclick="toggleAdminPanel()">
+                <i class="bi bi-database-fill"></i> <span class="mobile-hide-text ms-1">Gestión Datos</span>
+            </button>
+            <a href="/logout" class="btn btn-light border rounded-pill px-3 fw-bold text-dark">
+                <i class="bi bi-box-arrow-right"></i>
+            </a>
+        </div>
     </div>
 </nav>
 
-<div class="toolbar d-flex justify-content-between align-items-center">
-    <div class="position-relative">
-        <i class="bi bi-search position-absolute text-muted" style="left: 12px; top: 50%; transform: translateY(-50%);"></i>
-        <input type="text" id="txtBuscar" class="form-control form-control-sm search-input" placeholder="Buscar producto o código..." onkeyup="buscar()">
+<div class="container py-4 py-md-5" style="max-width: 1400px;">
+    
+    <div id="adminPanel" class="mb-4 mb-md-5" style="display:none;">
+        <div class="card-pro p-3 p-md-4 border-top border-4 border-danger">
+            <div class="d-flex justify-content-between mb-3 mb-md-4 align-items-center">
+                <h6 class="fw-bold text-danger m-0"><i class="bi bi-shield-lock-fill me-2"></i>Herramientas de Gerencia</h6>
+                <button class="btn-close" onclick="toggleAdminPanel()"></button>
+            </div>
+            <div class="row g-2 g-md-3">
+                <div class="col-12 col-md-4">
+                    <div class="upload-box" onclick="document.getElementById('fileMaestro').click()">
+                        <div class="mb-1 text-primary"><i class="bi bi-cloud-arrow-up-fill fs-3"></i></div>
+                        <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">Subir Excel Maestro</h6>
+                        <input type="file" id="fileMaestro" class="d-none" accept=".xlsx, .csv" onchange="subirArchivo()">
+                    </div>
+                </div>
+                <div class="col-6 col-md-4">
+                    <div class="upload-box" onclick="abrirModalVariante()">
+                        <div class="mb-1 text-success"><i class="bi bi-plus-circle-dotted fs-3"></i></div>
+                        <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">Crear Producto</h6>
+                    </div>
+                </div>
+                <div class="col-6 col-md-4">
+                    <div class="upload-box" onclick="abrirModalExportar()">
+                        <div class="mb-1 text-secondary"><i class="bi bi-file-earmark-excel fs-3"></i></div>
+                        <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">Exportar Excel</h6>
+                    </div>
+                </div>
+            </div>
+            <div id="status" class="text-center mt-3 fw-bold small text-brand"></div>
+        </div>
     </div>
-    <div class="d-flex gap-2">
-        <button class="btn btn-outline-danger btn-sm fw-bold rounded-pill" onclick="document.getElementById('fileMaestro').click()">
-            <i class="bi bi-file-earmark-spreadsheet me-1"></i> Subir Maestro
-        </button>
-        <input type="file" id="fileMaestro" class="d-none" accept=".xlsx, .csv" onchange="subirArchivo()">
-        
-        <button class="btn btn-outline-success btn-sm fw-bold rounded-pill" onclick="abrirModalVariante()">
-            <i class="bi bi-plus-circle me-1"></i> Crear Manual
-        </button>
-        <button class="btn btn-outline-secondary btn-sm fw-bold rounded-pill" onclick="abrirModalExportar()">
-            <i class="bi bi-download me-1"></i> Exportar
-        </button>
-    </div>
-</div>
 
-<div class="table-container">
-    <table class="table table-pro">
-        <thead>
-            <tr>
-                <th class="w-prod">Producto</th>
-                <th class="w-col">C. Real</th>
-                <th class="w-col">C. Fab</th>
-                <th class="w-col">Merma</th>
-                <th class="w-col">C. Total</th>
-                <th class="w-col">Coyun.</th>
-                <th class="w-col">% PV</th>
-                <th class="w-col">% Dist</th>
-                <th class="w-margen">Margen</th>
-                <th class="w-precio">Lima</th>
-                <th class="w-precio">Provincia</th>
-            </tr>
-        </thead>
-        <tbody id="tablaResultados"></tbody>
-    </table>
+    <div class="text-center mb-4 mb-md-5 mt-2">
+        <h3 class="fw-bold mb-3 text-dark d-none d-md-block" style="letter-spacing: -0.5px;">Panel de Precios y Costos</h3>
+        <div class="search-container px-2 px-md-0">
+            <i class="bi bi-search search-icon"></i>
+            <input type="text" id="txtBuscar" class="form-control search-input" placeholder="Buscar producto, código o proveedor..." onkeyup="buscar()">
+        </div>
+    </div>
+
+    <div class="table-container shadow-sm">
+        <div class="scroll-wrapper">
+            <table class="table table-pro mb-0 w-100">
+                <thead>
+                    <tr>
+                        <th style="width: 20%; padding-left: 1.5rem;">Producto</th>
+                        <th class="text-center" style="width: 8%;"><i class="bi bi-clipboard-data"></i> C. Real</th>
+                        <th class="text-center" style="width: 8%;"><i class="bi bi-gear"></i> C. Fab</th>
+                        <th class="text-center" style="width: 8%;"><i class="bi bi-dash-circle"></i> Merma</th>
+                        <th class="text-center" style="width: 8%;">C. Total</th>
+                        <th class="text-center" style="width: 8%;"><i class="bi bi-graph-up-arrow"></i> Coyun.</th>
+                        <th class="text-center" style="width: 7%;">% PV</th>
+                        <th class="text-center" style="width: 7%;">% Dscto Dist.</th>
+                        <th class="text-center" style="width: 6%;">Margen</th>
+                        <th class="text-end" style="width: 10%;">Precio Lima</th>
+                        <th class="text-end" style="width: 10%; padding-right: 1.5rem;">Provincia</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaResultados"></tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <div class="modal fade" id="modalVariante" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content border-0 shadow">
+      <div class="modal-content border-0 shadow-lg">
         <div class="modal-header bg-success text-white">
           <h6 class="modal-title fw-bold">Crear Producto Manual</h6>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -122,29 +175,29 @@
                 <div class="col-4"><input type="number" id="varMargen" class="form-control" placeholder="% Margen"></div>
             </div>
         </div>
-        <div class="modal-footer border-0">
-          <button type="button" class="btn btn-success fw-bold w-100" onclick="guardarVariante()">Guardar Producto</button>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-success fw-bold w-100" onclick="guardarVariante()">Guardar</button>
         </div>
       </div>
     </div>
 </div>
 
 <div class="modal fade" id="modalExportar" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered"> 
-      <div class="modal-content border-0 shadow">
+    <div class="modal-dialog modal-dialog-centered modal-lg"> 
+      <div class="modal-content border-0 shadow-lg">
         <div class="modal-header bg-secondary text-white">
-          <h6 class="modal-title fw-bold">Exportar a Excel</h6>
+          <h6 class="modal-title fw-bold"><i class="bi bi-file-earmark-excel me-2"></i> Exportar a Excel</h6>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
           <div class="d-flex justify-content-between mb-2">
               <button class="btn btn-sm btn-outline-primary fw-bold" onclick="marcarTodosExportar(true)">Marcar Todos</button>
-              <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="marcarTodosExportar(false)">Desmarcar</button>
+              <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="marcarTodosExportar(false)">Desmarcar Todos</button>
           </div>
-          <div id="listaProductosExportar" class="border rounded p-3 bg-light" style="max-height: 250px; overflow-y: auto;"></div>
+          <div id="listaProductosExportar" class="border rounded p-3" style="max-height: 350px; overflow-y: auto;"></div>
         </div>
-        <div class="modal-footer border-0">
-          <button type="button" class="btn btn-success fw-bold w-100" onclick="procesarDescarga()">Descargar</button>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-success fw-bold w-100" onclick="procesarDescarga()">Descargar Excel</button>
         </div>
       </div>
     </div>
@@ -155,6 +208,11 @@
     let timerBusqueda, allProductsData = [], modoMoneda = 'ORIGINAL', tcGlobal = 3.80;
 
     document.addEventListener('DOMContentLoaded', ejecutarBusqueda);
+
+    function toggleAdminPanel() {
+        let p = document.getElementById('adminPanel');
+        p.style.display = p.style.display === 'none' ? 'block' : 'none';
+    }
 
     function toggleMoneda() {
         if(modoMoneda === 'ORIGINAL') modoMoneda = 'PEN';
@@ -168,14 +226,14 @@
         let n = prompt("Nuevo Tipo de Cambio:", tcGlobal);
         if(n && !isNaN(n)) {
             let res = await fetch('/api/update-tc', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tc: n})});
-            if(res.ok) { alert("TC Actualizado con éxito"); ejecutarBusqueda(); } 
-            else alert("Error: No tienes permisos o conexión.");
+            if(res.ok) { alert("TC Actualizado Correctamente"); ejecutarBusqueda(); } 
+            else alert("Error: Permiso denegado.");
         }
     }
 
     function buscar() {
         clearTimeout(timerBusqueda);
-        document.getElementById('tablaResultados').innerHTML = '<tr><td colspan="11" class="text-center py-4 text-muted">Buscando...</td></tr>';
+        document.getElementById('tablaResultados').innerHTML = '<tr><td colspan="11" class="text-center py-5 text-muted fw-bold">Buscando...</td></tr>';
         timerBusqueda = setTimeout(ejecutarBusqueda, 300);
     }
 
@@ -193,34 +251,36 @@
             let sim = p.moneda_simbolo, txt = p.moneda_texto;
             let vb = p.costo_base, vf = p.costo_fab, vmer = p.merma_monto, vt = p.costo_actual, vcy = p.costo_coyuntural, vl = p.precio_lima, vp = p.precio_provincia;
 
-            // CONVERSOR DE MONEDA DINÁMICO
-            if (modoMoneda === 'PEN' && txt === 'USD') {
-                vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN';
-            } else if (modoMoneda === 'USD' && txt === 'PEN') {
-                vb/=tcGlobal; vf/=tcGlobal; vmer/=tcGlobal; vt/=tcGlobal; vcy/=tcGlobal; vl/=tcGlobal; vp/=tcGlobal; sim='$'; txt='USD';
-            }
+            if (modoMoneda === 'PEN' && txt === 'USD') { vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN'; } 
+            else if (modoMoneda === 'USD' && txt === 'PEN') { vb/=tcGlobal; vf/=tcGlobal; vmer/=tcGlobal; vt/=tcGlobal; vcy/=tcGlobal; vl/=tcGlobal; vp/=tcGlobal; sim='$'; txt='USD'; }
 
-            let clsCoyun = vcy > 0 ? 'btn-coyuntural-active' : '';
-            let txtCoyun = vcy > 0 ? `${sim}${vcy.toFixed(3)}` : `${sim}${vt.toFixed(3)}`;
+            let hasCoyuntural = vcy > 0;
+            let textCoyuntural = hasCoyuntural ? `${sim}${vcy.toFixed(3)}` : `${sim}${vt.toFixed(3)}`;
+            let btnCoyunturalClass = hasCoyuntural ? 'btn-coyuntural-active' : 'btn-coyuntural-inactive';
+            let rowClass = hasCoyuntural ? 'row-coyuntural' : '';
+            
+            let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' ? `<span class="badge-custom"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
+            let badgeEmpresa = p.empresa && p.empresa !== "MANUAL" ? `<span class="badge-custom" style="background-color: #f3e8ff; color: #4338ca;"><i class="bi bi-building"></i> ${p.empresa}</span>` : '';
 
-            html += `<tr>
-                <td class="w-prod" title="${p.nombre}">
-                    <div class="fw-bold text-dark text-truncate">${p.nombre}</div>
-                    <div class="text-muted" style="font-size: 0.65rem;">${p.codigo} | ${p.empresa} 
+            html += `
+            <tr class="${rowClass}">
+                <td class="ps-md-4">
+                    <div class="fw-bold text-dark text-truncate" style="font-size: 1.05rem;">${p.nombre} 
                         <button class="btn btn-sm text-primary p-0 border-0 ms-1" onclick="clonarProducto('${p.nombre.replace(/'/g, "\\'")}')"><i class="bi bi-copy"></i></button>
-                        <button class="btn btn-sm text-danger p-0 border-0 ms-1" onclick="eliminarProducto('${p.nombre.replace(/'/g, "\\'")}')"><i class="bi bi-trash-fill"></i></button>
+                        <button class="btn btn-sm text-danger p-0 border-0" onclick="eliminarProducto('${p.nombre.replace(/'/g, "\\'")}')"><i class="bi bi-trash-fill"></i></button>
                     </div>
+                    <div class="badges-wrapper">${badgeEmpresa} ${badgeCodigo}</div>
                 </td>
-                <td><button class="btn-accion" onclick="editar('costo-real', '${p.nombre.replace(/'/g, "\\'")}', ${p.costo_base})">${vb>0 ? sim+vb.toFixed(3) : '-'}</button></td>
-                <td><button class="btn-accion" onclick="editar('costo-fab', '${p.nombre.replace(/'/g, "\\'")}', ${p.costo_fab})">${vf>0 ? sim+vf.toFixed(3) : '-'}</button></td>
-                <td><button class="btn-accion" onclick="editar('merma', '${p.nombre.replace(/'/g, "\\'")}', ${p.merma_porcentaje})">${p.merma_porcentaje}%</button></td>
-                <td class="fw-bold text-secondary">${sim}${vt.toFixed(3)}</td>
-                <td><button class="btn-accion ${clsCoyun}" onclick="editar('costo-coyuntural', '${p.nombre.replace(/'/g, "\\'")}', ${p.costo_coyuntural})">${txtCoyun}</button></td>
-                <td><button class="btn-accion" onclick="editar('dscto', '${p.nombre.replace(/'/g, "\\'")}', ${p.dscto_pv})">${p.dscto_pv}%</button></td>
-                <td><button class="btn-accion" onclick="editar('dscto-dist', '${p.nombre.replace(/'/g, "\\'")}', ${p.dscto_dist})">${p.dscto_dist}%</button></td>
-                <td><button class="btn-accion text-primary" style="background:#e0e7ff; border-color:#c7d2fe;" onclick="editar('margen', '${p.nombre.replace(/'/g, "\\'")}', ${p.margen})">${p.margen}%</button></td>
-                <td class="w-precio fw-bold text-primary">${sim} ${vl.toFixed(2)}</td>
-                <td class="w-precio fw-bold text-secondary">${sim} ${vp.toFixed(2)}</td>
+                <td class="text-center"><button class="btn btn-sm btn-outline-secondary" style="font-size: 0.85rem; border-radius: 8px; font-weight: bold; padding: 4px 10px;" onclick="editar('costo-real', '${p.nombre.replace(/'/g, "\\'")}', ${p.costo_base})"><i class="bi bi-pencil-square"></i> ${vb>0 ? sim+vb.toFixed(3) : '-'}</button></td>
+                <td class="text-center"><button class="btn btn-sm btn-outline-secondary" style="font-size: 0.85rem; border-radius: 8px; font-weight: bold; padding: 4px 10px;" onclick="editar('costo-fab', '${p.nombre.replace(/'/g, "\\'")}', ${p.costo_fab})"><i class="bi bi-pencil-square"></i> ${vf>0 ? sim+vf.toFixed(3) : '-'}</button></td>
+                <td class="text-center"><button class="btn btn-sm btn-outline-secondary" style="font-size: 0.8rem; border-radius: 8px; font-weight: bold; padding: 2px 8px; line-height: 1.1;" onclick="editar('merma', '${p.nombre.replace(/'/g, "\\'")}', ${p.merma_porcentaje})"><span class="text-dark">${p.merma_porcentaje}%</span><br><small class="text-muted" style="font-size: 0.7rem;">${sim}${vmer.toFixed(3)}</small></button></td>
+                <td class="text-center fw-bold text-secondary">${sim}${vt.toFixed(3)}</td>
+                <td class="text-center"><button class="btn btn-sm ${btnCoyunturalClass}" style="font-size: 0.85rem; border-radius: 8px; font-weight: bold; padding: 4px 10px;" onclick="editar('costo-coyuntural', '${p.nombre.replace(/'/g, "\\'")}', ${p.costo_coyuntural})"><i class="bi bi-graph-up-arrow"></i> ${textCoyuntural}</button></td>
+                <td class="text-center"><button class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem; border-radius:8px; font-weight:bold;" onclick="editar('dscto', '${p.nombre.replace(/'/g, "\\'")}', ${p.dscto_pv})">${p.dscto_pv}%</button></td>
+                <td class="text-center"><button class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem; border-radius:8px; font-weight:bold;" onclick="editar('dscto-dist', '${p.nombre.replace(/'/g, "\\'")}', ${p.dscto_dist})">${p.dscto_dist}%</button></td>
+                <td class="text-center"><button class="btn-edit-margen m-0" onclick="editar('margen', '${p.nombre.replace(/'/g, "\\'")}', ${p.margen})">${p.margen}%</button></td>
+                <td class="text-end"><div class="price-tag">${sim} ${vl.toFixed(2)}</div><div class="text-muted sede-label">LIMA (${txt})</div></td>
+                <td class="text-end pe-4"><div class="price-tag price-secondary">${sim} ${vp.toFixed(2)}</div><div class="text-muted sede-label">PROV (${txt})</div></td>
             </tr>`;
         });
         document.getElementById('tablaResultados').innerHTML = html;
@@ -240,20 +300,19 @@
         let input = document.getElementById('fileMaestro');
         if(!input.files[0]) return;
         let fd = new FormData(); fd.append('archivo', input.files[0]);
+        document.getElementById('status').innerHTML = "Procesando...";
         let res = await fetch('/subir-maestro', {method:'POST', body:fd});
-        if(res.ok) { alert("Archivo procesado"); ejecutarBusqueda(); } else alert("Error al subir archivo");
+        if(res.ok) { document.getElementById('status').innerHTML = "✅ Listo"; ejecutarBusqueda(); } 
+        else document.getElementById('status').innerHTML = "❌ Error";
     }
 
     function abrirModalVariante() { new bootstrap.Modal(document.getElementById('modalVariante')).show(); }
     function clonarProducto(nombre) {
         let p = allProductsData.find(x => x.nombre === nombre);
         if(!p) return;
-        document.getElementById('varNombre').value = p.nombre + " - COPIA";
-        document.getElementById('varCodigo').value = p.codigo;
-        document.getElementById('varEmpresa').value = p.empresa;
-        document.getElementById('varCostoReal').value = p.costo_base;
-        document.getElementById('varCostoFab').value = p.costo_fab;
-        document.getElementById('varMargen').value = p.margen;
+        document.getElementById('varNombre').value = p.nombre + " - COPIA"; document.getElementById('varCodigo').value = p.codigo;
+        document.getElementById('varEmpresa').value = p.empresa; document.getElementById('varCostoReal').value = p.costo_base;
+        document.getElementById('varCostoFab').value = p.costo_fab; document.getElementById('varMargen').value = p.margen;
         abrirModalVariante();
     }
     async function guardarVariante() {
@@ -265,7 +324,7 @@
     function abrirModalExportar() {
         let divLista = document.getElementById('listaProductosExportar');
         divLista.innerHTML = '';
-        allProductsData.forEach(p => { divLista.innerHTML += `<div class="form-check mb-1"><input class="form-check-input chk-exportar" type="checkbox" value="${p.nombre}" checked> <label class="form-check-label small fw-bold">${p.nombre}</label></div>`; });
+        allProductsData.forEach(p => { divLista.innerHTML += `<div class="form-check mb-1 border-bottom"><input class="form-check-input chk-exportar" type="checkbox" value="${p.nombre}" checked> <label class="form-check-label fw-bold small">${p.nombre}</label></div>`; });
         new bootstrap.Modal(document.getElementById('modalExportar')).show();
     }
     function marcarTodosExportar(estado) { document.querySelectorAll('.chk-exportar').forEach(chk => chk.checked = estado); }
