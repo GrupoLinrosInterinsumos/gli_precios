@@ -5,49 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GLI | Panel de Administrador</title>
     
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 
     <style>
-        :root { --primary-color: #524e9c; --accent-color: #635dbd; --bg-color: #f8f9fa; --white-pure: #ffffff; --text-dark: #2b2b36; --text-light: #6b7280; }
+        :root { --primary-color: #3b3874; --accent-color: #2a2852; --bg-color: #f4f6f9; --white-pure: #ffffff; --text-dark: #1f2937; --text-light: #6b7280; }
         body { background-color: var(--bg-color); font-family: 'Inter', sans-serif; color: var(--text-dark); }
         .text-brand { color: var(--primary-color) !important; }
         .bg-brand { background-color: var(--primary-color) !important; color: white; }
-        .navbar { background-color: var(--white-pure); box-shadow: 0 2px 10px rgba(82, 78, 156, 0.08); padding: 0.8rem 0; }
+        .navbar { background-color: var(--white-pure); box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 0.8rem 0; border-bottom: 1px solid #e5e7eb;}
         .brand-logo { font-weight: 800; font-size: 1.5rem; color: var(--primary-color); letter-spacing: -0.5px; line-height: 1; cursor: default; }
         .brand-subtitle { font-size: 0.7rem; color: var(--text-light); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; cursor: default; }
         
-        .card-pro { background: var(--white-pure); border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(82, 78, 156, 0.05); }
-        .upload-box { border: 2px dashed #e5e7eb; border-radius: 12px; padding: 1.2rem; text-align: center; transition: 0.2s; cursor: pointer; background: var(--white-pure); height: 100%; display: flex; flex-direction: column; justify-content: center; }
-        .upload-box:hover { border-color: var(--accent-color); background-color: rgba(82, 78, 156, 0.02); }
+        .card-pro { background: var(--white-pure); border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .upload-box { border: 2px dashed #d1d5db; border-radius: 8px; padding: 1.2rem; text-align: center; transition: 0.2s; cursor: pointer; background: #f9fafb; height: 100%; display: flex; flex-direction: column; justify-content: center; }
+        .upload-box:hover { border-color: var(--primary-color); background-color: #f3f4f6; }
         
         .search-container { position: relative; max-width: 700px; margin: 0 auto; width: 100%; }
-        .search-input { border: 1px solid #e5e7eb; border-radius: 50px; padding: 1.2rem 1.5rem 1.2rem 3.5rem; font-size: 1.05rem; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); transition: all 0.2s; width: 100%; }
-        .search-input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 4px rgba(82, 78, 156, 0.15); }
-        .search-icon { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: var(--primary-color); font-size: 1.3rem; }
+        .search-input { border: 1px solid #d1d5db; border-radius: 6px; padding: 0.8rem 1.5rem 0.8rem 2.5rem; font-size: 0.95rem; background: var(--white-pure); width: 100%; transition: 0.2s;}
+        .search-input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(59, 56, 116, 0.1); }
+        .search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 1.1rem; }
         
-        .table-container { border-radius: 12px; overflow: hidden; background: var(--white-pure); box-shadow: 0 10px 30px rgba(82, 78, 156, 0.06); }
+        .table-container { border-radius: 8px; overflow: hidden; background: var(--white-pure); box-shadow: 0 4px 10px rgba(0,0,0,0.04); border: 1px solid #e5e7eb; }
         .scroll-wrapper { max-height: 75vh; overflow-x: auto; overflow-y: auto; }
         
-        /* 🔥 SCROLL HORIZONTAL RESTAURADO 🔥 */
         .table-pro { border-collapse: separate; border-spacing: 0; min-width: 1300px; width: 100%; }
+        .table-pro thead th { position: sticky; top: 0; background-color: #f1f3f5; z-index: 10; border-bottom: 2px solid #e5e7eb; color: var(--primary-color); font-size: 0.75rem; text-transform: uppercase; padding: 1rem 0.5rem; font-weight: 700;}
+        .table-pro td { padding: 0.8rem 0.5rem; vertical-align: middle; border-bottom: 1px solid #f0f0f5; font-size: 0.9rem; }
         
-        .table-pro thead th { position: sticky; top: 0; background-color: #f8f9fa; z-index: 10; border-bottom: 2px solid #e5e7eb; color: #524e9c; font-size: 0.75rem; text-transform: uppercase; padding: 1.2rem 0.5rem; }
-        .table-pro td { padding: 1rem 0.5rem; vertical-align: middle; border-bottom: 1px solid #f0f0f5; font-size: 0.95rem; }
-        
-        .price-tag { font-weight: 700; color: var(--primary-color); font-size: 1.1rem; }
-        .price-secondary { color: #6b7280; }
-        .btn-edit-margen { background: rgba(82, 78, 156, 0.08); color: var(--primary-color); border: 1px solid rgba(82, 78, 156, 0.2); padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; cursor: pointer; }
+        .price-tag { font-weight: 700; color: var(--primary-color); font-size: 1.05rem; }
+        .price-secondary { color: #4b5563; }
+        .btn-edit-margen { background: rgba(59, 56, 116, 0.08); color: var(--primary-color); border: 1px solid rgba(59, 56, 116, 0.2); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: 0.2s;}
         .btn-edit-margen:hover { background: var(--primary-color); color: white; }
         
         .badges-wrapper { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-        .badge-custom { font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+        .badge-custom { font-size: 0.65rem; padding: 3px 6px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb;}
         
-        .row-coyuntural td { background-color: #fff1f2 !important; }
-        .btn-coyuntural-active { background-color: #f43f5e; color: white; border-color: #f43f5e; }
-        .btn-coyuntural-inactive { background-color: #ffffff; color: #4b5563; border-color: #d1d5db; }
+        .row-coyuntural td { background-color: #fdf2f8 !important; }
+        .btn-coyuntural-active { background-color: #dc2626; color: white; border-color: #b91c1c; }
+        .btn-coyuntural-inactive { background-color: #ffffff; color: #4b5563; border: 1px solid #d1d5db; border-radius: 6px; }
         
+        .btn-accion { background: transparent; border: 1px solid #d1d5db; border-radius: 6px; padding: 2px 6px; font-weight: 600; color: #374151; font-size: 0.8rem; }
+        .btn-accion:hover { background: #f3f4f6; }
+
         @media (max-width: 768px) { .mobile-hide-text { display: none !important; } }
     </style>
 </head>
@@ -105,20 +108,20 @@
                 <div class="col-12 col-md-4">
                     <div class="upload-box" onclick="document.getElementById('fileMaestro').click()">
                         <div class="mb-1 text-primary"><i class="bi bi-cloud-arrow-up-fill fs-3"></i></div>
-                        <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">Subir Excel Maestro</h6>
-                        <input type="file" id="fileMaestro" class="d-none" accept=".xlsx, .csv" onchange="subirArchivo()">
+                        <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.85rem;">Subir Excel Maestro</h6>
+                        <input type="file" id="fileMaestro" class="d-none" accept=".xlsx, .csv" onchange="subirArchivo('subir-maestro', 'fileMaestro')">
                     </div>
                 </div>
                 <div class="col-6 col-md-4">
                     <div class="upload-box" onclick="abrirModalVariante()">
                         <div class="mb-1 text-success"><i class="bi bi-plus-circle-dotted fs-3"></i></div>
-                        <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">Crear Producto</h6>
+                        <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.85rem;">Crear Producto</h6>
                     </div>
                 </div>
                 <div class="col-6 col-md-4">
                     <div class="upload-box" onclick="abrirModalExportar()">
                         <div class="mb-1 text-secondary"><i class="bi bi-file-earmark-excel fs-3"></i></div>
-                        <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">Exportar Excel</h6>
+                        <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.85rem;">Exportar Excel</h6>
                     </div>
                 </div>
             </div>
@@ -132,6 +135,11 @@
             <i class="bi bi-search search-icon"></i>
             <input type="text" id="txtBuscar" class="form-control search-input" placeholder="Buscar producto, código o proveedor..." onkeyup="buscar()">
         </div>
+        <div class="mt-3">
+            <span class="badge bg-light text-secondary border px-3 py-2" style="font-size: 0.75rem;">
+                Actualizado al: <b id="lblUltimaAct" class="text-dark">--/--/----</b>
+            </span>
+        </div>
     </div>
 
     <div class="table-container shadow-sm">
@@ -139,7 +147,7 @@
             <table class="table table-pro mb-0 w-100">
                 <thead>
                     <tr>
-                        <th style="width: 20%; padding-left: 1.5rem;">Producto</th>
+                        <th style="width: 20%; padding-left: 1.5rem; text-align: left;">Producto</th>
                         <th class="text-center" style="width: 8%;"><i class="bi bi-clipboard-data"></i> C. Real</th>
                         <th class="text-center" style="width: 8%;"><i class="bi bi-gear"></i> C. Fab</th>
                         <th class="text-center" style="width: 8%;"><i class="bi bi-dash-circle"></i> Merma</th>
@@ -155,28 +163,33 @@
                 <tbody id="tablaResultados"></tbody>
             </table>
         </div>
+        <div id="loading" class="text-center py-5" style="display:none;">
+            <div class="spinner-border text-brand" style="width: 2.5rem; height: 2.5rem;"></div>
+            <p class="text-muted mt-2 small fw-bold">Cargando...</p>
+        </div>
     </div>
 </div>
 
 <div class="modal fade" id="modalVariante" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content border-0 shadow-lg">
-        <div class="modal-header bg-success text-white">
+        <div class="modal-header bg-dark text-white border-0">
           <h6 class="modal-title fw-bold">Crear Producto Manual</h6>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
-        <div class="modal-body">
-            <input type="text" id="varNombre" class="form-control mb-2" placeholder="Nombre completo del producto">
-            <input type="text" id="varCodigo" class="form-control mb-2" placeholder="Código (Opcional)">
-            <input type="text" id="varEmpresa" class="form-control mb-2" placeholder="Empresa (GLI, CRAMER, SACCO...)">
+        <div class="modal-body p-4 bg-light">
+            <input type="text" id="varNombre" class="form-control mb-2 border-secondary-subtle" placeholder="Nombre completo del producto">
+            <input type="text" id="varCodigo" class="form-control mb-2 border-secondary-subtle" placeholder="Código (Opcional)">
+            <input type="text" id="varEmpresa" class="form-control mb-3 border-secondary-subtle" placeholder="Empresa (GLI, CRAMER, SACCO...)">
             <div class="row g-2">
-                <div class="col-4"><input type="number" id="varCostoReal" class="form-control" placeholder="C. Real"></div>
-                <div class="col-4"><input type="number" id="varCostoFab" class="form-control" placeholder="C. Fab"></div>
-                <div class="col-4"><input type="number" id="varMargen" class="form-control" placeholder="% Margen"></div>
+                <div class="col-4"><input type="number" id="varCostoReal" class="form-control border-secondary-subtle" placeholder="C. Real"></div>
+                <div class="col-4"><input type="number" id="varCostoFab" class="form-control border-secondary-subtle" placeholder="C. Fab"></div>
+                <div class="col-4"><input type="number" id="varMargen" class="form-control border-secondary-subtle" placeholder="% Margen"></div>
             </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-success fw-bold w-100" onclick="guardarVariante()">Guardar</button>
+        <div class="modal-footer bg-light border-0">
+          <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary px-4 fw-bold" style="background:var(--primary-color); border:none;" onclick="guardarVariante()">Guardar</button>
         </div>
       </div>
     </div>
@@ -185,19 +198,19 @@
 <div class="modal fade" id="modalExportar" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg"> 
       <div class="modal-content border-0 shadow-lg">
-        <div class="modal-header bg-secondary text-white">
+        <div class="modal-header bg-dark text-white border-0">
           <h6 class="modal-title fw-bold"><i class="bi bi-file-earmark-excel me-2"></i> Exportar a Excel</h6>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
-        <div class="modal-body">
-          <div class="d-flex justify-content-between mb-2">
-              <button class="btn btn-sm btn-outline-primary fw-bold" onclick="marcarTodosExportar(true)">Marcar Todos</button>
-              <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="marcarTodosExportar(false)">Desmarcar Todos</button>
+        <div class="modal-body bg-light p-4">
+          <div class="d-flex justify-content-between mb-3">
+              <button class="btn btn-sm btn-outline-primary fw-bold bg-white" onclick="marcarTodosExportar(true)">Marcar Todos</button>
+              <button class="btn btn-sm btn-outline-secondary fw-bold bg-white" onclick="marcarTodosExportar(false)">Desmarcar Todos</button>
           </div>
-          <div id="listaProductosExportar" class="border rounded p-3" style="max-height: 350px; overflow-y: auto;"></div>
+          <div id="listaProductosExportar" class="border rounded p-3 bg-white" style="max-height: 350px; overflow-y: auto; border-color:#e5e7eb;"></div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-success fw-bold w-100" onclick="procesarDescarga()">Descargar Excel</button>
+        <div class="modal-footer bg-light border-0">
+          <button type="button" class="btn btn-success px-4 fw-bold w-100" onclick="procesarDescarga()">Descargar Excel</button>
         </div>
       </div>
     </div>
@@ -205,9 +218,12 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    let timerBusqueda, allProductsData = [], modoMoneda = 'ORIGINAL', tcGlobal = 3.80;
+    let timerBusqueda;
+    let allProductsData = []; 
+    let modoMoneda = 'ORIGINAL';
+    let tcGlobal = 3.80;
 
-    document.addEventListener('DOMContentLoaded', ejecutarBusqueda);
+    document.addEventListener('DOMContentLoaded', () => { ejecutarBusqueda(); });
 
     function toggleAdminPanel() {
         let p = document.getElementById('adminPanel');
@@ -233,57 +249,119 @@
 
     function buscar() {
         clearTimeout(timerBusqueda);
-        document.getElementById('tablaResultados').innerHTML = '<tr><td colspan="11" class="text-center py-5 text-muted fw-bold">Buscando...</td></tr>';
-        timerBusqueda = setTimeout(ejecutarBusqueda, 300);
+        document.getElementById('tablaResultados').innerHTML = ''; 
+        document.getElementById('loading').style.display = 'block';
+        timerBusqueda = setTimeout(() => { ejecutarBusqueda(); }, 300);
     }
 
     async function ejecutarBusqueda() {
         const q = document.getElementById('txtBuscar').value.trim();
-        const res = await fetch(`/buscar?q=${encodeURIComponent(q)}`);
-        const data = await res.json();
+        const tbody = document.getElementById('tablaResultados');
         
-        allProductsData = data.productos;
-        tcGlobal = data.tc_actual;
-        if(document.getElementById('valTC')) document.getElementById('valTC').innerText = tcGlobal.toFixed(2);
-
-        let html = '';
-        allProductsData.forEach(p => {
-            let sim = p.moneda_simbolo, txt = p.moneda_texto;
-            let vb = p.costo_base, vf = p.costo_fab, vmer = p.merma_monto, vt = p.costo_actual, vcy = p.costo_coyuntural, vl = p.precio_lima, vp = p.precio_provincia;
-
-            if (modoMoneda === 'PEN' && txt === 'USD') { vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN'; } 
-            else if (modoMoneda === 'USD' && txt === 'PEN') { vb/=tcGlobal; vf/=tcGlobal; vmer/=tcGlobal; vt/=tcGlobal; vcy/=tcGlobal; vl/=tcGlobal; vp/=tcGlobal; sim='$'; txt='USD'; }
-
-            let hasCoyuntural = vcy > 0;
-            let textCoyuntural = hasCoyuntural ? `${sim}${vcy.toFixed(3)}` : `${sim}${vt.toFixed(3)}`;
-            let btnCoyunturalClass = hasCoyuntural ? 'btn-coyuntural-active' : 'btn-coyuntural-inactive';
-            let rowClass = hasCoyuntural ? 'row-coyuntural' : '';
+        try {
+            const res = await fetch(`/buscar?q=${encodeURIComponent(q)}`);
+            const json = await res.json();
+            const data = json.productos;
+            allProductsData = data; 
+            tcGlobal = json.tc_actual;
             
-            let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' ? `<span class="badge-custom"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
-            let badgeEmpresa = p.empresa && p.empresa !== "MANUAL" ? `<span class="badge-custom" style="background-color: #f3e8ff; color: #4338ca;"><i class="bi bi-building"></i> ${p.empresa}</span>` : '';
+            if(document.getElementById('valTC')) document.getElementById('valTC').innerText = tcGlobal.toFixed(2);
+            document.getElementById('lblUltimaAct').innerText = json.ultima_actualizacion;
+            document.getElementById('loading').style.display = 'none';
 
-            html += `
-            <tr class="${rowClass}">
-                <td class="ps-md-4">
-                    <div class="fw-bold text-dark text-truncate" style="font-size: 1.05rem;">${p.nombre} 
-                        <button class="btn btn-sm text-primary p-0 border-0 ms-1" onclick="clonarProducto('${p.nombre.replace(/'/g, "\\'")}')"><i class="bi bi-copy"></i></button>
-                        <button class="btn btn-sm text-danger p-0 border-0" onclick="eliminarProducto('${p.nombre.replace(/'/g, "\\'")}')"><i class="bi bi-trash-fill"></i></button>
-                    </div>
-                    <div class="badges-wrapper">${badgeEmpresa} ${badgeCodigo}</div>
-                </td>
-                <td class="text-center"><button class="btn btn-sm btn-outline-secondary" style="font-size: 0.85rem; border-radius: 8px; font-weight: bold; padding: 4px 10px;" onclick="editar('costo-real', '${p.nombre.replace(/'/g, "\\'")}', ${p.costo_base})"><i class="bi bi-pencil-square"></i> ${vb>0 ? sim+vb.toFixed(3) : '-'}</button></td>
-                <td class="text-center"><button class="btn btn-sm btn-outline-secondary" style="font-size: 0.85rem; border-radius: 8px; font-weight: bold; padding: 4px 10px;" onclick="editar('costo-fab', '${p.nombre.replace(/'/g, "\\'")}', ${p.costo_fab})"><i class="bi bi-pencil-square"></i> ${vf>0 ? sim+vf.toFixed(3) : '-'}</button></td>
-                <td class="text-center"><button class="btn btn-sm btn-outline-secondary" style="font-size: 0.8rem; border-radius: 8px; font-weight: bold; padding: 2px 8px; line-height: 1.1;" onclick="editar('merma', '${p.nombre.replace(/'/g, "\\'")}', ${p.merma_porcentaje})"><span class="text-dark">${p.merma_porcentaje}%</span><br><small class="text-muted" style="font-size: 0.7rem;">${sim}${vmer.toFixed(3)}</small></button></td>
-                <td class="text-center fw-bold text-secondary">${sim}${vt.toFixed(3)}</td>
-                <td class="text-center"><button class="btn btn-sm ${btnCoyunturalClass}" style="font-size: 0.85rem; border-radius: 8px; font-weight: bold; padding: 4px 10px;" onclick="editar('costo-coyuntural', '${p.nombre.replace(/'/g, "\\'")}', ${p.costo_coyuntural})"><i class="bi bi-graph-up-arrow"></i> ${textCoyuntural}</button></td>
-                <td class="text-center"><button class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem; border-radius:8px; font-weight:bold;" onclick="editar('dscto', '${p.nombre.replace(/'/g, "\\'")}', ${p.dscto_pv})">${p.dscto_pv}%</button></td>
-                <td class="text-center"><button class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem; border-radius:8px; font-weight:bold;" onclick="editar('dscto-dist', '${p.nombre.replace(/'/g, "\\'")}', ${p.dscto_dist})">${p.dscto_dist}%</button></td>
-                <td class="text-center"><button class="btn-edit-margen m-0" onclick="editar('margen', '${p.nombre.replace(/'/g, "\\'")}', ${p.margen})">${p.margen}%</button></td>
-                <td class="text-end"><div class="price-tag">${sim} ${vl.toFixed(2)}</div><div class="text-muted sede-label">LIMA (${txt})</div></td>
-                <td class="text-end pe-4"><div class="price-tag price-secondary">${sim} ${vp.toFixed(2)}</div><div class="text-muted sede-label">PROV (${txt})</div></td>
-            </tr>`;
-        });
-        document.getElementById('tablaResultados').innerHTML = html;
+            if(data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="11" class="text-center py-5 text-muted fw-bold">No hay resultados.</td></tr>';
+                return;
+            }
+
+            let htmlContent = '';
+            
+            data.forEach((p, index) => {
+                let sim = p.moneda_simbolo, txt = p.moneda_texto;
+                let vb = p.costo_base, vf = p.costo_fab, vmer = p.merma_monto, vt = p.costo_actual, vcy = p.costo_coyuntural, vl = p.precio_lima, vp = p.precio_provincia;
+
+                if (modoMoneda === 'PEN' && txt === 'USD') { vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN'; } 
+                else if (modoMoneda === 'USD' && txt === 'PEN') { vb/=tcGlobal; vf/=tcGlobal; vmer/=tcGlobal; vt/=tcGlobal; vcy/=tcGlobal; vl/=tcGlobal; vp/=tcGlobal; sim='$'; txt='USD'; }
+
+                let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' 
+                    ? `<span class="badge-custom"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
+                let badgeEmpresa = p.empresa && p.empresa !== "MANUAL" 
+                    ? `<span class="badge-custom" style="background-color: #f3f4f6; color: #374151; border: 1px solid #d1d5db;"><i class="bi bi-building"></i> ${p.empresa}</span>` : '';
+
+                let hasCoyuntural = vcy > 0;
+                let textCoyuntural = hasCoyuntural ? `${sim}${vcy.toFixed(3)}` : `${sim}${vt.toFixed(3)}`;
+                let btnCoyunturalClass = hasCoyuntural ? 'btn-coyuntural-active btn-accion' : 'btn-coyuntural-inactive btn-accion';
+                let rowClass = hasCoyuntural ? 'row-coyuntural' : '';
+
+                let rowId = `row_${index}`;
+
+                htmlContent += `
+                <tr class="${rowClass}">
+                    <td data-label="Producto" class="ps-md-4 text-start">
+                        <div class="fw-bold text-dark" style="font-size: 0.95rem; line-height: 1.2;">
+                            ${p.nombre} 
+                            <button class="btn btn-sm btn-light border p-1 py-0 ms-1" style="color:var(--primary-color);" onclick="clonarProducto('${p.nombre.replace(/'/g, "\\'")}')" title="Clonar"><i class="bi bi-copy"></i></button>
+                            <button class="btn btn-sm btn-light border text-danger p-1 py-0" onclick="eliminarProducto('${p.nombre.replace(/'/g, "\\'")}')" title="Eliminar"><i class="bi bi-trash-fill"></i></button>
+                        </div>
+                        <div class="badges-wrapper mt-1">${badgeEmpresa} ${badgeCodigo}</div>
+                    </td>
+                    
+                    <td class="text-center">
+                        <button class="btn-accion" onclick="editar('costo-real', '${p.nombre.replace(/'/g, "\\'")}', ${p.costo_base})">
+                            <i class="bi bi-pencil-square"></i> ${vb > 0 ? sim + vb.toFixed(3) : '-'}
+                        </button>
+                    </td>
+
+                    <td class="text-center">
+                        <button class="btn-accion" onclick="editar('costo-fab', '${p.nombre.replace(/'/g, "\\'")}', ${p.costo_fab})">
+                            <i class="bi bi-pencil-square"></i> ${vf > 0 ? sim + vf.toFixed(3) : '-'}
+                        </button>
+                    </td>
+
+                    <td class="text-center">
+                        <button class="btn-accion" style="padding: 2px 8px; line-height: 1.1;" onclick="editar('merma', '${p.nombre.replace(/'/g, "\\'")}', ${p.merma_porcentaje})">
+                            <span class="text-dark">${p.merma_porcentaje}%</span><br>
+                            <small class="text-muted" style="font-size: 0.65rem;">${sim}${vmer.toFixed(3)}</small>
+                        </button>
+                    </td>
+
+                    <td class="text-center">
+                        <div class="fw-bold text-dark" style="font-size: 0.9rem;">${sim}${vt.toFixed(3)}</div>
+                    </td>
+
+                    <td class="text-center">
+                        <button class="${btnCoyunturalClass}" onclick="editar('costo-coyuntural', '${p.nombre.replace(/'/g, "\\'")}', ${p.costo_coyuntural})">
+                            ${textCoyuntural}
+                        </button>
+                    </td>
+                    
+                    <td class="text-center">
+                        <button class="btn-accion" onclick="editar('dscto', '${p.nombre.replace(/'/g, "\\'")}', ${p.dscto_pv})">${p.dscto_pv}%</button>
+                    </td>
+
+                    <td class="text-center">
+                        <button class="btn-accion" onclick="editar('dscto-dist', '${p.nombre.replace(/'/g, "\\'")}', ${p.dscto_dist})">${p.dscto_dist}%</button>
+                    </td>
+                    
+                    <td class="text-center">
+                        <button class="btn-edit-margen m-0" onclick="editar('margen', '${p.nombre.replace(/'/g, "\\'")}', ${p.margen})">
+                            ${p.margen}% <i class="bi bi-pencil-fill ms-1" style="font-size: 0.6rem;"></i>
+                        </button>
+                    </td>
+
+                    <td class="text-end">
+                        <div class="price-tag">${sim} ${vl.toFixed(2)}</div>
+                        <div class="text-muted small" style="font-size:0.65rem; font-weight:700;">LIMA (${txt})</div>
+                    </td>
+
+                    <td class="text-end pe-4">
+                        <div class="price-tag price-secondary">${sim} ${vp.toFixed(2)}</div>
+                        <div class="text-muted small" style="font-size:0.65rem; font-weight:700;">AQP/TRU (${txt})</div>
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = htmlContent;
+        } catch(e) { console.error(e); }
     }
 
     async function editar(tipo, nombre, valor) {
@@ -300,21 +378,28 @@
         let input = document.getElementById('fileMaestro');
         if(!input.files[0]) return;
         let fd = new FormData(); fd.append('archivo', input.files[0]);
-        document.getElementById('status').innerHTML = "Procesando...";
+        document.getElementById('status').innerText = "Procesando Maestro...";
         let res = await fetch('/subir-maestro', {method:'POST', body:fd});
-        if(res.ok) { document.getElementById('status').innerHTML = "✅ Listo"; ejecutarBusqueda(); } 
-        else document.getElementById('status').innerHTML = "❌ Error";
+        if(res.ok) { document.getElementById('status').innerText = "✅ Listo"; ejecutarBusqueda(); } 
+        else document.getElementById('status').innerText = "❌ Error";
     }
 
-    function abrirModalVariante() { new bootstrap.Modal(document.getElementById('modalVariante')).show(); }
+    function abrirModalVariante() { 
+        document.getElementById('varNombre').value = ''; document.getElementById('varCodigo').value = '';
+        document.getElementById('varEmpresa').value = ''; document.getElementById('varCostoReal').value = '';
+        document.getElementById('varCostoFab').value = ''; document.getElementById('varMargen').value = '';
+        new bootstrap.Modal(document.getElementById('modalVariante')).show(); 
+    }
+    
     function clonarProducto(nombre) {
         let p = allProductsData.find(x => x.nombre === nombre);
         if(!p) return;
         document.getElementById('varNombre').value = p.nombre + " - COPIA"; document.getElementById('varCodigo').value = p.codigo;
         document.getElementById('varEmpresa').value = p.empresa; document.getElementById('varCostoReal').value = p.costo_base;
         document.getElementById('varCostoFab').value = p.costo_fab; document.getElementById('varMargen').value = p.margen;
-        abrirModalVariante();
+        new bootstrap.Modal(document.getElementById('modalVariante')).show(); 
     }
+    
     async function guardarVariante() {
         let data = { nombre: document.getElementById('varNombre').value, codigo: document.getElementById('varCodigo').value, empresa: document.getElementById('varEmpresa').value, costo_base: document.getElementById('varCostoReal').value, costo_fab: document.getElementById('varCostoFab').value, margen: document.getElementById('varMargen').value };
         let res = await fetch('/api/crear-producto', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
@@ -324,10 +409,12 @@
     function abrirModalExportar() {
         let divLista = document.getElementById('listaProductosExportar');
         divLista.innerHTML = '';
-        allProductsData.forEach(p => { divLista.innerHTML += `<div class="form-check mb-1 border-bottom"><input class="form-check-input chk-exportar" type="checkbox" value="${p.nombre}" checked> <label class="form-check-label fw-bold small">${p.nombre}</label></div>`; });
+        allProductsData.forEach(p => { divLista.innerHTML += `<div class="form-check mb-1 border-bottom border-light"><input class="form-check-input chk-exportar" type="checkbox" value="${p.nombre}" checked> <label class="form-check-label text-dark fw-bold" style="font-size:0.85rem;">${p.nombre}</label></div>`; });
         new bootstrap.Modal(document.getElementById('modalExportar')).show();
     }
+    
     function marcarTodosExportar(estado) { document.querySelectorAll('.chk-exportar').forEach(chk => chk.checked = estado); }
+    
     async function procesarDescarga() {
         let seleccionados = Array.from(document.querySelectorAll('.chk-exportar:checked')).map(c => c.value);
         if(seleccionados.length === 0) return alert("Selecciona productos");
