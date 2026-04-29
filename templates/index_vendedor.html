@@ -12,7 +12,7 @@
 
     <style>
         :root { --primary-color: #3b3874; --bg-color: #f4f6f9; --text-dark: #1f2937; }
-        body { background-color: var(--bg-color); font-family: 'Poppins', sans-serif; color: var(--text-dark); margin:0; }
+        body { background-color: var(--bg-color); font-family: 'Poppins', sans-serif; color: var(--text-dark); margin:0; display: flex; flex-direction: column; min-height: 100vh;}
         .navbar { background-color: #ffffff; box-shadow: 0 2px 10px rgba(0,0,0,0.04); padding: 0.6rem 1.5rem; border-bottom: 1px solid #e5e7eb;}
         .brand-logo { font-weight: 700; font-size: 1.4rem; color: var(--primary-color); letter-spacing: -0.5px; line-height: 1;}
         
@@ -36,6 +36,9 @@
         .input-simulador:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 2px rgba(59, 56, 116, 0.15);}
         
         .badge-custom { font-size: 0.65rem; padding: 3px 6px; border-radius: 4px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb; }
+        
+        main { flex-grow: 1; }
+        .footer-copyright { background: transparent; padding: 1.5rem 0; text-align: center; font-size: 0.75rem; color: #9ca3af; font-weight: 500; letter-spacing: 0.3px; }
     </style>
 </head>
 <body>
@@ -69,7 +72,7 @@
     </div>
 </nav>
 
-<div class="container-fluid py-4 py-md-5" style="max-width: 1400px;">
+<main class="container-fluid py-4 py-md-5" style="max-width: 1400px;">
     
     <div class="text-center mb-4">
         <div class="search-container px-2 px-md-0">
@@ -89,14 +92,18 @@
                         <th class="text-center" style="width: 10%;">% P.V.</th>
                         <th class="text-center" style="width: 13%;">% Dist. Exclusivo</th>
                         <th class="text-end" style="width: 15%;">Precio Lima</th>
-                        <th class="text-end" style="width: 15%; padding-right: 1.5rem;">AQP / TRU</th>
+                        <th class="text-end" style="width: 15%; padding-right: 1.5rem;">Precio AQP / TRU</th>
                     </tr>
                 </thead>
                 <tbody id="tablaResultados"></tbody>
             </table>
         </div>
     </div>
-</div>
+</main>
+
+<footer class="footer-copyright">
+    &copy; 2026 Grupo Linros Interinsumos (GLI). Todos los derechos reservados.
+</footer>
 
 <div class="modal fade" id="modalEdicionUniversal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -128,7 +135,7 @@
         if(modoMoneda === 'ORIGINAL') modoMoneda = 'PEN';
         else if(modoMoneda === 'PEN') modoMoneda = 'USD';
         else modoMoneda = 'ORIGINAL';
-        document.getElementById('lblMoneda').innerText = modoMoneda === 'ORIGINAL' ? "Original" : (modoMoneda === 'PEN' ? "Todo S/" : "Todo $");
+        document.getElementById('lblMoneda').innerText = modoMoneda === 'ORIGINAL' ? "Moneda: ORIGINAL" : (modoMoneda === 'PEN' ? "Moneda: SOLES (S/)" : "Moneda: DÓLARES ($)");
         renderTabla(); 
     }
 
@@ -190,7 +197,7 @@
             <tr>
                 <td style="padding-left: 1.5rem;" title="${p.nombre}">
                     <div class="fw-bold text-dark text-truncate" style="font-size: 0.95rem;">${p.nombre}</div>
-                    ${badgeCodigo}
+                    <div class="text-muted" style="font-size: 0.75rem; font-weight: 600;">${p.empresa} ${badgeCodigo}</div>
                 </td>
                 <td class="text-center">
                     <input type="number" id="input_dscto_${rowId}" class="form-control form-control-sm input-simulador" placeholder="0" oninput="aplicarDescuentoVendedor('${rowId}', ${vl}, ${vp}, '${sim}')">
