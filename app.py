@@ -66,6 +66,13 @@ class Producto(db.Model):
     oculto = db.Column(db.Boolean, default=False)
     fecha_act = db.Column(db.DateTime, default=datetime.utcnow)
 
+class Alerta(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    fecha = db.Column(db.String(50))
+    msg = db.Column(db.String(250))
+    producto = db.Column(db.String(250))
+    tipo = db.Column(db.String(50), default="INFO")
+
 with app.app_context(): db.create_all()
 
 @login_manager.user_loader
@@ -92,13 +99,11 @@ def get_currency_info(nombre, proveedor):
     n_clean = re.sub(r'\s+', '', nombre.upper())
     if "COLAGENOHIDROLIZADOGELNEX" in n_clean: return "S/", "PEN"
     
-    # 🔴 NUEVA LÓGICA SACCO: Por defecto en SOLES. Excepciones en DÓLARES.
     if proveedor == "SACCO" or "SACCO" in nombre.upper():
         for exc in ["LYOTO", "LYOFAST", "MIXPROFUXION"]:
             if exc in n_clean: return "$", "USD"
         return "S/", "PEN"
         
-    # Resto de empresas (CRAMER, GLI, etc.) por defecto Dólares
     return "$", "USD"
 
 def robust_numeric(val):
@@ -118,7 +123,7 @@ def parse_percentage(val, default=0.0):
     try:
         v = float(s)
         if has_percent: return v / 100.0
-        if v > 1 and v <= 100: return v / 100.0 # Ej: si ponen 20 en vez de 0.20
+        if v > 1 and v <= 100: return v / 100.0
         return v
     except: return default
 
@@ -164,6 +169,9 @@ def vista_admin():
 def vista_vendedor():
     return render_template('index_vendedor.html')
 
+# =========================================================
+# ⚙️ GESTIÓN DE USUARIOS Y TC
+# =========================================================
 @app.route('/usuarios')
 @login_required
 def gestion_usuarios():
@@ -228,7 +236,6 @@ def subir_maestro():
     try: df = pd.read_excel(f, header=None)
     except: return jsonify({"error": "Error al leer"}), 400
     
-    # Buscar dinámicamente la fila de cabeceras
     header_idx = 0
     for idx, row in df.iterrows():
         rs = ' '.join(str(x).lower() for x in row.values if pd.notna(x))
@@ -237,7 +244,6 @@ def subir_maestro():
     f.seek(0)
     df = pd.read_excel(f, header=header_idx)
     
-    # Limpiar columnas (quitar puntos y tildes para lectura segura)
     def clean_col(c): return str(c).strip().lower().replace('.', '').replace('ó', 'o')
     df.columns = [clean_col(c) for c in df.columns]
     
@@ -245,7 +251,6 @@ def subir_maestro():
         nombre = str(row.get('nombre', '')).strip().upper()
         if not nombre or nombre == 'NAN': continue
         
-        # 🔴 NUEVOS NOMBRES DE COLUMNA APLICADOS
         c_base = robust_numeric(row.get('costo real', 0))
         c_fab = robust_numeric(row.get('costo de fabricacion', 0))
         if c_base + c_fab <= 0.0001: continue
@@ -266,10 +271,7 @@ def subir_maestro():
         p.margen_ex = parse_percentage(row.get('margen'), 0.20)
         p.dscto_pv_ex = parse_percentage(row.get('dscto pv'), 0.0)
         p.dscto_dist_ex = parse_percentage(row.get('dscto dist'), 0.0)
-        
-        # Leemos el margen de merma directamente del excel para no perderlo
-        merma_excel = parse_percentage(row.get('margen de merma'), 0.0)
-        p.merma_pct_man = merma_excel 
+        p.merma_pct_man = parse_percentage(row.get('margen de merma'), 0.0)
         
         p.fecha_act = datetime.utcnow()
 
@@ -359,6 +361,11 @@ def editar_celdas(tipo):
 def buscar():
     q = request.args.get('q', '').upper()
     tc = get_tc_actual()
+    
+    # 🔴 LIMPIAMOS ALERTAS ANTIGUAS
+    Alerta.query.filter_by(tipo="ACTIVA").delete()
+    db.session.commit()
+    
     prods = Producto.query.filter(Producto.oculto == False).all()
     res = []
     
@@ -373,6 +380,11 @@ def buscar():
         
         merma_monto = c_base * p.merma_pct_man
         c_total = c_base + c_fab + merma_monto
+        
+        # 🔴 GENERADOR DE ALERTAS
+        if coyun > 0 and c_total > coyun:
+            db.session.add(Alerta(fecha="ACTIVA", msg="Superó Costo Coyuntural", producto=p.nombre, tipo="ACTIVA"))
+            
         c_ref = coyun if (coyun > 0 and c_total <= coyun) else c_total
         
         flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
@@ -389,8 +401,13 @@ def buscar():
             "dscto_dist": round((p.dscto_dist_man if p.dscto_dist_man is not None else p.dscto_dist_ex)*100, 2)
         })
     
+    db.session.commit()
     res.sort(key=lambda x: x['nombre'])
-    return jsonify({"productos": res, "tc_actual": tc})
+    
+    # 🔴 OBTENER ALERTAS
+    alertas_activas = [{"producto": a.producto, "msg": a.msg} for a in Alerta.query.filter_by(tipo="ACTIVA").all()]
+    
+    return jsonify({"productos": res, "tc_actual": tc, "alertas": alertas_activas})
 
 if __name__ == '__main__':
     app.run(debug=True)
