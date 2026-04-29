@@ -34,7 +34,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(100), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(20), nullable=False) # 'SuperAdmin', 'Admin', 'Vendedor', 'TC'
+    role = db.Column(db.String(20), nullable=False) 
 
 class Config(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -91,12 +91,15 @@ def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
 def get_currency_info(nombre, proveedor):
     n_clean = re.sub(r'\s+', '', nombre.upper())
     if "COLAGENOHIDROLIZADOGELNEX" in n_clean: return "S/", "PEN"
-    es_usd = True
+    
+    # 🔴 NUEVA LÓGICA SACCO: Por defecto en SOLES. Excepciones en DÓLARES.
     if proveedor == "SACCO" or "SACCO" in nombre.upper():
-        es_usd = False
         for exc in ["LYOTO", "LYOFAST", "MIXPROFUXION"]:
-            if exc in n_clean: es_usd = True; break
-    return ("$", "USD") if es_usd else ("S/", "PEN")
+            if exc in n_clean: return "$", "USD"
+        return "S/", "PEN"
+        
+    # Resto de empresas (CRAMER, GLI, etc.) por defecto Dólares
+    return "$", "USD"
 
 def robust_numeric(val):
     if pd.isna(val): return 0.0
@@ -114,7 +117,9 @@ def parse_percentage(val, default=0.0):
     s = s.replace('%', '').replace(',', '.')
     try:
         v = float(s)
-        return v / 100.0 if has_percent or v >= 10 else v
+        if has_percent: return v / 100.0
+        if v > 1 and v <= 100: return v / 100.0 # Ej: si ponen 20 en vez de 0.20
+        return v
     except: return default
 
 # =========================================================
@@ -159,9 +164,6 @@ def vista_admin():
 def vista_vendedor():
     return render_template('index_vendedor.html')
 
-# =========================================================
-# ⚙️ GESTIÓN DE USUARIOS Y TC
-# =========================================================
 @app.route('/usuarios')
 @login_required
 def gestion_usuarios():
@@ -226,20 +228,26 @@ def subir_maestro():
     try: df = pd.read_excel(f, header=None)
     except: return jsonify({"error": "Error al leer"}), 400
     
+    # Buscar dinámicamente la fila de cabeceras
     header_idx = 0
     for idx, row in df.iterrows():
         rs = ' '.join(str(x).lower() for x in row.values if pd.notna(x))
-        if 'nombre' in rs and 'costo' in rs: header_idx = idx; break
+        if 'nombre' in rs and 'referencia' in rs: 
+            header_idx = idx; break
     f.seek(0)
     df = pd.read_excel(f, header=header_idx)
-    df.columns = [str(c).strip().lower() for c in df.columns]
+    
+    # Limpiar columnas (quitar puntos y tildes para lectura segura)
+    def clean_col(c): return str(c).strip().lower().replace('.', '').replace('ó', 'o')
+    df.columns = [clean_col(c) for c in df.columns]
     
     for _, row in df.iterrows():
         nombre = str(row.get('nombre', '')).strip().upper()
         if not nombre or nombre == 'NAN': continue
         
-        c_base = robust_numeric(row.get('costo base', 0))
-        c_fab = robust_numeric(row.get('costo de fabricación', 0))
+        # 🔴 NUEVOS NOMBRES DE COLUMNA APLICADOS
+        c_base = robust_numeric(row.get('costo real', 0))
+        c_fab = robust_numeric(row.get('costo de fabricacion', 0))
         if c_base + c_fab <= 0.0001: continue
         
         emp = str(row.get('empresa', '')).strip().upper()
@@ -247,7 +255,7 @@ def subir_maestro():
         if not p:
             p = Producto(nombre=nombre); db.session.add(p)
             
-        p.codigo = str(row.get('código', 'S/C'))
+        p.codigo = str(row.get('referencia interna', 'S/C')).strip()
         p.empresa = emp
         p.proveedor = detectar_proveedor_exacto(nombre, emp)
         p.moneda_simbolo, p.moneda_texto = get_currency_info(nombre, p.proveedor)
@@ -258,6 +266,11 @@ def subir_maestro():
         p.margen_ex = parse_percentage(row.get('margen'), 0.20)
         p.dscto_pv_ex = parse_percentage(row.get('dscto pv'), 0.0)
         p.dscto_dist_ex = parse_percentage(row.get('dscto dist'), 0.0)
+        
+        # Leemos el margen de merma directamente del excel para no perderlo
+        merma_excel = parse_percentage(row.get('margen de merma'), 0.0)
+        p.merma_pct_man = merma_excel 
+        
         p.fecha_act = datetime.utcnow()
 
     db.session.commit()
