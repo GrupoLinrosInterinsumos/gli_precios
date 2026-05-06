@@ -362,11 +362,18 @@ def exportar_excel():
         
         merma = cb * merma_pct
         ct = cb + cf + merma
-        cr = cy if (cy > 0 and ct <= cy) else ct
+        c_ref = cy if (cy > 0 and ct <= cy) else ct
         
-        flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
-        pl = cr * (1 + mg)
-        pp = pl + flete
+        # 🔴 LÓGICA DE EXPORTACIÓN (Sin Stock = Sin Flete ni Margen)
+        if c_ref <= 0.0001:
+            mg = 0.0
+            pl = 0.0
+            pp = 0.0
+        else:
+            flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
+            pl = c_ref * (1 + mg)
+            pp = pl + flete
+            
         data.append({
             "Producto": p.nombre, "Código": p.codigo, "Empresa": p.empresa, "Moneda": p.moneda_texto,
             "Costo Real": cb, "Costo Fab": cf, "Merma (%)": merma_pct*100, "Costo Total": ct,
@@ -448,13 +455,17 @@ def buscar():
                 try: db.session.add(Alerta(fecha="ACTIVA", msg="Superó Costo Coyuntural", producto=p.nombre, tipo="ACTIVA"))
                 except: pass
                 
-            # 🔴 ELIMINADA LA ALERTA DE SIN COSTO
-                
             c_ref = coyun if (coyun > 0 and c_total <= coyun) else c_total
             
-            flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
-            p_lima = c_ref * (1 + margen)
-            p_prov = p_lima + flete
+            # 🔴 LÓGICA ANTI-STOCK: Si no hay costo, no hay margen ni flete
+            if c_ref <= 0.0001:
+                margen = 0.0
+                p_lima = 0.0
+                p_prov = 0.0
+            else:
+                flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
+                p_lima = c_ref * (1 + margen)
+                p_prov = p_lima + flete
             
             res.append({
                 "nombre": str(p.nombre), "codigo": str(p.codigo), "empresa": str(p.empresa or ''),
