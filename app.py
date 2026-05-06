@@ -79,7 +79,7 @@ with app.app_context(): db.create_all()
 def load_user(user_id): return User.query.get(int(user_id))
 
 # =========================================================
-# 🛠️ FUNCIONES DE APOYO Y FLETES (ESCUDO PROTECTOR)
+# 🛠️ FUNCIONES DE APOYO Y FLETES
 # =========================================================
 def get_tc_actual():
     c = Config.query.filter_by(clave='tipo_cambio').first()
@@ -107,9 +107,10 @@ def get_currency_info(nombre, proveedor):
     return "$", "USD"
 
 def robust_numeric(val):
+    if val is None: return 0.0
     if pd.isna(val): return 0.0
     s = str(val).strip().replace('$', '').replace('S/', '').replace('%', '')
-    if s == '': return 0.0  # Protege contra campos vacíos
+    if s == '': return 0.0
     if ',' in s and '.' in s: s = s.replace(',', '')
     elif ',' in s: s = s.replace(',', '.')
     try: return float(s)
@@ -278,29 +279,45 @@ def subir_maestro():
 @app.route('/api/crear-producto', methods=['POST'])
 @login_required
 def crear_producto():
-    if not is_admin_api(): return jsonify({"error": "No"}), 403
+    if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
     d = request.json
     nombre = str(d.get('nombre', '')).upper().strip()
     
-    # Validar que al menos tenga un nombre
-    if not nombre: return jsonify({"error": "Nombre vacío"}), 400
-    if Producto.query.filter_by(nombre=nombre).first(): return jsonify({"error": "Ya existe"}), 400
+    if not nombre: return jsonify({"error": "El producto debe tener un nombre."}), 400
     
     codigo_val = str(d.get('codigo', '')).upper().strip()
     if not codigo_val: codigo_val = 'S/C'
+    empresa_val = str(d.get('empresa', '')).upper().strip()
     
-    p = Producto(nombre=nombre, codigo=codigo_val, empresa=str(d.get('empresa', '')).upper(), es_manual=True)
-    p.proveedor = detectar_proveedor_exacto(nombre, p.empresa)
-    p.moneda_simbolo, p.moneda_texto = get_currency_info(nombre, p.proveedor)
+    p = Producto.query.filter_by(nombre=nombre).first()
     
-    # 🔴 AQUÍ APLICAMOS EL ESCUDO: Si vienen vacíos, pone 0 automáticamente
-    p.costo_base_man = robust_numeric(d.get('costo_base'))
-    p.costo_fab_man = robust_numeric(d.get('costo_fab'))
-    
-    margen_val = d.get('margen')
-    p.margen_man = (robust_numeric(margen_val) / 100.0) if margen_val else 0.20
-    
-    db.session.add(p); db.session.commit()
+    # 🔴 SISTEMA DE "RESURRECCIÓN" DE PRODUCTOS OCULTOS
+    if p:
+        if not p.oculto:
+            return jsonify({"error": "El producto ya existe y está activo en la tabla."}), 400
+        # Si estaba oculto (eliminado previamente), lo restauramos
+        p.oculto = False
+        p.es_manual = True
+        p.codigo = codigo_val
+        p.empresa = empresa_val
+        p.proveedor = detectar_proveedor_exacto(nombre, empresa_val)
+        p.moneda_simbolo, p.moneda_texto = get_currency_info(nombre, p.proveedor)
+        p.costo_base_man = robust_numeric(d.get('costo_base'))
+        p.costo_fab_man = robust_numeric(d.get('costo_fab'))
+        margen_val = d.get('margen')
+        p.margen_man = (robust_numeric(margen_val) / 100.0) if margen_val else 0.20
+    else:
+        # Creación normal si nunca existió
+        p = Producto(nombre=nombre, codigo=codigo_val, empresa=empresa_val, es_manual=True)
+        p.proveedor = detectar_proveedor_exacto(nombre, p.empresa)
+        p.moneda_simbolo, p.moneda_texto = get_currency_info(nombre, p.proveedor)
+        p.costo_base_man = robust_numeric(d.get('costo_base'))
+        p.costo_fab_man = robust_numeric(d.get('costo_fab'))
+        margen_val = d.get('margen')
+        p.margen_man = (robust_numeric(margen_val) / 100.0) if margen_val else 0.20
+        db.session.add(p)
+        
+    db.session.commit()
     return jsonify({"success": True})
 
 @app.route('/api/exportar', methods=['POST'])
@@ -353,7 +370,6 @@ def editar_celdas(tipo):
     p = Producto.query.filter_by(nombre=request.json['nombre']).first()
     if not p: return jsonify({"error": "No existe"}), 404
     
-    # Escudo protector también para la edición en el modal
     val_raw = request.json.get('valor', request.json.get('costo', request.json.get('merma', request.json.get('margen', 0))))
     val = robust_numeric(val_raw)
     
