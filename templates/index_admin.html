@@ -29,7 +29,6 @@
         .search-input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(59, 56, 116, 0.1); }
         .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 1rem; }
         
-        /* 🔥 TABLA PERFECTA SIN SCROLL HORIZONTAL 🔥 */
         .table-container { border-radius: 6px; overflow: hidden; background: var(--white-pure); box-shadow: 0 4px 10px rgba(0,0,0,0.02); border: 1px solid #e5e7eb; width: 100%; }
         .scroll-wrapper { width: 100%; max-height: 70vh; overflow-y: auto; overflow-x: hidden; }
         
@@ -162,7 +161,7 @@
                         <th class="w-desc">% Dist</th>
                         <th class="w-col">Margen</th>
                         <th class="w-precio">Precio Lima</th>
-                        <th class="w-precio">Precio AQP / TRU</th>
+                        <th class="w-precio">Provincia</th>
                     </tr>
                 </thead>
                 <tbody id="tablaResultados"></tbody>
@@ -176,7 +175,7 @@
 </main>
 
 <footer class="footer-copyright">
-    &copy; 2026 Grupo Linros Interinsumos. Todos los derechos reservados.
+    &copy; 2026 Grupo Linros Interinsumos (GLI). Todos los derechos reservados.
 </footer>
 
 <div class="modal fade" id="modalEdicionUniversal" tabindex="-1">
@@ -206,6 +205,8 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body p-4 bg-light">
+            <div id="alertaCrear" class="alert alert-danger d-none p-2 small fw-bold"></div>
+            
             <input type="text" id="varNombre" class="form-control mb-2 border-secondary-subtle rounded" placeholder="Nombre completo del producto">
             <input type="text" id="varCodigo" class="form-control mb-2 border-secondary-subtle rounded" placeholder="Código (Opcional)">
             <input type="text" id="varEmpresa" class="form-control mb-3 border-secondary-subtle rounded" placeholder="Empresa (GLI, CRAMER, SACCO...)">
@@ -284,14 +285,22 @@
 
     async function guardarEdicionUniversal() {
         const val = document.getElementById('inputEdicionUniversal').value;
-        if(!val || isNaN(val)) return alert("Ingresa un número válido.");
+        if(val === "") return alert("Ingresa un número válido.");
 
         if(editContext.tipo === 'tc') {
             let res = await fetch('/api/update-tc', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tc: val})});
-            if(res.ok) { modalEdicion.hide(); ejecutarBusqueda(); } else alert("Error: Permiso denegado.");
+            if(res.ok) { 
+                modalEdicion.hide(); 
+                document.getElementById('txtBuscar').value = ''; // Limpia barra al editar TC
+                ejecutarBusqueda(); 
+            } else alert("Error: Permiso denegado.");
         } else {
             let res = await fetch(`/api/editar-${editContext.tipo}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre: editContext.nombre, [editContext.tipo.includes('costo')?'costo':editContext.tipo]: val}) });
-            if(res.ok) { modalEdicion.hide(); ejecutarBusqueda(); } else alert("Error al guardar.");
+            if(res.ok) { 
+                modalEdicion.hide(); 
+                document.getElementById('txtBuscar').value = ''; // Limpia barra al editar un valor
+                ejecutarBusqueda(); 
+            } else alert("Error al guardar.");
         }
     }
 
@@ -317,7 +326,6 @@
             allProductsData = json.productos; 
             tcGlobal = json.tc_actual;
             
-            // 🔴 RENDERIZADO DE ALERTAS DEL BACKEND
             const alertasBox = document.getElementById('contenedorAlertas');
             if(json.alertas && json.alertas.length > 0) {
                 let alHTML = `<div class="alert alert-secondary py-2 mb-3 shadow-sm border-secondary" style="font-size:0.8rem;"><strong class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> Alertas del Sistema:</strong> <div class="mt-2">`;
@@ -394,7 +402,15 @@
         } catch(e) { console.error(e); }
     }
 
-    function eliminarProducto(nombre) { if(confirm(`¿Eliminar ${nombre}?`)) { fetch('/api/eliminar-producto', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre})}).then(()=>ejecutarBusqueda()); } }
+    function eliminarProducto(nombre) { 
+        if(confirm(`¿Eliminar ${nombre}?`)) { 
+            fetch('/api/eliminar-producto', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre})})
+            .then(()=> {
+                document.getElementById('txtBuscar').value = ''; // Limpia barra al eliminar
+                ejecutarBusqueda();
+            }); 
+        } 
+    }
 
     async function subirArchivo() {
         let input = document.getElementById('fileMaestro');
@@ -402,11 +418,17 @@
         let fd = new FormData(); fd.append('archivo', input.files[0]);
         document.getElementById('status').innerText = "Procesando Maestro...";
         let res = await fetch('/subir-maestro', {method:'POST', body:fd});
-        if(res.ok) { document.getElementById('status').innerText = "✅ Listo"; ejecutarBusqueda(); } 
-        else document.getElementById('status').innerText = "❌ Error";
+        if(res.ok) { 
+            document.getElementById('status').innerText = "✅ Listo"; 
+            document.getElementById('txtBuscar').value = '';
+            ejecutarBusqueda(); 
+        } else {
+            document.getElementById('status').innerText = "❌ Error";
+        }
     }
 
     function abrirModalVariante() { 
+        document.getElementById('alertaCrear').classList.add('d-none');
         document.getElementById('varNombre').value = ''; document.getElementById('varCodigo').value = '';
         document.getElementById('varEmpresa').value = ''; document.getElementById('varCostoReal').value = '';
         document.getElementById('varCostoFab').value = ''; document.getElementById('varMargen').value = '';
@@ -416,6 +438,7 @@
     function clonarProducto(nombre) {
         let p = allProductsData.find(x => x.nombre === nombre);
         if(!p) return;
+        document.getElementById('alertaCrear').classList.add('d-none');
         document.getElementById('varNombre').value = p.nombre + " - COPIA"; document.getElementById('varCodigo').value = p.codigo;
         document.getElementById('varEmpresa').value = p.empresa; document.getElementById('varCostoReal').value = p.costo_base;
         document.getElementById('varCostoFab').value = p.costo_fab; document.getElementById('varMargen').value = p.margen;
@@ -423,9 +446,25 @@
     }
     
     async function guardarVariante() {
-        let data = { nombre: document.getElementById('varNombre').value, codigo: document.getElementById('varCodigo').value, empresa: document.getElementById('varEmpresa').value, costo_base: document.getElementById('varCostoReal').value, costo_fab: document.getElementById('varCostoFab').value, margen: document.getElementById('varMargen').value };
+        let data = { 
+            nombre: document.getElementById('varNombre').value, 
+            codigo: document.getElementById('varCodigo').value, 
+            empresa: document.getElementById('varEmpresa').value, 
+            costo_base: document.getElementById('varCostoReal').value, 
+            costo_fab: document.getElementById('varCostoFab').value, 
+            margen: document.getElementById('varMargen').value 
+        };
         let res = await fetch('/api/crear-producto', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
-        if(res.ok) { bootstrap.Modal.getInstance(document.getElementById('modalVariante')).hide(); ejecutarBusqueda(); } else alert("Error al guardar.");
+        if(res.ok) { 
+            bootstrap.Modal.getInstance(document.getElementById('modalVariante')).hide(); 
+            document.getElementById('txtBuscar').value = ''; // 🔴 Limpiamos buscador al crear
+            ejecutarBusqueda(); 
+        } else {
+            let err = await res.json();
+            let cajaAlerta = document.getElementById('alertaCrear');
+            cajaAlerta.innerText = "Error: " + err.error;
+            cajaAlerta.classList.remove('d-none');
+        }
     }
 
     function abrirModalExportar() {
