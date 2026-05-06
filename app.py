@@ -79,7 +79,7 @@ with app.app_context(): db.create_all()
 def load_user(user_id): return User.query.get(int(user_id))
 
 # =========================================================
-# 🛠️ FUNCIONES DE APOYO Y FLETES
+# 🛠️ FUNCIONES DE APOYO Y FLETES (ESCUDO PROTECTOR)
 # =========================================================
 def get_tc_actual():
     c = Config.query.filter_by(clave='tipo_cambio').first()
@@ -109,6 +109,7 @@ def get_currency_info(nombre, proveedor):
 def robust_numeric(val):
     if pd.isna(val): return 0.0
     s = str(val).strip().replace('$', '').replace('S/', '').replace('%', '')
+    if s == '': return 0.0  # Protege contra campos vacíos
     if ',' in s and '.' in s: s = s.replace(',', '')
     elif ',' in s: s = s.replace(',', '.')
     try: return float(s)
@@ -251,8 +252,6 @@ def subir_maestro():
         c_base = robust_numeric(row.get('costo real', 0))
         c_fab = robust_numeric(row.get('costo de fabricacion', 0))
         
-        # 🔴 AQUÍ SE QUITÓ EL BLOQUEO: AHORA SUBE AUNQUE NO TENGA COSTO
-        
         emp = str(row.get('empresa', '')).strip().upper()
         p = Producto.query.filter_by(nombre=nombre).first()
         if not p:
@@ -281,15 +280,25 @@ def subir_maestro():
 def crear_producto():
     if not is_admin_api(): return jsonify({"error": "No"}), 403
     d = request.json
-    nombre = d['nombre'].upper().strip()
+    nombre = str(d.get('nombre', '')).upper().strip()
+    
+    # Validar que al menos tenga un nombre
+    if not nombre: return jsonify({"error": "Nombre vacío"}), 400
     if Producto.query.filter_by(nombre=nombre).first(): return jsonify({"error": "Ya existe"}), 400
     
-    p = Producto(nombre=nombre, codigo=d.get('codigo', 'S/C').upper(), empresa=d.get('empresa', '').upper(), es_manual=True)
+    codigo_val = str(d.get('codigo', '')).upper().strip()
+    if not codigo_val: codigo_val = 'S/C'
+    
+    p = Producto(nombre=nombre, codigo=codigo_val, empresa=str(d.get('empresa', '')).upper(), es_manual=True)
     p.proveedor = detectar_proveedor_exacto(nombre, p.empresa)
     p.moneda_simbolo, p.moneda_texto = get_currency_info(nombre, p.proveedor)
-    p.costo_base_man = float(d.get('costo_base', 0))
-    p.costo_fab_man = float(d.get('costo_fab', 0))
-    p.margen_man = float(d.get('margen', 20)) / 100.0
+    
+    # 🔴 AQUÍ APLICAMOS EL ESCUDO: Si vienen vacíos, pone 0 automáticamente
+    p.costo_base_man = robust_numeric(d.get('costo_base'))
+    p.costo_fab_man = robust_numeric(d.get('costo_fab'))
+    
+    margen_val = d.get('margen')
+    p.margen_man = (robust_numeric(margen_val) / 100.0) if margen_val else 0.20
     
     db.session.add(p); db.session.commit()
     return jsonify({"success": True})
@@ -343,7 +352,11 @@ def editar_celdas(tipo):
     if not is_admin_api(): return jsonify({"error": "No"}), 403
     p = Producto.query.filter_by(nombre=request.json['nombre']).first()
     if not p: return jsonify({"error": "No existe"}), 404
-    val = float(request.json.get('valor', request.json.get('costo', request.json.get('merma', request.json.get('margen', 0)))))
+    
+    # Escudo protector también para la edición en el modal
+    val_raw = request.json.get('valor', request.json.get('costo', request.json.get('merma', request.json.get('margen', 0))))
+    val = robust_numeric(val_raw)
+    
     if tipo == 'margen': p.margen_man = val / 100.0
     elif tipo == 'merma': p.merma_pct_man = val / 100.0
     elif tipo == 'costo-real': p.costo_base_man = val if val >= 0 else None
@@ -360,7 +373,6 @@ def buscar():
     q = request.args.get('q', '').upper()
     tc = get_tc_actual()
     
-    # 🔴 LIMPIAMOS ALERTAS ANTIGUAS
     Alerta.query.filter_by(tipo="ACTIVA").delete()
     db.session.commit()
     
@@ -379,7 +391,6 @@ def buscar():
         merma_monto = c_base * p.merma_pct_man
         c_total = c_base + c_fab + merma_monto
         
-        # 🔴 GENERADOR AUTOMÁTICO DE ALERTAS (AHORA SON 2 TIPOS)
         if coyun > 0 and c_total > coyun:
             db.session.add(Alerta(fecha="ACTIVA", msg="Superó Costo Coyuntural", producto=p.nombre, tipo="ACTIVA"))
             
@@ -405,7 +416,6 @@ def buscar():
     db.session.commit()
     res.sort(key=lambda x: x['nombre'])
     
-    # 🔴 EXTRAER ALERTAS AL FRONTEND
     alertas_activas = [{"producto": a.producto, "msg": a.msg} for a in Alerta.query.filter_by(tipo="ACTIVA").all()]
     
     return jsonify({"productos": res, "tc_actual": tc, "alertas": alertas_activas})
