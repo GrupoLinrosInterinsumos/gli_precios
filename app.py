@@ -83,6 +83,15 @@ def load_user(user_id): return User.query.get(int(user_id))
 # =========================================================
 FLETE_ESTANDAR = 0.11 
 
+# 🔴 LISTA ESTRICTA DE EXCEPCIONES SACCO EN DÓLARES
+EXCEPCIONES_SACCO_USD = [
+    "LYOTO M 536 R",
+    "LYOTO M 536 S",
+    "LYOFAST AB 1",
+    "LYOFAST Y 438 A",
+    "LYOFAST Y 470 E"
+]
+
 def get_tc_actual():
     c = Config.query.filter_by(clave='tipo_cambio').first()
     if not c:
@@ -96,12 +105,15 @@ def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
     return str(empresa_col).strip().upper()
 
 def get_currency_info(nombre, proveedor):
-    n_clean = re.sub(r'\s+', '', nombre.upper())
+    n_upper = nombre.upper()
+    n_clean = re.sub(r'\s+', '', n_upper)
     if "COLAGENOHIDROLIZADOGELNEX" in n_clean: return "S/", "PEN"
     
-    if proveedor == "SACCO" or "SACCO" in nombre.upper():
-        for exc in ["LYOTO", "LYOFAST", "MIXPROFUXION"]:
-            if exc in n_clean: return "$", "USD"
+    if proveedor == "SACCO" or "SACCO" in n_upper:
+        # Verificamos si el nombre coincide con las excepciones usando la versión sin espacios
+        for exc in EXCEPCIONES_SACCO_USD:
+            if exc.replace(" ", "") in n_clean:
+                return "$", "USD"
         return "S/", "PEN"
         
     return "$", "USD"
@@ -132,6 +144,12 @@ def get_col_val(row, poss_names, def_val=0):
     for n in poss_names:
         if n in row: return row[n]
     return def_val
+
+# 🔴 FUNCIÓN SEGURA PARA EXTRAER DATOS (Diferencia 0.0 de NULL)
+def get_val(man, ex, default):
+    if man is not None: return float(man)
+    if ex is not None: return float(ex)
+    return default
 
 # =========================================================
 # 🔐 RUTAS Y SEGURIDAD
@@ -301,16 +319,19 @@ def crear_producto():
     c_fab = robust_numeric(d.get('costo_fab'))
     coyun = robust_numeric(d.get('coyuntural'))
     
-    merma_val = d.get('merma')
+    merma_val = str(d.get('merma', '')).strip()
     merma = (robust_numeric(merma_val) / 100.0) if merma_val else 0.0
     
-    margen_val = d.get('margen')
-    margen = (robust_numeric(margen_val) / 100.0) if margen_val else 0.20
+    # 🔴 Respetamos estrictamente el "0" en la creación manual
+    margen_val = str(d.get('margen', '')).strip()
+    margen = 0.20
+    if margen_val != '':
+        margen = robust_numeric(margen_val) / 100.0
     
-    dscto_pv_val = d.get('dscto_pv')
+    dscto_pv_val = str(d.get('dscto_pv', '')).strip()
     dscto_pv = (robust_numeric(dscto_pv_val) / 100.0) if dscto_pv_val else 0.0
     
-    dscto_dist_val = d.get('dscto_dist')
+    dscto_dist_val = str(d.get('dscto_dist', '')).strip()
     dscto_dist = (robust_numeric(dscto_dist_val) / 100.0) if dscto_dist_val else 0.0
 
     if p:
@@ -354,17 +375,17 @@ def exportar_excel():
     data = []
     tc = get_tc_actual()
     for p in prods:
-        cb = float(p.costo_base_man if p.costo_base_man is not None else (p.costo_base_ex or 0.0))
-        cf = float(p.costo_fab_man if p.costo_fab_man is not None else (p.costo_fab_ex or 0.0))
-        mg = float(p.margen_man if p.margen_man is not None else (p.margen_ex or 0.20))
-        cy = float(p.coyuntural_man if p.coyuntural_man is not None else (p.coyuntural_ex or 0.0))
-        merma_pct = float(p.merma_pct_man or 0.0)
+        # Usando el nuevo motor seguro para respetar el 0.0%
+        cb = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
+        cf = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
+        mg = get_val(p.margen_man, p.margen_ex, 0.20)
+        cy = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
+        merma_pct = p.merma_pct_man or 0.0
         
         merma = cb * merma_pct
         ct = cb + cf + merma
         c_ref = cy if (cy > 0 and ct <= cy) else ct
         
-        # 🔴 LÓGICA DE EXPORTACIÓN (Sin Stock = Sin Flete ni Margen)
         if c_ref <= 0.0001:
             mg = 0.0
             pl = 0.0
@@ -435,16 +456,25 @@ def buscar():
         for p in prods:
             if p.oculto == True: continue
             
+            # 🔥 AUTOCORRECCIÓN DE MONEDA PARA SACCO (SOLO QUEDAN EN USD LOS DE LA LISTA ESTRICTA)
+            prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
+            sim_real, txt_real = get_currency_info(p.nombre, prov_real)
+            if p.moneda_texto != txt_real:
+                p.proveedor = prov_real
+                p.moneda_simbolo = sim_real
+                p.moneda_texto = txt_real
+            
             if q and q not in p.nombre.upper() and q not in str(p.codigo).upper(): continue
             
-            c_base = float(p.costo_base_man if p.costo_base_man is not None else (p.costo_base_ex or 0.0))
-            c_fab = float(p.costo_fab_man if p.costo_fab_man is not None else (p.costo_fab_ex or 0.0))
-            margen = float(p.margen_man if p.margen_man is not None else (p.margen_ex or 0.20))
-            coyun = float(p.coyuntural_man if p.coyuntural_man is not None else (p.coyuntural_ex or 0.0))
+            # 🔴 EL MOTOR AHORA RESPETA EL 0.0 Y NO LO REESCRIBE AL 20%
+            c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
+            c_fab = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
+            margen = get_val(p.margen_man, p.margen_ex, 0.20)
+            coyun = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
             
-            merma_pct = float(p.merma_pct_man or 0.0)
-            dscto_pv = float(p.dscto_pv_man if p.dscto_pv_man is not None else (p.dscto_pv_ex or 0.0))
-            dscto_dist = float(p.dscto_dist_man if p.dscto_dist_man is not None else (p.dscto_dist_ex or 0.0))
+            merma_pct = p.merma_pct_man or 0.0
+            dscto_pv = get_val(p.dscto_pv_man, p.dscto_pv_ex, 0.0)
+            dscto_dist = get_val(p.dscto_dist_man, p.dscto_dist_ex, 0.0)
             
             if coyun < 0: coyun = 0.0
             
@@ -457,7 +487,6 @@ def buscar():
                 
             c_ref = coyun if (coyun > 0 and c_total <= coyun) else c_total
             
-            # 🔴 LÓGICA ANTI-STOCK: Si no hay costo, no hay margen ni flete
             if c_ref <= 0.0001:
                 margen = 0.0
                 p_lima = 0.0
