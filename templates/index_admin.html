@@ -50,9 +50,14 @@
         .badges-wrapper { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
         .badge-custom { font-size: 0.55rem; padding: 2px 5px; border-radius: 4px; font-weight: 500; display: inline-flex; align-items: center; gap: 3px; background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb;}
         
+        /* Estilos de Filas: Normal, Coyuntural y Alerta */
         .row-coyuntural td { background-color: #f8fafc !important; }
+        .row-alerta td { background-color: #fef2f2 !important; } /* Rojo claro pastel */
+        .nombre-alerta { color: #b91c1c !important; } /* Rojo oscuro para el texto */
+        
         .btn-coyuntural-active { background-color: #4b5563; color: white; border-color: #374151; }
         .btn-coyuntural-inactive { background-color: #ffffff; color: #4b5563; border: 1px solid #d1d5db; }
+        .btn-alerta { background-color: #dc2626; color: white; border-color: #b91c1c; } /* Botón rojo cuando hay alerta */
         
         .btn-accion { background: #ffffff; border: 1px solid #d1d5db; border-radius: 4px; padding: 3px 4px; font-weight: 500; color: #374151; font-size: 0.7rem; width: 100%; transition: 0.2s;}
         .btn-accion:hover { background: #f3f4f6; border-color: #9ca3af; }
@@ -140,7 +145,6 @@
         </div>
     </div>
 
-    <!-- 🔴 CONTENEDOR DE ALERTAS COYUNTURALES Y SIN COSTO -->
     <div id="contenedorAlertas"></div>
 
     <div class="text-center mb-3 mt-2">
@@ -182,7 +186,6 @@
     &copy; 2026 Grupo Linros Interinsumos (GLI). Todos los derechos reservados.
 </footer>
 
-<!-- 🚀 MODAL UNIVERSAL PARA EDICIONES -->
 <div class="modal fade" id="modalEdicionUniversal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-0 shadow-lg rounded">
@@ -202,7 +205,6 @@
     </div>
 </div>
 
-<!-- 🚀 MODAL DE CREAR / CLONAR (OPCIÓN A: TODOS LOS CAMPOS Y PLANTILLAS) -->
 <div class="modal fade" id="modalVariante" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content border-0 shadow-lg rounded">
@@ -232,7 +234,6 @@
                 
                 <div class="col-12"><hr class="my-1 border-secondary"></div>
                 
-                <!-- Todos los campos numéricos organizados -->
                 <div class="col-4 col-md-2">
                     <label class="modal-label">C. Real</label>
                     <input type="number" id="varCostoReal" class="form-control border-secondary-subtle rounded" placeholder="0.00" step="any">
@@ -303,20 +304,23 @@
 
     // 🚀 LÓGICA DE TEXTO QUE "CORRE" (MARQUEE EN HOVER)
     function animarTexto(el) {
-        // Solo corre si el texto es tan largo que se corta con '...'
         if (el.scrollWidth > el.clientWidth) {
             let txt = el.getAttribute('data-texto');
             el.innerHTML = `<marquee scrollamount="4">${txt}</marquee>`;
-            el.style.color = "var(--primary-color)"; 
+            // Evitar cambiar el color si está en alerta roja para no perder el aviso visual
+            if(!el.classList.contains('nombre-alerta')) {
+                el.style.color = "var(--primary-color)"; 
+            }
         }
     }
 
     function detenerTexto(el) {
-        // Detenemos y devolvemos al estado normal al quitar el mouse
         if (el.querySelector('marquee')) {
             let txt = el.getAttribute('data-texto');
             el.innerHTML = txt;
-            el.style.color = "";
+            if(!el.classList.contains('nombre-alerta')) {
+                el.style.color = "";
+            }
         }
     }
 
@@ -428,12 +432,18 @@
                 let badgeEmpresa = p.empresa && p.empresa !== "MANUAL" 
                     ? `<span class="badge-custom" style="background-color: #f8fafc; color: #4b5563;"><i class="bi bi-building"></i> ${p.empresa}</span>` : '';
 
+                // 🔴 Lógica de Alertas Visuales en la Tabla
                 let hasCoyuntural = vcy > 0;
+                let isAlerta = hasCoyuntural && (vt > vcy);
+                
                 let textCoyuntural = hasCoyuntural ? `${sim}${vcy.toFixed(3)}` : `${sim}${vt.toFixed(3)}`;
                 let btnCoyunturalClass = hasCoyuntural ? 'btn-coyuntural-active btn-accion' : 'btn-coyuntural-inactive btn-accion';
-                let rowClass = hasCoyuntural ? 'row-coyuntural' : '';
+                
+                if (isAlerta) btnCoyunturalClass = 'btn-alerta btn-accion'; // Botón rojo en alerta
+                
+                let rowClass = isAlerta ? 'row-alerta' : (hasCoyuntural ? 'row-coyuntural' : '');
+                let prodNameClass = isAlerta ? 'nombre-alerta' : 'text-dark';
 
-                // Textos limpios para Javascript sin romper el HTML
                 let safeName = p.nombre.replace(/'/g, "\\'");
                 let escapedName = p.nombre.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
@@ -441,7 +451,7 @@
                 <tr class="${rowClass}">
                     <td class="text-start ps-2" title="Desliza o haz hover para leer">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div class="fw-bold text-dark text-truncate pe-1" 
+                            <div class="fw-bold ${prodNameClass} text-truncate pe-1" 
                                  style="font-size: 0.78rem; max-width: calc(100% - 65px); cursor: ew-resize;"
                                  onmouseenter="animarTexto(this)" 
                                  onmouseleave="detenerTexto(this)"
