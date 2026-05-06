@@ -36,7 +36,7 @@
         .table-pro thead th { position: sticky; top: 0; background-color: #f1f3f5; z-index: 10; border-bottom: 1px solid #e5e7eb; color: var(--text-dark); font-size: 0.65rem; text-transform: uppercase; padding: 0.8rem 0.2rem; font-weight: 600; text-align: center;}
         .table-pro td { padding: 0.6rem 0.2rem; vertical-align: middle; border-bottom: 1px solid #f0f0f5; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        .w-prod { width: 20%; text-align: left !important; padding-left: 1rem !important; }
+        .w-prod { width: 22%; text-align: left !important; padding-left: 1rem !important; }
         .w-col { width: 7%; }
         .w-desc { width: 6.5%; }
         .w-precio { width: 10.5%; text-align: right !important; padding-right: 1rem !important; }
@@ -182,7 +182,7 @@
     &copy; 2026 Grupo Linros Interinsumos (GLI). Todos los derechos reservados.
 </footer>
 
-<!-- 🚀 MODAL UNIVERSAL PARA EDICIONES (Un solo valor) -->
+<!-- 🚀 MODAL UNIVERSAL PARA EDICIONES -->
 <div class="modal fade" id="modalEdicionUniversal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-0 shadow-lg rounded">
@@ -202,7 +202,7 @@
     </div>
 </div>
 
-<!-- 🚀 NUEVO MODAL DE CREAR / CLONAR CON TODOS LOS CAMPOS -->
+<!-- 🚀 MODAL DE CREAR / CLONAR (OPCIÓN A: TODOS LOS CAMPOS Y PLANTILLAS) -->
 <div class="modal fade" id="modalVariante" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content border-0 shadow-lg rounded">
@@ -213,8 +213,7 @@
         <div class="modal-body p-4 bg-light">
             <div id="alertaCrear" class="alert alert-danger d-none p-2 small fw-bold mb-3"></div>
             
-            <!-- Selector Inteligente de Plantillas -->
-            <label class="modal-label">Usar plantilla de un producto existente</label>
+            <label class="modal-label text-primary"><i class="bi bi-magic me-1"></i> Usar plantilla de un producto existente (Opcional)</label>
             <select id="varPlantilla" class="form-select border-secondary-subtle rounded mb-3" onchange="cargarPlantilla()"></select>
 
             <div class="row g-3">
@@ -223,7 +222,7 @@
                     <input type="text" id="varNombre" class="form-control border-secondary-subtle rounded" placeholder="Ej: Ácido Cítrico Fino...">
                 </div>
                 <div class="col-md-6">
-                    <label class="modal-label">Código Interno (Opcional)</label>
+                    <label class="modal-label">Código Interno</label>
                     <input type="text" id="varCodigo" class="form-control border-secondary-subtle rounded" placeholder="S/C">
                 </div>
                 <div class="col-md-6">
@@ -231,9 +230,9 @@
                     <input type="text" id="varEmpresa" class="form-control border-secondary-subtle rounded" placeholder="GLI, CRAMER, SACCO...">
                 </div>
                 
-                <div class="col-12"><hr class="my-2 border-secondary"></div>
+                <div class="col-12"><hr class="my-1 border-secondary"></div>
                 
-                <!-- Campos Financieros y Operativos -->
+                <!-- Todos los campos numéricos organizados -->
                 <div class="col-4 col-md-2">
                     <label class="modal-label">C. Real</label>
                     <input type="number" id="varCostoReal" class="form-control border-secondary-subtle rounded" placeholder="0.00" step="any">
@@ -301,6 +300,25 @@
     const modalVar = new bootstrap.Modal(document.getElementById('modalVariante'));
 
     document.addEventListener('DOMContentLoaded', () => { ejecutarBusqueda(); });
+
+    // 🚀 LÓGICA DE TEXTO QUE "CORRE" (MARQUEE EN HOVER)
+    function animarTexto(el) {
+        // Solo corre si el texto es tan largo que se corta con '...'
+        if (el.scrollWidth > el.clientWidth) {
+            let txt = el.getAttribute('data-texto');
+            el.innerHTML = `<marquee scrollamount="4">${txt}</marquee>`;
+            el.style.color = "var(--primary-color)"; 
+        }
+    }
+
+    function detenerTexto(el) {
+        // Detenemos y devolvemos al estado normal al quitar el mouse
+        if (el.querySelector('marquee')) {
+            let txt = el.getAttribute('data-texto');
+            el.innerHTML = txt;
+            el.style.color = "";
+        }
+    }
 
     function toggleAdminPanel() {
         let p = document.getElementById('adminPanel');
@@ -415,17 +433,22 @@
                 let btnCoyunturalClass = hasCoyuntural ? 'btn-coyuntural-active btn-accion' : 'btn-coyuntural-inactive btn-accion';
                 let rowClass = hasCoyuntural ? 'row-coyuntural' : '';
 
+                // Textos limpios para Javascript sin romper el HTML
                 let safeName = p.nombre.replace(/'/g, "\\'");
+                let escapedName = p.nombre.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-                // 🔥 Aquí aplicamos Flexbox para que los nombres muy largos no empujen los botones
                 htmlContent += `
                 <tr class="${rowClass}">
-                    <td class="text-start ps-2" title="${p.nombre}">
+                    <td class="text-start ps-2" title="Desliza o haz hover para leer">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div class="fw-bold text-dark text-truncate pe-1" style="font-size: 0.78rem; max-width: calc(100% - 60px);">
-                                ${p.nombre} 
+                            <div class="fw-bold text-dark text-truncate pe-1" 
+                                 style="font-size: 0.78rem; max-width: calc(100% - 65px); cursor: ew-resize;"
+                                 onmouseenter="animarTexto(this)" 
+                                 onmouseleave="detenerTexto(this)"
+                                 data-texto="${escapedName}">
+                                ${p.nombre}
                             </div>
-                            <div class="text-end text-nowrap" style="width: 60px;">
+                            <div class="text-end text-nowrap" style="width: 65px;">
                                 <button class="btn btn-sm btn-light border p-1 py-0 text-secondary" onclick="clonarProducto('${safeName}')" title="Usar como base"><i class="bi bi-copy"></i></button>
                                 <button class="btn btn-sm btn-light border text-secondary p-1 py-0 ms-1" onclick="eliminarProducto('${safeName}')" title="Eliminar"><i class="bi bi-trash-fill"></i></button>
                             </div>
@@ -484,7 +507,7 @@
     // 🚀 LÓGICA DE PLANTILLAS Y CREACIÓN
     function poblarSelectPlantillas() {
         let select = document.getElementById('varPlantilla');
-        select.innerHTML = '<option value="">-- Seleccionar producto base (Opcional) --</option>';
+        select.innerHTML = '<option value="">-- Cargar datos de producto existente --</option>';
         allProductsData.forEach(p => {
             select.innerHTML += `<option value="${p.nombre.replace(/"/g, '&quot;')}">${p.nombre}</option>`;
         });
@@ -499,7 +522,7 @@
         document.getElementById('varCostoFab').value = ''; 
         document.getElementById('varCoyuntural').value = ''; 
         document.getElementById('varMerma').value = ''; 
-        document.getElementById('varMargen').value = '';
+        document.getElementById('varMargen').value = '20';
         document.getElementById('varDsctoPV').value = ''; 
         document.getElementById('varDsctoDist').value = '';
         
@@ -520,7 +543,7 @@
         document.getElementById('varEmpresa').value = p.empresa; 
         document.getElementById('varCostoReal').value = p.costo_base;
         document.getElementById('varCostoFab').value = p.costo_fab; 
-        document.getElementById('varCoyuntural').value = p.costo_coyuntural; 
+        document.getElementById('varCoyuntural').value = p.costo_coyuntural > 0 ? p.costo_coyuntural : ''; 
         document.getElementById('varMerma').value = p.merma_porcentaje; 
         document.getElementById('varMargen').value = p.margen;
         document.getElementById('varDsctoPV').value = p.dscto_pv;
@@ -564,7 +587,7 @@
     function abrirModalExportar() {
         let divLista = document.getElementById('listaProductosExportar');
         divLista.innerHTML = '';
-        allProductsData.forEach(p => { divLista.innerHTML += `<div class="form-check mb-1 border-bottom border-light"><input class="form-check-input chk-exportar" type="checkbox" value="${p.nombre}" checked> <label class="form-check-label text-dark fw-bold" style="font-size:0.85rem;">${p.nombre}</label></div>`; });
+        allProductsData.forEach(p => { divLista.innerHTML += `<div class="form-check mb-1 border-bottom border-light"><input class="form-check-input chk-exportar" type="checkbox" value="${p.nombre.replace(/"/g, '&quot;')}" checked> <label class="form-check-label text-dark fw-bold" style="font-size:0.85rem;">${p.nombre}</label></div>`; });
         new bootstrap.Modal(document.getElementById('modalExportar')).show();
     }
     
