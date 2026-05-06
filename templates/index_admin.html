@@ -137,6 +137,7 @@
         </div>
     </div>
 
+    <!-- 🔴 CONTENEDOR DE ALERTAS COYUNTURALES Y SIN COSTO -->
     <div id="contenedorAlertas"></div>
 
     <div class="text-center mb-3 mt-2">
@@ -178,6 +179,7 @@
     &copy; 2026 Grupo Linros Interinsumos (GLI). Todos los derechos reservados.
 </footer>
 
+<!-- 🚀 MODAL UNIVERSAL PARA EDICIONES -->
 <div class="modal fade" id="modalEdicionUniversal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-0 shadow-lg rounded">
@@ -291,14 +293,14 @@
             let res = await fetch('/api/update-tc', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tc: val})});
             if(res.ok) { 
                 modalEdicion.hide(); 
-                document.getElementById('txtBuscar').value = ''; // Limpia barra al editar TC
+                document.getElementById('txtBuscar').value = ''; 
                 ejecutarBusqueda(); 
             } else alert("Error: Permiso denegado.");
         } else {
             let res = await fetch(`/api/editar-${editContext.tipo}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre: editContext.nombre, [editContext.tipo.includes('costo')?'costo':editContext.tipo]: val}) });
             if(res.ok) { 
                 modalEdicion.hide(); 
-                document.getElementById('txtBuscar').value = ''; // Limpia barra al editar un valor
+                document.getElementById('txtBuscar').value = ''; 
                 ejecutarBusqueda(); 
             } else alert("Error al guardar.");
         }
@@ -321,7 +323,8 @@
         const tbody = document.getElementById('tablaResultados');
         
         try {
-            const res = await fetch(`/buscar?q=${encodeURIComponent(q)}`);
+            // 🔴 AQUI ESTÁ EL ROMPE-CACHÉ (Para que el navegador no te engañe con datos viejos)
+            const res = await fetch(`/buscar?q=${encodeURIComponent(q)}&_=${new Date().getTime()}`);
             const json = await res.json();
             allProductsData = json.productos; 
             tcGlobal = json.tc_actual;
@@ -406,7 +409,7 @@
         if(confirm(`¿Eliminar ${nombre}?`)) { 
             fetch('/api/eliminar-producto', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre})})
             .then(()=> {
-                document.getElementById('txtBuscar').value = ''; // Limpia barra al eliminar
+                document.getElementById('txtBuscar').value = ''; 
                 ejecutarBusqueda();
             }); 
         } 
