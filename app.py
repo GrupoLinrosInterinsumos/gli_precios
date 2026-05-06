@@ -297,7 +297,6 @@ def crear_producto():
     
     p = Producto.query.filter_by(nombre=nombre).first()
     
-    # 🔴 Extracción de TODOS los campos del nuevo modal
     c_base = robust_numeric(d.get('costo_base'))
     c_fab = robust_numeric(d.get('costo_fab'))
     coyun = robust_numeric(d.get('coyuntural'))
@@ -449,9 +448,7 @@ def buscar():
                 try: db.session.add(Alerta(fecha="ACTIVA", msg="Superó Costo Coyuntural", producto=p.nombre, tipo="ACTIVA"))
                 except: pass
                 
-            if (c_base + c_fab) <= 0.0001:
-                try: db.session.add(Alerta(fecha="ACTIVA", msg="Sin Costo Asignado", producto=p.nombre, tipo="ACTIVA"))
-                except: pass
+            # 🔴 ELIMINADA LA ALERTA DE SIN COSTO
                 
             c_ref = coyun if (coyun > 0 and c_total <= coyun) else c_total
             
