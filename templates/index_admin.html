@@ -50,12 +50,12 @@
         .badges-wrapper { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
         .badge-custom { font-size: 0.55rem; padding: 2px 5px; border-radius: 4px; font-weight: 500; display: inline-flex; align-items: center; gap: 3px; background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb;}
         
-        /* Estilos de Filas: Normal, Coyuntural y Alerta */
-        .row-coyuntural td { background-color: #f8fafc !important; }
-        .row-alerta td { background-color: #fef2f2 !important; } /* Rojo claro pastel */
-        .nombre-alerta { color: #b91c1c !important; } /* Rojo oscuro para el texto */
+        /* 🔥 Estilos de Filas: Normal, Coyuntural y Alerta */
+        .row-coyuntural td { background-color: #f0f1fa !important; } /* Morado ultra pastel sutil */
+        .row-alerta td { background-color: #fef2f2 !important; } /* Rojo claro pastel (peligro) */
+        .nombre-alerta { color: #b91c1c !important; } /* Rojo oscuro para el texto en peligro */
         
-        .btn-coyuntural-active { background-color: #4b5563; color: white; border-color: #374151; }
+        .btn-coyuntural-active { background-color: #3b3874; color: white; border-color: #2a2852; } /* Botón corporativo para Coyuntural */
         .btn-coyuntural-inactive { background-color: #ffffff; color: #4b5563; border: 1px solid #d1d5db; }
         .btn-alerta { background-color: #dc2626; color: white; border-color: #b91c1c; } /* Botón rojo cuando hay alerta */
         
@@ -67,7 +67,6 @@
         main { flex-grow: 1; }
         .footer-copyright { background: transparent; padding: 1.5rem 0; text-align: center; font-size: 0.75rem; color: #9ca3af; font-weight: 500; letter-spacing: 0.3px; }
         
-        /* Ajuste de formulario Modal */
         .modal-label { font-size: 0.65rem; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; }
     </style>
 </head>
@@ -169,7 +168,7 @@
                         <th class="w-desc">% Dist</th>
                         <th class="w-col">Margen</th>
                         <th class="w-precio">Precio Lima</th>
-                        <th class="w-precio">Provincia</th>
+                        <th class="w-precio">Precio AQP / TRU</th>
                     </tr>
                 </thead>
                 <tbody id="tablaResultados"></tbody>
@@ -302,12 +301,11 @@
 
     document.addEventListener('DOMContentLoaded', () => { ejecutarBusqueda(); });
 
-    // 🚀 LÓGICA DE TEXTO QUE "CORRE" (MARQUEE EN HOVER)
+    // LÓGICA DE TEXTO QUE "CORRE" (MARQUEE EN HOVER)
     function animarTexto(el) {
         if (el.scrollWidth > el.clientWidth) {
             let txt = el.getAttribute('data-texto');
             el.innerHTML = `<marquee scrollamount="4">${txt}</marquee>`;
-            // Evitar cambiar el color si está en alerta roja para no perder el aviso visual
             if(!el.classList.contains('nombre-alerta')) {
                 el.style.color = "var(--primary-color)"; 
             }
@@ -401,8 +399,7 @@
             if(json.alertas && json.alertas.length > 0) {
                 let alHTML = `<div class="alert alert-secondary py-2 mb-3 shadow-sm border-secondary" style="font-size:0.8rem;"><strong class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> Alertas del Sistema:</strong> <div class="mt-2">`;
                 json.alertas.forEach(a => {
-                    let badgeText = a.msg.includes('Coyuntural') ? 'Coyuntural' : 'Sin Costo';
-                    alHTML += `<button class="btn btn-sm btn-outline-dark me-2 mb-2 py-0 px-2 fw-bold" onclick="irAProducto('${a.producto.replace(/'/g, "\\'")}')" title="${a.msg}">${a.producto} <span class="badge bg-danger ms-1">${badgeText}</span></button>`;
+                    alHTML += `<button class="btn btn-sm btn-outline-dark me-2 mb-2 py-0 px-2 fw-bold" onclick="irAProducto('${a.producto.replace(/'/g, "\\'")}')" title="${a.msg}">${a.producto} <span class="badge bg-danger ms-1">Coyuntural</span></button>`;
                 });
                 alHTML += `</div></div>`;
                 alertasBox.innerHTML = alHTML;
@@ -430,16 +427,16 @@
                 let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' 
                     ? `<span class="badge-custom"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
                 let badgeEmpresa = p.empresa && p.empresa !== "MANUAL" 
-                    ? `<span class="badge-custom" style="background-color: #f8fafc; color: #4b5563;"><i class="bi bi-building"></i> ${p.empresa}</span>` : '';
+                    ? `<span class="badge-custom" style="background-color: #ffffff; color: #4b5563;"><i class="bi bi-building"></i> ${p.empresa}</span>` : '';
 
-                // 🔴 Lógica de Alertas Visuales en la Tabla
+                // 🔥 Lógica de Alertas Visuales y Colores Sutiles
                 let hasCoyuntural = vcy > 0;
                 let isAlerta = hasCoyuntural && (vt > vcy);
                 
                 let textCoyuntural = hasCoyuntural ? `${sim}${vcy.toFixed(3)}` : `${sim}${vt.toFixed(3)}`;
                 let btnCoyunturalClass = hasCoyuntural ? 'btn-coyuntural-active btn-accion' : 'btn-coyuntural-inactive btn-accion';
                 
-                if (isAlerta) btnCoyunturalClass = 'btn-alerta btn-accion'; // Botón rojo en alerta
+                if (isAlerta) btnCoyunturalClass = 'btn-alerta btn-accion'; 
                 
                 let rowClass = isAlerta ? 'row-alerta' : (hasCoyuntural ? 'row-coyuntural' : '');
                 let prodNameClass = isAlerta ? 'nombre-alerta' : 'text-dark';
@@ -514,7 +511,6 @@
         }
     }
 
-    // 🚀 LÓGICA DE PLANTILLAS Y CREACIÓN
     function poblarSelectPlantillas() {
         let select = document.getElementById('varPlantilla');
         select.innerHTML = '<option value="">-- Cargar datos de producto existente --</option>';
