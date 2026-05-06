@@ -50,14 +50,14 @@
         .badges-wrapper { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
         .badge-custom { font-size: 0.55rem; padding: 2px 5px; border-radius: 4px; font-weight: 500; display: inline-flex; align-items: center; gap: 3px; background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb;}
         
-        /* 🔥 Estilos de Filas: Normal, Coyuntural y Alerta */
-        .row-coyuntural td { background-color: #f0f1fa !important; } /* Morado ultra pastel sutil */
-        .row-alerta td { background-color: #fef2f2 !important; } /* Rojo claro pastel (peligro) */
-        .nombre-alerta { color: #b91c1c !important; } /* Rojo oscuro para el texto en peligro */
+        /* Estilos de Filas */
+        .row-coyuntural td { background-color: #f0f1fa !important; } 
+        .row-alerta td { background-color: #fef2f2 !important; } 
+        .nombre-alerta { color: #b91c1c !important; } 
         
-        .btn-coyuntural-active { background-color: #3b3874; color: white; border-color: #2a2852; } /* Botón corporativo para Coyuntural */
+        .btn-coyuntural-active { background-color: #3b3874; color: white; border-color: #2a2852; } 
         .btn-coyuntural-inactive { background-color: #ffffff; color: #4b5563; border: 1px solid #d1d5db; }
-        .btn-alerta { background-color: #dc2626; color: white; border-color: #b91c1c; } /* Botón rojo cuando hay alerta */
+        .btn-alerta { background-color: #dc2626; color: white; border-color: #b91c1c; } 
         
         .btn-accion { background: #ffffff; border: 1px solid #d1d5db; border-radius: 4px; padding: 3px 4px; font-weight: 500; color: #374151; font-size: 0.7rem; width: 100%; transition: 0.2s;}
         .btn-accion:hover { background: #f3f4f6; border-color: #9ca3af; }
@@ -168,7 +168,7 @@
                         <th class="w-desc">% Dist</th>
                         <th class="w-col">Margen</th>
                         <th class="w-precio">Precio Lima</th>
-                        <th class="w-precio">Precio AQP / TRU</th>
+                        <th class="w-precio">Provincia</th>
                     </tr>
                 </thead>
                 <tbody id="tablaResultados"></tbody>
@@ -360,14 +360,12 @@
             let res = await fetch('/api/update-tc', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tc: val})});
             if(res.ok) { 
                 modalEdicion.hide(); 
-                document.getElementById('txtBuscar').value = ''; 
                 ejecutarBusqueda(); 
             } else alert("Error: Permiso denegado.");
         } else {
             let res = await fetch(`/api/editar-${editContext.tipo}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre: editContext.nombre, [editContext.tipo.includes('costo')?'costo':editContext.tipo]: val}) });
             if(res.ok) { 
                 modalEdicion.hide(); 
-                document.getElementById('txtBuscar').value = ''; 
                 ejecutarBusqueda(); 
             } else alert("Error al guardar.");
         }
@@ -429,7 +427,7 @@
                 let badgeEmpresa = p.empresa && p.empresa !== "MANUAL" 
                     ? `<span class="badge-custom" style="background-color: #ffffff; color: #4b5563;"><i class="bi bi-building"></i> ${p.empresa}</span>` : '';
 
-                // 🔥 Lógica de Alertas Visuales y Colores Sutiles
+                // Lógica de Alertas Visuales y Colores Sutiles
                 let hasCoyuntural = vcy > 0;
                 let isAlerta = hasCoyuntural && (vt > vcy);
                 
@@ -490,7 +488,6 @@
         if(confirm(`¿Eliminar ${nombre}?`)) { 
             fetch('/api/eliminar-producto', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre})})
             .then(()=> {
-                document.getElementById('txtBuscar').value = ''; 
                 ejecutarBusqueda();
             }); 
         } 
@@ -504,7 +501,6 @@
         let res = await fetch('/subir-maestro', {method:'POST', body:fd});
         if(res.ok) { 
             document.getElementById('status').innerText = "✅ Listo"; 
-            document.getElementById('txtBuscar').value = '';
             ejecutarBusqueda(); 
         } else {
             document.getElementById('status').innerText = "❌ Error";
@@ -580,7 +576,6 @@
         let res = await fetch('/api/crear-producto', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
         if(res.ok) { 
             modalVar.hide(); 
-            document.getElementById('txtBuscar').value = ''; 
             ejecutarBusqueda(); 
         } else {
             let err = await res.json();
