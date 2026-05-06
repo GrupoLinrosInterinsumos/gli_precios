@@ -79,16 +79,17 @@ with app.app_context(): db.create_all()
 def load_user(user_id): return User.query.get(int(user_id))
 
 # =========================================================
-# 🛠️ FUNCIONES DE APOYO Y FLETES (BLINDADAS CONTRA VACÍOS)
+# 🛠️ FUNCIONES Y VARIABLES GLOBALES
 # =========================================================
+# 🔴 AQUÍ ESTABA EL CULPABLE: La variable se llamaba distinto abajo
+FLETE_ESTANDAR = 0.11 
+
 def get_tc_actual():
     c = Config.query.filter_by(clave='tipo_cambio').first()
     if not c:
         c = Config(clave='tipo_cambio', valor=3.80)
         db.session.add(c); db.session.commit()
     return c.valor
-
-TARIFA_FLETE_DEFECTO = 0.11
 
 def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
     if "CRAMER" in str(nombre_odoo).upper(): return "CRAMER"
@@ -228,7 +229,7 @@ def is_admin_api():
     return current_user.is_authenticated and current_user.role in ['Admin', 'SuperAdmin']
 
 # =========================================================
-# 🚀 DATOS: EXCEL, CREAR, EXPORTAR (BLINDADOS)
+# 🚀 DATOS: EXCEL, CREAR, EXPORTAR
 # =========================================================
 @app.route('/subir-maestro', methods=['POST'])
 @login_required
@@ -310,7 +311,7 @@ def crear_producto():
         p.costo_fab_man = robust_numeric(d.get('costo_fab'))
         margen_val = d.get('margen')
         p.margen_man = (robust_numeric(margen_val) / 100.0) if margen_val else 0.20
-        p.merma_pct_man = 0.0 # Por defecto a 0 para que no falle la matemática
+        p.merma_pct_man = 0.0 
     else:
         p = Producto(nombre=nombre, codigo=codigo_val, empresa=empresa_val, es_manual=True, oculto=False)
         p.proveedor = detectar_proveedor_exacto(nombre, p.empresa)
@@ -319,7 +320,7 @@ def crear_producto():
         p.costo_fab_man = robust_numeric(d.get('costo_fab'))
         margen_val = d.get('margen')
         p.margen_man = (robust_numeric(margen_val) / 100.0) if margen_val else 0.20
-        p.merma_pct_man = 0.0 # Evita nulos en la BDD
+        p.merma_pct_man = 0.0 
         db.session.add(p)
         
     db.session.commit()
@@ -335,14 +336,14 @@ def exportar_excel():
     data = []
     tc = get_tc_actual()
     for p in prods:
-        c_base = float(p.costo_base_man if p.costo_base_man is not None else (p.costo_base_ex or 0.0))
-        c_fab = float(p.costo_fab_man if p.costo_fab_man is not None else (p.costo_fab_ex or 0.0))
+        cb = float(p.costo_base_man if p.costo_base_man is not None else (p.costo_base_ex or 0.0))
+        cf = float(p.costo_fab_man if p.costo_fab_man is not None else (p.costo_fab_ex or 0.0))
         mg = float(p.margen_man if p.margen_man is not None else (p.margen_ex or 0.20))
         cy = float(p.coyuntural_man if p.coyuntural_man is not None else (p.coyuntural_ex or 0.0))
         merma_pct = float(p.merma_pct_man or 0.0)
         
-        merma = c_base * merma_pct
-        ct = c_base + c_fab + merma
+        merma = cb * merma_pct
+        ct = cb + cf + merma
         cr = cy if (cy > 0 and ct <= cy) else ct
         
         flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
@@ -350,7 +351,7 @@ def exportar_excel():
         pp = pl + flete
         data.append({
             "Producto": p.nombre, "Código": p.codigo, "Empresa": p.empresa, "Moneda": p.moneda_texto,
-            "Costo Real": c_base, "Costo Fab": c_fab, "Merma (%)": merma_pct*100, "Costo Total": ct,
+            "Costo Real": cb, "Costo Fab": cf, "Merma (%)": merma_pct*100, "Costo Total": ct,
             "Coyuntural": cy, "Margen (%)": mg*100, "Precio LIMA": pl, "Precio PROVINCIA": pp
         })
     df = pd.DataFrame(data)
@@ -393,62 +394,75 @@ def editar_celdas(tipo):
 @app.route('/buscar')
 @login_required
 def buscar():
-    q = request.args.get('q', '').upper()
-    tc = get_tc_actual()
-    
-    Alerta.query.filter_by(tipo="ACTIVA").delete()
-    db.session.commit()
-    
-    # 🔴 TRAE PRODUCTOS DONDE OCULTO ES FALSE O NULO (Protección SQLite)
-    prods = Producto.query.filter((Producto.oculto == False) | (Producto.oculto == None)).all()
-    res = []
-    
-    for p in prods:
-        if q and q not in p.nombre.upper() and q not in str(p.codigo).upper(): continue
+    try:
+        q = request.args.get('q', '').upper()
+        tc = get_tc_actual()
         
-        # 🔴 ESCUDO ANTIBALAS CONTRA NULOS (NULL TYPE ERROR)
-        c_base = float(p.costo_base_man if p.costo_base_man is not None else (p.costo_base_ex or 0.0))
-        c_fab = float(p.costo_fab_man if p.costo_fab_man is not None else (p.costo_fab_ex or 0.0))
-        margen = float(p.margen_man if p.margen_man is not None else (p.margen_ex or 0.20))
-        coyun = float(p.coyuntural_man if p.coyuntural_man is not None else (p.coyuntural_ex or 0.0))
+        try:
+            Alerta.query.filter_by(tipo="ACTIVA").delete()
+            db.session.commit()
+        except:
+            db.session.rollback()
         
-        merma_pct = float(p.merma_pct_man or 0.0)
-        dscto_pv = float(p.dscto_pv_man if p.dscto_pv_man is not None else (p.dscto_pv_ex or 0.0))
-        dscto_dist = float(p.dscto_dist_man if p.dscto_dist_man is not None else (p.dscto_dist_ex or 0.0))
+        # 🔴 EXTRAEMOS ABSOLUTAMENTE TODOS LOS PRODUCTOS PARA FILTRARLOS SEGURO EN PYTHON
+        prods = Producto.query.all()
+        res = []
         
-        if coyun < 0: coyun = 0.0
-        
-        merma_monto = c_base * merma_pct
-        c_total = c_base + c_fab + merma_monto
-        
-        if coyun > 0 and c_total > coyun:
-            db.session.add(Alerta(fecha="ACTIVA", msg="Superó Costo Coyuntural", producto=p.nombre, tipo="ACTIVA"))
+        for p in prods:
+            if p.oculto == True: continue
             
-        if (c_base + c_fab) <= 0.0001:
-            db.session.add(Alerta(fecha="ACTIVA", msg="Sin Costo Asignado", producto=p.nombre, tipo="ACTIVA"))
+            if q and q not in p.nombre.upper() and q not in str(p.codigo).upper(): continue
             
-        c_ref = coyun if (coyun > 0 and c_total <= coyun) else c_total
+            c_base = float(p.costo_base_man if p.costo_base_man is not None else (p.costo_base_ex or 0.0))
+            c_fab = float(p.costo_fab_man if p.costo_fab_man is not None else (p.costo_fab_ex or 0.0))
+            margen = float(p.margen_man if p.margen_man is not None else (p.margen_ex or 0.20))
+            coyun = float(p.coyuntural_man if p.coyuntural_man is not None else (p.coyuntural_ex or 0.0))
+            
+            merma_pct = float(p.merma_pct_man or 0.0)
+            dscto_pv = float(p.dscto_pv_man if p.dscto_pv_man is not None else (p.dscto_pv_ex or 0.0))
+            dscto_dist = float(p.dscto_dist_man if p.dscto_dist_man is not None else (p.dscto_dist_ex or 0.0))
+            
+            if coyun < 0: coyun = 0.0
+            
+            merma_monto = c_base * merma_pct
+            c_total = c_base + c_fab + merma_monto
+            
+            if coyun > 0 and c_total > coyun:
+                try: db.session.add(Alerta(fecha="ACTIVA", msg="Superó Costo Coyuntural", producto=p.nombre, tipo="ACTIVA"))
+                except: pass
+                
+            if (c_base + c_fab) <= 0.0001:
+                try: db.session.add(Alerta(fecha="ACTIVA", msg="Sin Costo Asignado", producto=p.nombre, tipo="ACTIVA"))
+                except: pass
+                
+            c_ref = coyun if (coyun > 0 and c_total <= coyun) else c_total
+            
+            # 🔴 LA VARIABLE FLETE_ESTANDAR AHORA SÍ ESTÁ DEFINIDA Y NO HARÁ CAER EL SERVIDOR
+            flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
+            p_lima = c_ref * (1 + margen)
+            p_prov = p_lima + flete
+            
+            res.append({
+                "nombre": str(p.nombre), "codigo": str(p.codigo), "empresa": str(p.empresa or ''),
+                "costo_base": c_base, "costo_fab": c_fab, "merma_porcentaje": round(merma_pct * 100, 2),
+                "merma_monto": merma_monto, "costo_actual": c_total, "costo_coyuntural": coyun,
+                "margen": round(margen * 100, 2), "precio_lima": p_lima, "precio_provincia": p_prov,
+                "moneda_simbolo": str(p.moneda_simbolo), "moneda_texto": str(p.moneda_texto), 
+                "dscto_pv": round(dscto_pv * 100, 2),
+                "dscto_dist": round(dscto_dist * 100, 2)
+            })
         
-        flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
-        p_lima = c_ref * (1 + margen)
-        p_prov = p_lima + flete
+        try: db.session.commit()
+        except: db.session.rollback()
+
+        res.sort(key=lambda x: x['nombre'])
+        alertas_activas = [{"producto": a.producto, "msg": a.msg} for a in Alerta.query.filter_by(tipo="ACTIVA").all()]
         
-        res.append({
-            "nombre": p.nombre, "codigo": p.codigo, "empresa": p.empresa,
-            "costo_base": c_base, "costo_fab": c_fab, "merma_porcentaje": round(merma_pct * 100, 2),
-            "merma_monto": merma_monto, "costo_actual": c_total, "costo_coyuntural": coyun,
-            "margen": round(margen * 100, 2), "precio_lima": p_lima, "precio_provincia": p_prov,
-            "moneda_simbolo": p.moneda_simbolo, "moneda_texto": p.moneda_texto, 
-            "dscto_pv": round(dscto_pv * 100, 2),
-            "dscto_dist": round(dscto_dist * 100, 2)
-        })
-    
-    db.session.commit()
-    res.sort(key=lambda x: x['nombre'])
-    
-    alertas_activas = [{"producto": a.producto, "msg": a.msg} for a in Alerta.query.filter_by(tipo="ACTIVA").all()]
-    
-    return jsonify({"productos": res, "tc_actual": tc, "alertas": alertas_activas})
+        return jsonify({"productos": res, "tc_actual": tc, "alertas": alertas_activas})
+        
+    except Exception as e:
+        print(f"Error fatal en buscar: {e}")
+        return jsonify({"productos": [], "tc_actual": 3.80, "alertas": [{"producto": "Error de servidor", "msg": str(e)}]}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
