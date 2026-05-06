@@ -81,7 +81,6 @@ def load_user(user_id): return User.query.get(int(user_id))
 # =========================================================
 # 🛠️ FUNCIONES Y VARIABLES GLOBALES
 # =========================================================
-# 🔴 AQUÍ ESTABA EL CULPABLE: La variable se llamaba distinto abajo
 FLETE_ESTANDAR = 0.11 
 
 def get_tc_actual():
@@ -298,29 +297,49 @@ def crear_producto():
     
     p = Producto.query.filter_by(nombre=nombre).first()
     
+    # 🔴 Extracción de TODOS los campos del nuevo modal
+    c_base = robust_numeric(d.get('costo_base'))
+    c_fab = robust_numeric(d.get('costo_fab'))
+    coyun = robust_numeric(d.get('coyuntural'))
+    
+    merma_val = d.get('merma')
+    merma = (robust_numeric(merma_val) / 100.0) if merma_val else 0.0
+    
+    margen_val = d.get('margen')
+    margen = (robust_numeric(margen_val) / 100.0) if margen_val else 0.20
+    
+    dscto_pv_val = d.get('dscto_pv')
+    dscto_pv = (robust_numeric(dscto_pv_val) / 100.0) if dscto_pv_val else 0.0
+    
+    dscto_dist_val = d.get('dscto_dist')
+    dscto_dist = (robust_numeric(dscto_dist_val) / 100.0) if dscto_dist_val else 0.0
+
     if p:
-        if not p.oculto:
-            return jsonify({"error": "El producto ya existe y está activo."}), 400
+        if not p.oculto: return jsonify({"error": "El producto ya existe y está activo."}), 400
         p.oculto = False
         p.es_manual = True
         p.codigo = codigo_val
         p.empresa = empresa_val
         p.proveedor = detectar_proveedor_exacto(nombre, empresa_val)
         p.moneda_simbolo, p.moneda_texto = get_currency_info(nombre, p.proveedor)
-        p.costo_base_man = robust_numeric(d.get('costo_base'))
-        p.costo_fab_man = robust_numeric(d.get('costo_fab'))
-        margen_val = d.get('margen')
-        p.margen_man = (robust_numeric(margen_val) / 100.0) if margen_val else 0.20
-        p.merma_pct_man = 0.0 
+        p.costo_base_man = c_base
+        p.costo_fab_man = c_fab
+        p.coyuntural_man = coyun
+        p.margen_man = margen
+        p.merma_pct_man = merma
+        p.dscto_pv_man = dscto_pv
+        p.dscto_dist_man = dscto_dist
     else:
         p = Producto(nombre=nombre, codigo=codigo_val, empresa=empresa_val, es_manual=True, oculto=False)
         p.proveedor = detectar_proveedor_exacto(nombre, p.empresa)
         p.moneda_simbolo, p.moneda_texto = get_currency_info(nombre, p.proveedor)
-        p.costo_base_man = robust_numeric(d.get('costo_base'))
-        p.costo_fab_man = robust_numeric(d.get('costo_fab'))
-        margen_val = d.get('margen')
-        p.margen_man = (robust_numeric(margen_val) / 100.0) if margen_val else 0.20
-        p.merma_pct_man = 0.0 
+        p.costo_base_man = c_base
+        p.costo_fab_man = c_fab
+        p.coyuntural_man = coyun
+        p.margen_man = margen
+        p.merma_pct_man = merma
+        p.dscto_pv_man = dscto_pv
+        p.dscto_dist_man = dscto_dist
         db.session.add(p)
         
     db.session.commit()
@@ -404,7 +423,6 @@ def buscar():
         except:
             db.session.rollback()
         
-        # 🔴 EXTRAEMOS ABSOLUTAMENTE TODOS LOS PRODUCTOS PARA FILTRARLOS SEGURO EN PYTHON
         prods = Producto.query.all()
         res = []
         
@@ -437,7 +455,6 @@ def buscar():
                 
             c_ref = coyun if (coyun > 0 and c_total <= coyun) else c_total
             
-            # 🔴 LA VARIABLE FLETE_ESTANDAR AHORA SÍ ESTÁ DEFINIDA Y NO HARÁ CAER EL SERVIDOR
             flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
             p_lima = c_ref * (1 + margen)
             p_prov = p_lima + flete
