@@ -79,7 +79,7 @@ with app.app_context(): db.create_all()
 def load_user(user_id): return User.query.get(int(user_id))
 
 # =========================================================
-# 🛠️ FUNCIONES DE APOYO Y FLETES
+# 🛠️ FUNCIONES DE APOYO Y FLETES (BLINDADAS CONTRA VACÍOS)
 # =========================================================
 def get_tc_actual():
     c = Config.query.filter_by(clave='tipo_cambio').first()
@@ -107,17 +107,16 @@ def get_currency_info(nombre, proveedor):
     return "$", "USD"
 
 def robust_numeric(val):
-    if val is None: return 0.0
-    if pd.isna(val): return 0.0
+    if val is None or pd.isna(val): return 0.0
     s = str(val).strip().replace('$', '').replace('S/', '').replace('%', '')
-    if s == '': return 0.0
+    if s == '' or s.lower() == 'nan': return 0.0
     if ',' in s and '.' in s: s = s.replace(',', '')
     elif ',' in s: s = s.replace(',', '.')
     try: return float(s)
     except: return 0.0
 
 def parse_percentage(val, default=0.0):
-    if pd.isna(val): return default
+    if val is None or pd.isna(val): return default
     s = str(val).strip()
     if s.lower() == 'nan' or s == '': return default
     has_percent = '%' in s
@@ -128,6 +127,11 @@ def parse_percentage(val, default=0.0):
         if v > 1 and v <= 100: return v / 100.0
         return v
     except: return default
+
+def get_col_val(row, poss_names, def_val=0):
+    for n in poss_names:
+        if n in row: return row[n]
+    return def_val
 
 # =========================================================
 # 🔐 RUTAS Y SEGURIDAD
@@ -224,7 +228,7 @@ def is_admin_api():
     return current_user.is_authenticated and current_user.role in ['Admin', 'SuperAdmin']
 
 # =========================================================
-# 🚀 DATOS: EXCEL, CREAR, EXPORTAR
+# 🚀 DATOS: EXCEL, CREAR, EXPORTAR (BLINDADOS)
 # =========================================================
 @app.route('/subir-maestro', methods=['POST'])
 @login_required
@@ -238,8 +242,9 @@ def subir_maestro():
     header_idx = 0
     for idx, row in df.iterrows():
         rs = ' '.join(str(x).lower() for x in row.values if pd.notna(x))
-        if 'nombre' in rs and 'referencia' in rs: 
+        if 'nombre' in rs or 'producto' in rs: 
             header_idx = idx; break
+            
     f.seek(0)
     df = pd.read_excel(f, header=header_idx)
     
@@ -247,30 +252,30 @@ def subir_maestro():
     df.columns = [clean_col(c) for c in df.columns]
     
     for _, row in df.iterrows():
-        nombre = str(row.get('nombre', '')).strip().upper()
+        nombre = str(get_col_val(row, ['nombre', 'producto'], '')).strip().upper()
         if not nombre or nombre == 'NAN': continue
         
-        c_base = robust_numeric(row.get('costo real', 0))
-        c_fab = robust_numeric(row.get('costo de fabricacion', 0))
+        c_base = robust_numeric(get_col_val(row, ['costo real', 'costo base']))
+        c_fab = robust_numeric(get_col_val(row, ['costo de fabricacion', 'costo fab']))
         
-        emp = str(row.get('empresa', '')).strip().upper()
+        emp = str(get_col_val(row, ['empresa', 'marca'], '')).strip().upper()
         p = Producto.query.filter_by(nombre=nombre).first()
         if not p:
             p = Producto(nombre=nombre, oculto=False); db.session.add(p)
             
-        p.codigo = str(row.get('referencia interna', 'S/C')).strip()
+        p.codigo = str(get_col_val(row, ['referencia interna', 'codigo', 'referencia'], 'S/C')).strip()
         p.empresa = emp
         p.proveedor = detectar_proveedor_exacto(nombre, emp)
         p.moneda_simbolo, p.moneda_texto = get_currency_info(nombre, p.proveedor)
-        p.oculto = False # Nos aseguramos que si estaba oculto despierte
+        p.oculto = False 
         
         p.costo_base_ex = c_base
         p.costo_fab_ex = c_fab
-        p.coyuntural_ex = robust_numeric(row.get('costo coyuntural', 0))
-        p.margen_ex = parse_percentage(row.get('margen'), 0.20)
-        p.dscto_pv_ex = parse_percentage(row.get('dscto pv'), 0.0)
-        p.dscto_dist_ex = parse_percentage(row.get('dscto dist'), 0.0)
-        p.merma_pct_man = parse_percentage(row.get('margen de merma'), 0.0)
+        p.coyuntural_ex = robust_numeric(get_col_val(row, ['costo coyuntural']))
+        p.margen_ex = parse_percentage(get_col_val(row, ['margen', 'margen %']), 0.20)
+        p.dscto_pv_ex = parse_percentage(get_col_val(row, ['dscto pv', 'descuento pv']), 0.0)
+        p.dscto_dist_ex = parse_percentage(get_col_val(row, ['dscto dist', 'descuento dist']), 0.0)
+        p.merma_pct_man = parse_percentage(get_col_val(row, ['margen de merma', 'merma']), 0.0)
         
         p.fecha_act = datetime.utcnow()
 
@@ -294,7 +299,7 @@ def crear_producto():
     
     if p:
         if not p.oculto:
-            return jsonify({"error": "El producto ya existe y está activo en la tabla."}), 400
+            return jsonify({"error": "El producto ya existe y está activo."}), 400
         p.oculto = False
         p.es_manual = True
         p.codigo = codigo_val
@@ -305,8 +310,8 @@ def crear_producto():
         p.costo_fab_man = robust_numeric(d.get('costo_fab'))
         margen_val = d.get('margen')
         p.margen_man = (robust_numeric(margen_val) / 100.0) if margen_val else 0.20
+        p.merma_pct_man = 0.0 # Por defecto a 0 para que no falle la matemática
     else:
-        # Aseguramos explícitamente oculto=False
         p = Producto(nombre=nombre, codigo=codigo_val, empresa=empresa_val, es_manual=True, oculto=False)
         p.proveedor = detectar_proveedor_exacto(nombre, p.empresa)
         p.moneda_simbolo, p.moneda_texto = get_currency_info(nombre, p.proveedor)
@@ -314,6 +319,7 @@ def crear_producto():
         p.costo_fab_man = robust_numeric(d.get('costo_fab'))
         margen_val = d.get('margen')
         p.margen_man = (robust_numeric(margen_val) / 100.0) if margen_val else 0.20
+        p.merma_pct_man = 0.0 # Evita nulos en la BDD
         db.session.add(p)
         
     db.session.commit()
@@ -329,12 +335,14 @@ def exportar_excel():
     data = []
     tc = get_tc_actual()
     for p in prods:
-        cb = p.costo_base_man if p.costo_base_man is not None else p.costo_base_ex
-        cf = p.costo_fab_man if p.costo_fab_man is not None else p.costo_fab_ex
-        mg = p.margen_man if p.margen_man is not None else p.margen_ex
-        cy = p.coyuntural_man if p.coyuntural_man is not None else p.coyuntural_ex
-        merma = cb * p.merma_pct_man
-        ct = cb + cf + merma
+        c_base = float(p.costo_base_man if p.costo_base_man is not None else (p.costo_base_ex or 0.0))
+        c_fab = float(p.costo_fab_man if p.costo_fab_man is not None else (p.costo_fab_ex or 0.0))
+        mg = float(p.margen_man if p.margen_man is not None else (p.margen_ex or 0.20))
+        cy = float(p.coyuntural_man if p.coyuntural_man is not None else (p.coyuntural_ex or 0.0))
+        merma_pct = float(p.merma_pct_man or 0.0)
+        
+        merma = c_base * merma_pct
+        ct = c_base + c_fab + merma
         cr = cy if (cy > 0 and ct <= cy) else ct
         
         flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
@@ -342,7 +350,7 @@ def exportar_excel():
         pp = pl + flete
         data.append({
             "Producto": p.nombre, "Código": p.codigo, "Empresa": p.empresa, "Moneda": p.moneda_texto,
-            "Costo Real": cb, "Costo Fab": cf, "Merma (%)": p.merma_pct_man*100, "Costo Total": ct,
+            "Costo Real": c_base, "Costo Fab": c_fab, "Merma (%)": merma_pct*100, "Costo Total": ct,
             "Coyuntural": cy, "Margen (%)": mg*100, "Precio LIMA": pl, "Precio PROVINCIA": pp
         })
     df = pd.DataFrame(data)
@@ -391,20 +399,26 @@ def buscar():
     Alerta.query.filter_by(tipo="ACTIVA").delete()
     db.session.commit()
     
-    # 🔴 Filtramos solo los productos que NO estén ocultos (evita falsos NULL de SQLite)
+    # 🔴 TRAE PRODUCTOS DONDE OCULTO ES FALSE O NULO (Protección SQLite)
     prods = Producto.query.filter((Producto.oculto == False) | (Producto.oculto == None)).all()
     res = []
     
     for p in prods:
         if q and q not in p.nombre.upper() and q not in str(p.codigo).upper(): continue
         
-        c_base = p.costo_base_man if p.costo_base_man is not None else p.costo_base_ex
-        c_fab = p.costo_fab_man if p.costo_fab_man is not None else p.costo_fab_ex
-        margen = p.margen_man if p.margen_man is not None else p.margen_ex
-        coyun = p.coyuntural_man if p.coyuntural_man is not None else p.coyuntural_ex
+        # 🔴 ESCUDO ANTIBALAS CONTRA NULOS (NULL TYPE ERROR)
+        c_base = float(p.costo_base_man if p.costo_base_man is not None else (p.costo_base_ex or 0.0))
+        c_fab = float(p.costo_fab_man if p.costo_fab_man is not None else (p.costo_fab_ex or 0.0))
+        margen = float(p.margen_man if p.margen_man is not None else (p.margen_ex or 0.20))
+        coyun = float(p.coyuntural_man if p.coyuntural_man is not None else (p.coyuntural_ex or 0.0))
+        
+        merma_pct = float(p.merma_pct_man or 0.0)
+        dscto_pv = float(p.dscto_pv_man if p.dscto_pv_man is not None else (p.dscto_pv_ex or 0.0))
+        dscto_dist = float(p.dscto_dist_man if p.dscto_dist_man is not None else (p.dscto_dist_ex or 0.0))
+        
         if coyun < 0: coyun = 0.0
         
-        merma_monto = c_base * p.merma_pct_man
+        merma_monto = c_base * merma_pct
         c_total = c_base + c_fab + merma_monto
         
         if coyun > 0 and c_total > coyun:
@@ -421,12 +435,12 @@ def buscar():
         
         res.append({
             "nombre": p.nombre, "codigo": p.codigo, "empresa": p.empresa,
-            "costo_base": c_base, "costo_fab": c_fab, "merma_porcentaje": round(p.merma_pct_man * 100, 2),
+            "costo_base": c_base, "costo_fab": c_fab, "merma_porcentaje": round(merma_pct * 100, 2),
             "merma_monto": merma_monto, "costo_actual": c_total, "costo_coyuntural": coyun,
             "margen": round(margen * 100, 2), "precio_lima": p_lima, "precio_provincia": p_prov,
             "moneda_simbolo": p.moneda_simbolo, "moneda_texto": p.moneda_texto, 
-            "dscto_pv": round((p.dscto_pv_man if p.dscto_pv_man is not None else p.dscto_pv_ex)*100, 2),
-            "dscto_dist": round((p.dscto_dist_man if p.dscto_dist_man is not None else p.dscto_dist_ex)*100, 2)
+            "dscto_pv": round(dscto_pv * 100, 2),
+            "dscto_dist": round(dscto_dist * 100, 2)
         })
     
     db.session.commit()
