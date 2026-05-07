@@ -92,6 +92,10 @@ EXCEPCIONES_SACCO_USD = [
     "LYOFAST Y 470 E"
 ]
 
+EXCEPCIONES_CLERICI_USD = [
+    "TRANSGLUTAMINASA CAGLIFICIO CLERICI"
+]
+
 def get_tc_actual():
     c = Config.query.filter_by(clave='tipo_cambio').first()
     if not c:
@@ -111,10 +115,14 @@ def get_currency_info(nombre, proveedor):
     n_clean = re.sub(r'\s+', '', n_upper)
     if "COLAGENOHIDROLIZADOGELNEX" in n_clean: return "S/", "PEN"
     
-    # 🔴 NUEVA REGLA: Clerici en Soles
+    # Regla Clerici en Soles (con su excepción en Dólares)
     if proveedor == "CAGLIFICIO CLERICI" or "CLERICI" in n_upper or "CAGLIFICIO" in n_upper:
+        for exc in EXCEPCIONES_CLERICI_USD:
+            if exc.replace(" ", "").upper() in n_clean:
+                return "$", "USD"
         return "S/", "PEN"
     
+    # Regla Sacco en Soles (con sus excepciones en Dólares)
     if proveedor == "SACCO" or "SACCO" in n_upper:
         for exc in EXCEPCIONES_SACCO_USD:
             if exc.replace(" ", "") in n_clean:
@@ -458,7 +466,6 @@ def buscar():
         for p in prods:
             if p.oculto == True: continue
             
-            # 🔥 AUTOCORRECCIÓN DE MONEDA (AHORA INCLUYE A CLERICI)
             prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
             sim_real, txt_real = get_currency_info(p.nombre, prov_real)
             if p.moneda_texto != txt_real:
