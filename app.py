@@ -83,7 +83,7 @@ def load_user(user_id): return User.query.get(int(user_id))
 # =========================================================
 FLETE_ESTANDAR = 0.11 
 
-# 🔴 LISTA ESTRICTA DE EXCEPCIONES SACCO EN DÓLARES
+# Excepciones que se mantienen en dólares
 EXCEPCIONES_SACCO_USD = [
     "LYOTO M 536 R",
     "LYOTO M 536 S",
@@ -100,8 +100,10 @@ def get_tc_actual():
     return c.valor
 
 def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
-    if "CRAMER" in str(nombre_odoo).upper(): return "CRAMER"
-    if "SACCO" in str(nombre_odoo).upper(): return "SACCO"
+    n_up = str(nombre_odoo).upper()
+    if "CRAMER" in n_up: return "CRAMER"
+    if "SACCO" in n_up: return "SACCO"
+    if "CLERICI" in n_up or "CAGLIFICIO" in n_up: return "CAGLIFICIO CLERICI"
     return str(empresa_col).strip().upper()
 
 def get_currency_info(nombre, proveedor):
@@ -109,8 +111,11 @@ def get_currency_info(nombre, proveedor):
     n_clean = re.sub(r'\s+', '', n_upper)
     if "COLAGENOHIDROLIZADOGELNEX" in n_clean: return "S/", "PEN"
     
+    # 🔴 NUEVA REGLA: Clerici en Soles
+    if proveedor == "CAGLIFICIO CLERICI" or "CLERICI" in n_upper or "CAGLIFICIO" in n_upper:
+        return "S/", "PEN"
+    
     if proveedor == "SACCO" or "SACCO" in n_upper:
-        # Verificamos si el nombre coincide con las excepciones usando la versión sin espacios
         for exc in EXCEPCIONES_SACCO_USD:
             if exc.replace(" ", "") in n_clean:
                 return "$", "USD"
@@ -145,7 +150,6 @@ def get_col_val(row, poss_names, def_val=0):
         if n in row: return row[n]
     return def_val
 
-# 🔴 FUNCIÓN SEGURA PARA EXTRAER DATOS (Diferencia 0.0 de NULL)
 def get_val(man, ex, default):
     if man is not None: return float(man)
     if ex is not None: return float(ex)
@@ -322,7 +326,6 @@ def crear_producto():
     merma_val = str(d.get('merma', '')).strip()
     merma = (robust_numeric(merma_val) / 100.0) if merma_val else 0.0
     
-    # 🔴 Respetamos estrictamente el "0" en la creación manual
     margen_val = str(d.get('margen', '')).strip()
     margen = 0.20
     if margen_val != '':
@@ -375,7 +378,6 @@ def exportar_excel():
     data = []
     tc = get_tc_actual()
     for p in prods:
-        # Usando el nuevo motor seguro para respetar el 0.0%
         cb = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
         cf = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
         mg = get_val(p.margen_man, p.margen_ex, 0.20)
@@ -456,7 +458,7 @@ def buscar():
         for p in prods:
             if p.oculto == True: continue
             
-            # 🔥 AUTOCORRECCIÓN DE MONEDA PARA SACCO (SOLO QUEDAN EN USD LOS DE LA LISTA ESTRICTA)
+            # 🔥 AUTOCORRECCIÓN DE MONEDA (AHORA INCLUYE A CLERICI)
             prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
             sim_real, txt_real = get_currency_info(p.nombre, prov_real)
             if p.moneda_texto != txt_real:
@@ -466,7 +468,6 @@ def buscar():
             
             if q and q not in p.nombre.upper() and q not in str(p.codigo).upper(): continue
             
-            # 🔴 EL MOTOR AHORA RESPETA EL 0.0 Y NO LO REESCRIBE AL 20%
             c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
             c_fab = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
             margen = get_val(p.margen_man, p.margen_ex, 0.20)
