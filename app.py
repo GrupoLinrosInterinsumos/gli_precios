@@ -83,7 +83,7 @@ def load_user(user_id): return User.query.get(int(user_id))
 # =========================================================
 FLETE_ESTANDAR = 0.11 
 
-# 🔴 LISTA ESTRICTA DE PRODUCTOS QUE DEBEN ESTAR EN SOLES S/
+# Lista estricta de productos que DEBEN estar en Soles S/
 EXCEPCIONES_SOLES = [
     "COLAGENO HIDROLIZADO GELNEX X 1KG",
     "COLAGENO HIDROLIZADO GELNEX X 400G",
@@ -119,9 +119,17 @@ def get_tc_actual():
 
 def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
     n_up = str(nombre_odoo).upper()
+    n_clean = re.sub(r'\s+', '', n_up)
+    
+    # 🔴 REGLA NATAMICINA / NISINA (Fuerza a LINROS)
+    if "NATAMICINA" in n_clean or "NISINA" in n_clean:
+        return "LINROS"
+        
     if "CRAMER" in n_up: return "CRAMER"
     if "SACCO" in n_up: return "SACCO"
     if "CLERICI" in n_up or "CAGLIFICIO" in n_up: return "CAGLIFICIO CLERICI"
+    if "LUDAFA" in n_up: return "JM LUDAFA"
+    
     return str(empresa_col).strip().upper()
 
 def get_currency_info(nombre, proveedor):
@@ -151,6 +159,10 @@ def get_currency_info(nombre, proveedor):
         for exc in EXCEPCIONES_SACCO_USD:
             if exc.replace(" ", "") in n_clean:
                 return "$", "USD"
+        return "S/", "PEN"
+        
+    # 5. 🔴 REGLA JM LUDAFA en Soles
+    if proveedor == "JM LUDAFA" or "LUDAFA" in n_upper:
         return "S/", "PEN"
         
     return "$", "USD"
@@ -312,7 +324,12 @@ def subir_maestro():
         c_base = robust_numeric(get_col_val(row, ['costo real', 'costo base']))
         c_fab = robust_numeric(get_col_val(row, ['costo de fabricacion', 'costo fab']))
         
+        # 🔴 Aplicamos la regla LINROS desde el Excel
         emp = str(get_col_val(row, ['empresa', 'marca'], '')).strip().upper()
+        n_clean_check = re.sub(r'\s+', '', nombre)
+        if "NATAMICINA" in n_clean_check or "NISINA" in n_clean_check:
+            emp = "LINROS"
+            
         p = Producto.query.filter_by(nombre=nombre).first()
         if not p:
             p = Producto(nombre=nombre, oculto=False); db.session.add(p)
@@ -347,7 +364,12 @@ def crear_producto():
     
     codigo_val = str(d.get('codigo', '')).upper().strip()
     if not codigo_val: codigo_val = 'S/C'
+    
+    # 🔴 Aplicamos la regla LINROS en la creación manual
     empresa_val = str(d.get('empresa', '')).upper().strip()
+    n_clean_check = re.sub(r'\s+', '', nombre)
+    if "NATAMICINA" in n_clean_check or "NISINA" in n_clean_check:
+        empresa_val = "LINROS"
     
     p = Producto.query.filter_by(nombre=nombre).first()
     
@@ -490,10 +512,15 @@ def buscar():
         for p in prods:
             if p.oculto == True: continue
             
-            # 🔥 AUTOCORRECCIÓN DE MONEDA (AHORA INCLUYE EXCEPCIONES ESPECÍFICAS)
+            # 🔥 AUTOCORRECCIÓN CONSTANTE DE EMPRESA, PROVEEDOR Y MONEDA
             prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
             sim_real, txt_real = get_currency_info(p.nombre, prov_real)
-            if p.moneda_texto != txt_real:
+            
+            n_clean_check = re.sub(r'\s+', '', p.nombre.upper())
+            if "NATAMICINA" in n_clean_check or "NISINA" in n_clean_check:
+                if p.empresa != "LINROS": p.empresa = "LINROS"
+                
+            if p.moneda_texto != txt_real or p.proveedor != prov_real:
                 p.proveedor = prov_real
                 p.moneda_simbolo = sim_real
                 p.moneda_texto = txt_real
