@@ -121,9 +121,9 @@ def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
     n_up = str(nombre_odoo).upper()
     n_clean = re.sub(r'\s+', '', n_up)
     
-    # 🔴 REGLA NATAMICINA / NISINA (Fuerza a LINROS)
+    # 🔴 REGLA NATAMICINA / NISINA (Fuerza a INTERINSUMOS)
     if "NATAMICINA" in n_clean or "NISINA" in n_clean:
-        return "LINROS"
+        return "INTERINSUMOS"
         
     if "CRAMER" in n_up: return "CRAMER"
     if "SACCO" in n_up: return "SACCO"
@@ -161,7 +161,7 @@ def get_currency_info(nombre, proveedor):
                 return "$", "USD"
         return "S/", "PEN"
         
-    # 5. 🔴 REGLA JM LUDAFA en Soles
+    # 5. Regla JM LUDAFA en Soles
     if proveedor == "JM LUDAFA" or "LUDAFA" in n_upper:
         return "S/", "PEN"
         
@@ -324,11 +324,10 @@ def subir_maestro():
         c_base = robust_numeric(get_col_val(row, ['costo real', 'costo base']))
         c_fab = robust_numeric(get_col_val(row, ['costo de fabricacion', 'costo fab']))
         
-        # 🔴 Aplicamos la regla LINROS desde el Excel
         emp = str(get_col_val(row, ['empresa', 'marca'], '')).strip().upper()
         n_clean_check = re.sub(r'\s+', '', nombre)
         if "NATAMICINA" in n_clean_check or "NISINA" in n_clean_check:
-            emp = "LINROS"
+            emp = "INTERINSUMOS"
             
         p = Producto.query.filter_by(nombre=nombre).first()
         if not p:
@@ -365,11 +364,10 @@ def crear_producto():
     codigo_val = str(d.get('codigo', '')).upper().strip()
     if not codigo_val: codigo_val = 'S/C'
     
-    # 🔴 Aplicamos la regla LINROS en la creación manual
     empresa_val = str(d.get('empresa', '')).upper().strip()
     n_clean_check = re.sub(r'\s+', '', nombre)
     if "NATAMICINA" in n_clean_check or "NISINA" in n_clean_check:
-        empresa_val = "LINROS"
+        empresa_val = "INTERINSUMOS"
     
     p = Producto.query.filter_by(nombre=nombre).first()
     
@@ -480,7 +478,8 @@ def editar_celdas(tipo):
     p = Producto.query.filter_by(nombre=request.json['nombre']).first()
     if not p: return jsonify({"error": "No existe"}), 404
     
-    val_raw = request.json.get('valor', request.json.get('costo', request.json.get('merma', request.json.get('margen', 0))))
+    # 🔥 AHORA LEE PERFECTAMENTE 'dscto' y 'dscto-dist'
+    val_raw = request.json.get(tipo, request.json.get('costo', 0))
     val = robust_numeric(val_raw)
     
     if tipo == 'margen': p.margen_man = val / 100.0
@@ -512,13 +511,12 @@ def buscar():
         for p in prods:
             if p.oculto == True: continue
             
-            # 🔥 AUTOCORRECCIÓN CONSTANTE DE EMPRESA, PROVEEDOR Y MONEDA
             prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
             sim_real, txt_real = get_currency_info(p.nombre, prov_real)
             
             n_clean_check = re.sub(r'\s+', '', p.nombre.upper())
             if "NATAMICINA" in n_clean_check or "NISINA" in n_clean_check:
-                if p.empresa != "LINROS": p.empresa = "LINROS"
+                if p.empresa != "INTERINSUMOS": p.empresa = "INTERINSUMOS"
                 
             if p.moneda_texto != txt_real or p.proveedor != prov_real:
                 p.proveedor = prov_real
