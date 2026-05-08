@@ -83,6 +83,21 @@ def load_user(user_id): return User.query.get(int(user_id))
 # =========================================================
 FLETE_ESTANDAR = 0.11 
 
+# 🔴 LISTA ESTRICTA DE PRODUCTOS QUE DEBEN ESTAR EN SOLES S/
+EXCEPCIONES_SOLES = [
+    "COLAGENO HIDROLIZADO GELNEX X 1KG",
+    "COLAGENO HIDROLIZADO GELNEX X 400G",
+    "FOSFATO PARA JAMONES BUDENHEIM X 1KG",
+    "FOSFATO PARA JAMONES BUDENHEIM X 5KG",
+    "FOSFATO PARA MASAS BUDENHEIM X 1KG",
+    "FOSFATO PARA MASAS BUDENHEIM X 5KG",
+    "POLVO DE HORNEAR LEVAMAX TOP P40 LINROS X 25KG",
+    "PREPARADO VITAMINA C LINROS X 500G",
+    "SAL DE CURA CONCENTRADA TECNAS X 1KG",
+    "SAL DE CURA CONCENTRADA TECNAS X 25KG",
+    "SAL DE CURA CONCENTRADA TECNAS X 5KG"
+]
+
 EXCEPCIONES_SACCO_USD = [
     "LYOTO M 536 R",
     "LYOTO M 536 S",
@@ -111,23 +126,27 @@ def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
 
 def get_currency_info(nombre, proveedor):
     n_upper = nombre.upper()
-    # Limpiamos espacios y tildes para hacer una búsqueda perfecta
     n_clean = re.sub(r'\s+', '', n_upper).replace('Á', 'A').replace('Ó', 'O')
     
-    # 🔴 NUEVA REGLA: Colágeno (Solo 1kg y 400g en Soles, el resto en Dólares)
+    # 1. Verificar lista estricta de Soles
+    for exc in EXCEPCIONES_SOLES:
+        if exc.replace(" ", "").upper() in n_clean:
+            return "S/", "PEN"
+            
+    # 2. Regla Colágeno genérica de seguridad
     if "COLAGENO" in n_clean:
         if "1KG" in n_clean or "400G" in n_clean:
             return "S/", "PEN"
         return "$", "USD"
     
-    # Regla Clerici en Soles (con su excepción en Dólares)
+    # 3. Regla Clerici en Soles (con su excepción en Dólares)
     if proveedor == "CAGLIFICIO CLERICI" or "CLERICI" in n_upper or "CAGLIFICIO" in n_upper:
         for exc in EXCEPCIONES_CLERICI_USD:
             if exc.replace(" ", "").upper() in n_clean:
                 return "$", "USD"
         return "S/", "PEN"
     
-    # Regla Sacco en Soles (con sus excepciones en Dólares)
+    # 4. Regla Sacco en Soles (con sus excepciones en Dólares)
     if proveedor == "SACCO" or "SACCO" in n_upper:
         for exc in EXCEPCIONES_SACCO_USD:
             if exc.replace(" ", "") in n_clean:
@@ -471,7 +490,7 @@ def buscar():
         for p in prods:
             if p.oculto == True: continue
             
-            # 🔥 AUTOCORRECCIÓN DE MONEDA CONSTANTE
+            # 🔥 AUTOCORRECCIÓN DE MONEDA (AHORA INCLUYE EXCEPCIONES ESPECÍFICAS)
             prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
             sim_real, txt_real = get_currency_info(p.nombre, prov_real)
             if p.moneda_texto != txt_real:
