@@ -83,7 +83,6 @@ def load_user(user_id): return User.query.get(int(user_id))
 # =========================================================
 FLETE_ESTANDAR = 0.11 
 
-# Excepciones que se mantienen en dólares
 EXCEPCIONES_SACCO_USD = [
     "LYOTO M 536 R",
     "LYOTO M 536 S",
@@ -112,8 +111,14 @@ def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
 
 def get_currency_info(nombre, proveedor):
     n_upper = nombre.upper()
-    n_clean = re.sub(r'\s+', '', n_upper)
-    if "COLAGENOHIDROLIZADOGELNEX" in n_clean: return "S/", "PEN"
+    # Limpiamos espacios y tildes para hacer una búsqueda perfecta
+    n_clean = re.sub(r'\s+', '', n_upper).replace('Á', 'A').replace('Ó', 'O')
+    
+    # 🔴 NUEVA REGLA: Colágeno (Solo 1kg y 400g en Soles, el resto en Dólares)
+    if "COLAGENO" in n_clean:
+        if "1KG" in n_clean or "400G" in n_clean:
+            return "S/", "PEN"
+        return "$", "USD"
     
     # Regla Clerici en Soles (con su excepción en Dólares)
     if proveedor == "CAGLIFICIO CLERICI" or "CLERICI" in n_upper or "CAGLIFICIO" in n_upper:
@@ -466,6 +471,7 @@ def buscar():
         for p in prods:
             if p.oculto == True: continue
             
+            # 🔥 AUTOCORRECCIÓN DE MONEDA CONSTANTE
             prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
             sim_real, txt_real = get_currency_info(p.nombre, prov_real)
             if p.moneda_texto != txt_real:
