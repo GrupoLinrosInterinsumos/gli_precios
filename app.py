@@ -9,7 +9,7 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import text # 🔴 Añadido para actualizar la base de datos de forma segura
+from sqlalchemy import text 
 
 os.environ['TZ'] = 'America/Lima'
 try: time.tzset()
@@ -65,7 +65,7 @@ class Producto(db.Model):
     dscto_dist_man = db.Column(db.Float, nullable=True)
     es_manual = db.Column(db.Boolean, default=False)
     oculto = db.Column(db.Boolean, default=False)
-    nota = db.Column(db.String(250), default='') # 🔴 NUEVO CAMPO: Nota del Admin
+    nota = db.Column(db.String(250), default='') 
     fecha_act = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Alerta(db.Model):
@@ -77,9 +77,9 @@ class Alerta(db.Model):
 
 with app.app_context(): 
     db.create_all()
-    # 🔴 AUTORREPARACIÓN: Añade la columna 'nota' a la tabla si no existe, sin borrar datos
+    # 🔥 AQUI ESTABA EL ERROR: Se cambió de "" a '' para ser compatible con PostgreSQL en la nube
     try:
-        db.session.execute(text('ALTER TABLE producto ADD COLUMN nota VARCHAR(250) DEFAULT ""'))
+        db.session.execute(text("ALTER TABLE producto ADD COLUMN nota VARCHAR(250) DEFAULT '';"))
         db.session.commit()
     except:
         db.session.rollback()
@@ -262,7 +262,6 @@ def eliminar_usuario(id):
         db.session.delete(u); db.session.commit()
     return jsonify({"success": True})
 
-# 🔴 AHORA EL ROL 'Admin' TAMBIÉN PUEDE EDITAR EL TC
 @app.route('/api/update-tc', methods=['POST'])
 @login_required
 def update_tc():
@@ -463,7 +462,6 @@ def editar_celdas(tipo):
     p = Producto.query.filter_by(nombre=request.json['nombre']).first()
     if not p: return jsonify({"error": "No existe"}), 404
     
-    # 🔴 Lógica especial para guardar la NOTA como texto (no como número)
     if tipo == 'nota':
         p.nota = str(request.json.get('valor', '')).strip()
     else:
@@ -551,7 +549,7 @@ def buscar():
                 "moneda_simbolo": str(p.moneda_simbolo), "moneda_texto": str(p.moneda_texto), 
                 "dscto_pv": round(dscto_pv * 100, 2),
                 "dscto_dist": round(dscto_dist * 100, 2),
-                "nota": str(p.nota) if p.nota else "" # 🔴 Envía la nota a la vista
+                "nota": str(p.nota) if hasattr(p, 'nota') and p.nota else ""
             })
         
         try: db.session.commit()
