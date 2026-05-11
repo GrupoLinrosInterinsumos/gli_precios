@@ -79,7 +79,6 @@ class Alerta(db.Model):
 
 with app.app_context(): 
     db.create_all()
-    # SCRIPT DE AUTO-MIGRACIÓN
     for col, tip in [('nota', 'VARCHAR(250)'), ('categoria', 'VARCHAR(100)'), ('tipo_origen', 'VARCHAR(20)')]:
         try:
             db.session.execute(text(f"ALTER TABLE producto ADD COLUMN {col} {tip} DEFAULT '';"))
@@ -167,6 +166,13 @@ def get_col_val(row, poss_names, def_val=0):
     for n in poss_names:
         if n in row: return row[n]
     return def_val
+
+# 🔥 EXTRACTOR DE NÚCLEO PURO (FUZZY MATCHER) 🔥
+def get_core_name(name):
+    # Amputa cualquier medida: X 5 KG, 1.5 L, 25LTS, 500 GR, etc.
+    core = re.sub(r'\bX?\s*\d+(?:[\.,]\d+)?\s*(?:KG|KGS|G|GR|GRS|L|LT|LTS|ML|LB|LBS)\b', '', name, flags=re.IGNORECASE)
+    # Limpia espacios dobles
+    return re.sub(r'\s+', ' ', core).strip()
 
 # =========================================================
 # 🚀 RUTAS Y LÓGICA DE NEGOCIO
@@ -359,17 +365,30 @@ def exportar_excel():
     if not nombres: return jsonify({"error": "Vacío"}), 400
     prods = Producto.query.filter(Producto.nombre.in_(nombres)).all()
     
-    # Extraemos costos de los productos comprados para la herencia en la exportación
     costos_comprados = {p.nombre: get_val(p.costo_base_man, p.costo_base_ex, 0.0) for p in prods if p.tipo_origen == 'COMPRADO'}
 
     data = []; tc = get_tc_actual()
     for p in prods:
         c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
         
+        # 🔥 MOTOR DE EXPORTACIÓN CON FUZZY MATCH
         if p.tipo_origen == 'FABRICADO':
-            base_name = p.nombre.split(' X ')[0].strip()
-            if p.categoria == 'ESENCIAS': c_heredado = costos_comprados.get(f"{base_name} X 5KG", costos_comprados.get(f"{base_name} X 1KG", 0.0))
-            else: c_heredado = costos_comprados.get(base_name, 0.0)
+            core_fab = get_core_name(p.nombre)
+            c_heredado = 0.0
+            
+            posibles_padres = {n: c for n, c in costos_comprados.items() if get_core_name(n) == core_fab}
+            
+            if posibles_padres:
+                if 'ESENCIA' in str(p.categoria).upper():
+                    for n_comp, c_comp in posibles_padres.items():
+                        if '5K' in n_comp.replace(' ','').upper() or '5L' in n_comp.replace(' ','').upper(): c_heredado = c_comp; break
+                    if c_heredado <= 0:
+                        for n_comp, c_comp in posibles_padres.items():
+                            if '1K' in n_comp.replace(' ','').upper() or '1L' in n_comp.replace(' ','').upper(): c_heredado = c_comp; break
+                    if c_heredado <= 0: c_heredado = list(posibles_padres.values())[0]
+                else:
+                    c_heredado = list(posibles_padres.values())[0]
+            
             if c_heredado > 0: c_base = c_heredado
 
         cf = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
@@ -453,12 +472,31 @@ def buscar():
             
             c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
             
-            # 🔥 HERENCIA AUTOMÁTICA DE COSTOS
+            # 🔥 MOTOR DE HERENCIA CON BUSCADOR FLEXIBLE (FUZZY MATCH) 🔥
             if p.tipo_origen == 'FABRICADO':
-                base_name = p.nombre.split(' X ')[0].strip()
-                if p.categoria == 'ESENCIAS': c_heredado = costos_comprados.get(f"{base_name} X 5KG", costos_comprados.get(f"{base_name} X 1KG", 0.0))
-                else: c_heredado = costos_comprados.get(base_name, 0.0)
-                if c_heredado > 0: c_base = c_heredado
+                core_fab = get_core_name(p.nombre)
+                c_heredado = 0.0
+                
+                posibles_padres = {n: c for n, c in costos_comprados.items() if get_core_name(n) == core_fab}
+                
+                if posibles_padres:
+                    if 'ESENCIA' in str(p.categoria).upper():
+                        for n_comp, c_comp in posibles_padres.items():
+                            n_clean = n_comp.replace(' ', '').upper()
+                            if '5K' in n_clean or '5L' in n_clean:
+                                c_heredado = c_comp; break
+                        if c_heredado <= 0:
+                            for n_comp, c_comp in posibles_padres.items():
+                                n_clean = n_comp.replace(' ', '').upper()
+                                if '1K' in n_clean or '1L' in n_clean:
+                                    c_heredado = c_comp; break
+                        if c_heredado <= 0:
+                            c_heredado = list(posibles_padres.values())[0]
+                    else:
+                        c_heredado = list(posibles_padres.values())[0]
+                
+                if c_heredado > 0: 
+                    c_base = c_heredado
             
             c_fab = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
             margen = get_val(p.margen_man, p.margen_ex, 0.20)
