@@ -89,10 +89,14 @@
                 <i class="bi bi-currency-exchange"></i> <span id="lblMoneda" class="mobile-hide-text ms-1">Original</span>
             </button>
 
-            {% if current_user.role == 'TC' or current_user.role == 'SuperAdmin' %}
+            {% if current_user.role in ['TC', 'Admin', 'SuperAdmin'] %}
             <button class="btn btn-dark btn-sm rounded fw-bold shadow-sm px-3" onclick="abrirModalTC()">
                 TC: <span id="valTC">3.80</span> <i class="bi bi-pencil-fill ms-1" style="font-size:0.6rem;"></i>
             </button>
+            {% else %}
+            <div class="btn btn-light btn-sm border rounded fw-bold px-3 shadow-sm text-dark" style="cursor: default; pointer-events: none;">
+                TC: <span id="valTC">--</span>
+            </div>
             {% endif %}
 
             {% if current_user.role == 'SuperAdmin' %}
@@ -168,7 +172,7 @@
                         <th class="w-desc">% Dist</th>
                         <th class="w-col">Margen</th>
                         <th class="w-precio">Precio Lima</th>
-                        <th class="w-precio">Provincia</th>
+                        <th class="w-precio">Precio AQP / TRU</th>
                     </tr>
                 </thead>
                 <tbody id="tablaResultados"></tbody>
@@ -301,11 +305,11 @@
 
     document.addEventListener('DOMContentLoaded', () => { ejecutarBusqueda(); });
 
-    // LÓGICA DE TEXTO QUE "CORRE" (MARQUEE EN HOVER)
+    // 🔴 LÓGICA MARQUEE TURBO: scrollamount 10 hace que pase muy rápido
     function animarTexto(el) {
         if (el.scrollWidth > el.clientWidth) {
             let txt = el.getAttribute('data-texto');
-            el.innerHTML = `<marquee scrollamount="4">${txt}</marquee>`;
+            el.innerHTML = `<marquee scrollamount="10">${txt}</marquee>`;
             if(!el.classList.contains('nombre-alerta')) {
                 el.style.color = "var(--primary-color)"; 
             }
@@ -339,22 +343,39 @@
         editContext = { tipo: 'tc', nombre: 'Tipo de Cambio' };
         document.getElementById('modalEdicionTitulo').innerText = "Modificar Tipo de Cambio";
         document.getElementById('modalEdicionLabel').innerText = "Nuevo valor de TC";
-        document.getElementById('inputEdicionUniversal').value = tcGlobal;
+        
+        let input = document.getElementById('inputEdicionUniversal');
+        input.type = 'number';
+        input.value = tcGlobal;
         modalEdicion.show();
     }
 
     function editarCelda(tipo, nombre, valorActual) {
         editContext = { tipo: tipo, nombre: nombre };
-        const titles = { 'costo-real': 'Costo Base', 'costo-fab': 'Costo Fab.', 'merma': '% Merma', 'costo-coyuntural': 'Costo Coyuntural', 'dscto': '% Dscto PV', 'dscto-dist': '% Dscto Dist', 'margen': '% Margen' };
-        document.getElementById('modalEdicionTitulo').innerText = `Editar ${titles[tipo] || 'Valor'}`;
+        let input = document.getElementById('inputEdicionUniversal');
+
+        // 🔴 Configuración Dinámica del Modal: ¿Es Número o es Texto de Nota?
+        if(tipo === 'nota') {
+            document.getElementById('modalEdicionTitulo').innerText = "Editar Nota del Producto";
+            input.type = 'text';
+            input.placeholder = "Escribe una nota aquí (Ej. Sin stock, Precio subirá...)";
+        } else {
+            const titles = { 'costo-real': 'Costo Base', 'costo-fab': 'Costo Fab.', 'merma': '% Merma', 'costo-coyuntural': 'Costo Coyuntural', 'dscto': '% Dscto PV', 'dscto-dist': '% Dscto Dist', 'margen': '% Margen' };
+            document.getElementById('modalEdicionTitulo').innerText = `Editar ${titles[tipo] || 'Valor'}`;
+            input.type = 'number';
+            input.placeholder = "0.00";
+        }
+
         document.getElementById('modalEdicionLabel').innerText = `Producto: ${nombre.substring(0,30)}...`;
-        document.getElementById('inputEdicionUniversal').value = valorActual;
+        input.value = valorActual;
         modalEdicion.show();
     }
 
     async function guardarEdicionUniversal() {
         const val = document.getElementById('inputEdicionUniversal').value;
-        if(val === "") return alert("Ingresa un número válido.");
+        
+        // Si no es nota, obligamos a que tenga un número. Si es nota, permitimos que esté en blanco para borrarla.
+        if(editContext.tipo !== 'nota' && val === "") return alert("Ingresa un número válido.");
 
         if(editContext.tipo === 'tc') {
             let res = await fetch('/api/update-tc', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tc: val})});
@@ -363,7 +384,16 @@
                 ejecutarBusqueda(); 
             } else alert("Error: Permiso denegado.");
         } else {
-            let res = await fetch(`/api/editar-${editContext.tipo}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre: editContext.nombre, [editContext.tipo.includes('costo')?'costo':editContext.tipo]: val}) });
+            // Empaquetamos los datos de manera inteligente
+            let bodyData = { nombre: editContext.nombre };
+            if(editContext.tipo === 'nota') {
+                bodyData.valor = val;
+            } else {
+                let keyName = editContext.tipo.includes('costo') ? 'costo' : editContext.tipo;
+                bodyData[keyName] = val;
+            }
+
+            let res = await fetch(`/api/editar-${editContext.tipo}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(bodyData) });
             if(res.ok) { 
                 modalEdicion.hide(); 
                 ejecutarBusqueda(); 
@@ -427,7 +457,6 @@
                 let badgeEmpresa = p.empresa && p.empresa !== "MANUAL" 
                     ? `<span class="badge-custom" style="background-color: #ffffff; color: #4b5563;"><i class="bi bi-building"></i> ${p.empresa}</span>` : '';
 
-                // Lógica de Alertas Visuales y Colores Sutiles
                 let hasCoyuntural = vcy > 0;
                 let isAlerta = hasCoyuntural && (vt > vcy);
                 
@@ -441,6 +470,10 @@
 
                 let safeName = p.nombre.replace(/'/g, "\\'");
                 let escapedName = p.nombre.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                let escapedNota = (p.nota || "").replace(/"/g, '&quot;').replace(/'/g, "\\'");
+
+                // 🔴 UI DE LA NOTA
+                let htmlNota = p.nota ? `<span class="text-muted d-block mt-1" style="font-size:0.65rem; font-style:italic;"><i class="bi bi-journal-text text-primary"></i> ${p.nota}</span>` : '';
 
                 htmlContent += `
                 <tr class="${rowClass}">
@@ -459,6 +492,10 @@
                             </div>
                         </div>
                         <div class="badges-wrapper">${badgeEmpresa} ${badgeCodigo}</div>
+                        ${htmlNota}
+                        <button class="btn btn-sm text-primary py-0 px-0 border-0 mt-1" onclick="editarCelda('nota', '${safeName}', '${escapedNota}')" style="font-size:0.65rem; background:transparent;">
+                            <i class="bi bi-pencil-square"></i> ${p.nota ? 'Editar nota' : '+ Añadir nota'}
+                        </button>
                     </td>
                     
                     <td><button class="btn-accion" onclick="editarCelda('costo-real', '${safeName}', ${p.costo_base})">${vb > 0 ? sim + vb.toFixed(3) : '-'}</button></td>
