@@ -68,6 +68,8 @@ class Producto(db.Model):
     nota = db.Column(db.String(250), default='') 
     categoria = db.Column(db.String(100), default='')
     tipo_origen = db.Column(db.String(20), default='COMPRADO')
+    # 🔴 NUEVO CAMPO: Visibilidad para Vendedores
+    visible_ventas = db.Column(db.Boolean, default=True)
     fecha_act = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Alerta(db.Model):
@@ -79,9 +81,16 @@ class Alerta(db.Model):
 
 with app.app_context(): 
     db.create_all()
-    for col, tip in [('nota', 'VARCHAR(250)'), ('categoria', 'VARCHAR(100)'), ('tipo_origen', 'VARCHAR(20)')]:
+    # 🔴 AUTO-MIGRACIÓN ROBUSTA
+    migraciones = [
+        ('nota', 'VARCHAR(250)', "''"), 
+        ('categoria', 'VARCHAR(100)', "''"), 
+        ('tipo_origen', 'VARCHAR(20)', "'COMPRADO'"),
+        ('visible_ventas', 'BOOLEAN', 'TRUE')
+    ]
+    for col, tip, val_def in migraciones:
         try:
-            db.session.execute(text(f"ALTER TABLE producto ADD COLUMN {col} {tip} DEFAULT '';"))
+            db.session.execute(text(f"ALTER TABLE producto ADD COLUMN {col} {tip} DEFAULT {val_def};"))
             db.session.commit()
         except: db.session.rollback()
 
@@ -167,7 +176,6 @@ def get_col_val(row, poss_names, def_val=0):
         if n in row: return row[n]
     return def_val
 
-# 🔥 EXTRACTOR DE NÚCLEO PURO 🔥
 def get_core_name(name):
     core = re.sub(r'\bX?\s*\d+(?:[\.,]\d+)?\s*(?:KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', '', name, flags=re.IGNORECASE)
     core = re.sub(r'[^a-zA-Z0-9\s]', '', core)
@@ -322,9 +330,7 @@ def subir_relaciones():
             nombre = str(row.get('nombre', '')).strip().upper()
             if not nombre: continue
             
-            # 🔥 Limpieza de espacios para encontrar el producto sí o sí 🔥
             nombre_clean = re.sub(r'\s+', ' ', nombre)
-            
             p = Producto.query.filter_by(nombre=nombre).first()
             if not p:
                 for prod in Producto.query.all():
@@ -390,6 +396,19 @@ def eliminar_producto():
         db.session.commit()
     return jsonify({"success": True})
 
+# 🔴 NUEVA RUTA: Alternar visibilidad para ventas
+@app.route('/api/toggle-visibilidad', methods=['POST'])
+@login_required
+def toggle_visibilidad():
+    if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
+    p = Producto.query.filter_by(nombre=request.json['nombre']).first()
+    if p:
+        # Si era nulo por alguna razón, se asume True y pasa a False
+        estado_actual = p.visible_ventas if p.visible_ventas is not None else True
+        p.visible_ventas = not estado_actual
+        db.session.commit()
+    return jsonify({"success": True})
+
 @app.route('/api/editar-<tipo>', methods=['POST'])
 @login_required
 def editar_celdas(tipo):
@@ -418,6 +437,9 @@ def buscar():
         tc = get_tc_actual()
         Alerta.query.filter_by(tipo="ACTIVA").delete()
         
+        # Detecta si el que consulta es el equipo de Ventas
+        es_vendedor = current_user.role in ['Vendedor', 'TC']
+        
         prods = Producto.query.all()
         res = []
         
@@ -435,6 +457,11 @@ def buscar():
 
         for p in prods:
             if p.oculto: continue
+            
+            # 🔴 Si es vendedor y el producto está oculto para ventas, lo ignora completamente
+            visible = p.visible_ventas if p.visible_ventas is not None else True
+            if es_vendedor and not visible:
+                continue
             
             if q and q not in p.nombre.upper() and q not in str(p.codigo).upper(): continue
             
@@ -478,9 +505,7 @@ def buscar():
                 
                 if c_heredado > 0: 
                     c_base = c_heredado
-                    # 🔥 SINCRONIZACIÓN DURA A LA BASE DE DATOS 🔥
-                    if p.costo_base_man != c_heredado:
-                        p.costo_base_man = c_heredado
+                    if p.costo_base_man != c_heredado: p.costo_base_man = c_heredado
             
             c_fab = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
             margen = get_val(p.margen_man, p.margen_ex, 0.20)
@@ -509,7 +534,8 @@ def buscar():
                 "margen": round(margen * 100, 2), "precio_lima": p_lima, "precio_provincia": p_prov,
                 "moneda_simbolo": str(p.moneda_simbolo), "moneda_texto": str(p.moneda_texto), 
                 "dscto_pv": round(dscto_pv * 100, 2), "dscto_dist": round(dscto_dist * 100, 2),
-                "nota": str(p.nota) if hasattr(p, 'nota') and p.nota else ""
+                "nota": str(p.nota) if hasattr(p, 'nota') and p.nota else "",
+                "visible_ventas": visible # 🔴 Enviamos el estado al frontend
             })
         
         try: db.session.commit()
@@ -571,10 +597,13 @@ def exportar_excel():
             flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
             pl = c_ref * (1 + mg); pp = pl + flete
             
+        # 🔴 Añadimos el estado de visibilidad al Excel para que el Admin tenga el control total
+        visibilidad_str = "SÍ" if getattr(p, 'visible_ventas', True) else "NO (Oculto)"
+            
         data.append({
             "Producto": p.nombre, "Código": p.codigo, "Empresa": p.empresa, "Categoría": p.categoria, "Origen": p.tipo_origen, "Moneda": p.moneda_texto,
             "Costo Real": c_base, "Costo Fab": cf, "Merma (%)": merma_pct*100, "Costo Total": ct,
-            "Coyuntural": cy, "Margen (%)": mg*100, "Precio LIMA": pl, "Precio PROVINCIA": pp, "Nota": p.nota
+            "Coyuntural": cy, "Margen (%)": mg*100, "Precio LIMA": pl, "Precio PROVINCIA": pp, "Visible Ventas": visibilidad_str, "Nota": p.nota
         })
     df = pd.DataFrame(data); output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer: df.to_excel(writer, index=False)
