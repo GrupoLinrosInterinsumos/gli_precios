@@ -389,6 +389,12 @@
 
     function irAProducto(nombre) { document.getElementById('txtBuscar').value = nombre; buscar(); }
 
+    // 🔴 NUEVA FUNCIÓN PARA EL OJO MÁGICO 🔴
+    async function toggleVisibilidad(nombre) {
+        let res = await fetch('/api/toggle-visibilidad', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre})});
+        if(res.ok) ejecutarBusqueda();
+    }
+
     async function ejecutarBusqueda() {
         const q = document.getElementById('txtBuscar').value.trim();
         const tbody = document.getElementById('tablaResultados');
@@ -423,8 +429,6 @@
 
                 let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' ? `<span class="badge-custom"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
                 let badgeEmpresa = p.empresa && p.empresa !== "MANUAL" ? `<span class="badge-custom" style="background-color: #ffffff; color: #4b5563;"><i class="bi bi-building"></i> ${p.empresa}</span>` : '';
-                
-                // Badge de Herencia si es Fabricado
                 let badgeOrigen = p.tipo_origen === 'FABRICADO' ? `<span class="badge-custom bg-light border-success text-success" title="Costo heredado automáticamente"><i class="bi bi-diagram-2"></i> Fabricado</span>` : '';
 
                 let hasCoyuntural = vcy > 0;
@@ -440,18 +444,25 @@
 
                 let htmlNota = p.nota ? `<span class="text-muted d-block mt-1" style="font-size:0.65rem; font-style:italic;"><i class="bi bi-journal-text text-primary"></i> ${p.nota}</span>` : '';
 
-                // El Costo Base es de solo lectura si es FABRICADO
                 let btnCostoReal = p.tipo_origen === 'FABRICADO' 
                     ? `<div class="text-success fw-bold p-1" style="font-size:0.7rem; border:1px dashed #198754; border-radius:4px; background:#f8fff9;" title="Heredado del Comprado">${vb > 0 ? sim + vb.toFixed(3) : '-'}</div>`
                     : `<button class="btn-accion" onclick="editarCelda('costo-real', '${safeName}', ${p.costo_base})">${vb > 0 ? sim + vb.toFixed(3) : '-'}</button>`;
 
+                // 🔴 LÓGICA DE INTERFAZ DEL OJO MÁGICO 🔴
+                let isVisible = p.visible_ventas !== false;
+                let btnVisClass = isVisible ? 'text-success border-success-subtle' : 'text-danger border-danger-subtle bg-danger-subtle';
+                let btnVisIcon = isVisible ? 'bi-eye-fill' : 'bi-eye-slash-fill';
+                let btnVisTitle = isVisible ? 'Ocultar a Ventas' : 'Mostrar a Ventas';
+                let rowOpacity = isVisible ? '1' : '0.55'; // La fila se pondrá opaca si está oculta
+
                 htmlContent += `
-                <tr class="${rowClass}">
+                <tr class="${rowClass}" style="opacity: ${rowOpacity}; transition: 0.3s;">
                     <td class="text-start ps-2" title="Desliza o haz hover para leer">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div class="fw-bold ${prodNameClass} text-truncate pe-1" style="font-size: 0.78rem; max-width: calc(100% - 65px); cursor: ew-resize;" onmouseenter="animarTexto(this)" onmouseleave="detenerTexto(this)" data-texto="${escapedName}">${p.nombre}</div>
-                            <div class="text-end text-nowrap" style="width: 65px;">
-                                <button class="btn btn-sm btn-light border p-1 py-0 text-secondary" onclick="clonarProducto('${safeName}')" title="Usar como base"><i class="bi bi-copy"></i></button>
+                            <div class="fw-bold ${prodNameClass} text-truncate pe-1" style="font-size: 0.78rem; max-width: calc(100% - 90px); cursor: ew-resize;" onmouseenter="animarTexto(this)" onmouseleave="detenerTexto(this)" data-texto="${escapedName}">${p.nombre}</div>
+                            <div class="text-end text-nowrap" style="width: 90px;">
+                                <button class="btn btn-sm btn-light border p-1 py-0 ${btnVisClass}" onclick="toggleVisibilidad('${safeName}')" title="${btnVisTitle}"><i class="bi ${btnVisIcon}"></i></button>
+                                <button class="btn btn-sm btn-light border p-1 py-0 text-secondary ms-1" onclick="clonarProducto('${safeName}')" title="Usar como base"><i class="bi bi-copy"></i></button>
                                 <button class="btn btn-sm btn-light border text-secondary p-1 py-0 ms-1" onclick="eliminarProducto('${safeName}')" title="Eliminar"><i class="bi bi-trash-fill"></i></button>
                             </div>
                         </div>
