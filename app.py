@@ -167,12 +167,29 @@ def get_col_val(row, poss_names, def_val=0):
         if n in row: return row[n]
     return def_val
 
-# 🔥 EXTRACTOR DE NÚCLEO PURO (FUZZY MATCHER) 🔥
+# 🔥 MOTOR DE INTELIGENCIA DE TEXTO PARA HERENCIA DE COSTOS 🔥
 def get_core_name(name):
-    # Amputa cualquier medida: X 5 KG, 1.5 L, 25LTS, 500 GR, etc.
-    core = re.sub(r'\bX?\s*\d+(?:[\.,]\d+)?\s*(?:KG|KGS|G|GR|GRS|L|LT|LTS|ML|LB|LBS)\b', '', name, flags=re.IGNORECASE)
-    # Limpia espacios dobles
+    # Amputar la medida (soporta KG, L, LTS, GR, GALONES, etc.)
+    core = re.sub(r'\bX?\s*\d+(?:[\.,]\d+)?\s*(?:KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', '', name, flags=re.IGNORECASE)
+    # Limpiar caracteres raros y dejarlo purificado
+    core = re.sub(r'[^a-zA-Z0-9\s]', '', core)
     return re.sub(r'\s+', ' ', core).strip()
+
+def get_quantity(name):
+    # Detectar exactamente el número de la medida
+    match = re.search(r'\bX?\s*(\d+(?:[\.,]\d+)?)\s*(?:KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', name, flags=re.IGNORECASE)
+    if match:
+        try: return float(match.group(1).replace(',', '.'))
+        except: pass
+    return 0.0
+
+def son_familia(core1, core2):
+    # Si comparten palabras estructurales, son familia (Padre-Hijo)
+    if core1 == core2: return True
+    w1 = set(core1.split()); w2 = set(core2.split())
+    if len(w1) >= 2 and len(w2) >= 2:
+        if w1.issubset(w2) or w2.issubset(w1): return True
+    return False
 
 # =========================================================
 # 🚀 RUTAS Y LÓGICA DE NEGOCIO
@@ -371,21 +388,21 @@ def exportar_excel():
     for p in prods:
         c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
         
-        # 🔥 MOTOR DE EXPORTACIÓN CON FUZZY MATCH
+        # 🔥 MOTOR DE HERENCIA INTELIGENTE
         if p.tipo_origen == 'FABRICADO':
             core_fab = get_core_name(p.nombre)
             c_heredado = 0.0
-            
-            posibles_padres = {n: c for n, c in costos_comprados.items() if get_core_name(n) == core_fab}
+            posibles_padres = {n: c for n, c in costos_comprados.items() if son_familia(core_fab, get_core_name(n))}
             
             if posibles_padres:
-                if 'ESENCIA' in str(p.categoria).upper():
-                    for n_comp, c_comp in posibles_padres.items():
-                        if '5K' in n_comp.replace(' ','').upper() or '5L' in n_comp.replace(' ','').upper(): c_heredado = c_comp; break
-                    if c_heredado <= 0:
-                        for n_comp, c_comp in posibles_padres.items():
-                            if '1K' in n_comp.replace(' ','').upper() or '1L' in n_comp.replace(' ','').upper(): c_heredado = c_comp; break
-                    if c_heredado <= 0: c_heredado = list(posibles_padres.values())[0]
+                cat_upper = str(p.categoria).upper()
+                if 'ESENCIA' in cat_upper:
+                    padres_5 = [c for n, c in posibles_padres.items() if get_quantity(n) == 5.0]
+                    if padres_5: c_heredado = padres_5[0]
+                    else:
+                        padres_1 = [c for n, c in posibles_padres.items() if get_quantity(n) == 1.0]
+                        if padres_1: c_heredado = padres_1[0]
+                        else: c_heredado = list(posibles_padres.values())[0]
                 else:
                     c_heredado = list(posibles_padres.values())[0]
             
@@ -472,26 +489,24 @@ def buscar():
             
             c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
             
-            # 🔥 MOTOR DE HERENCIA CON BUSCADOR FLEXIBLE (FUZZY MATCH) 🔥
+            # 🔥 MOTOR DE HERENCIA CON INTELIGENCIA DE TEXTO 🔥
             if p.tipo_origen == 'FABRICADO':
                 core_fab = get_core_name(p.nombre)
                 c_heredado = 0.0
                 
-                posibles_padres = {n: c for n, c in costos_comprados.items() if get_core_name(n) == core_fab}
+                # Busca a la familia usando Subset Matching
+                posibles_padres = {n: c for n, c in costos_comprados.items() if son_familia(core_fab, get_core_name(n))}
                 
                 if posibles_padres:
-                    if 'ESENCIA' in str(p.categoria).upper():
-                        for n_comp, c_comp in posibles_padres.items():
-                            n_clean = n_comp.replace(' ', '').upper()
-                            if '5K' in n_clean or '5L' in n_clean:
-                                c_heredado = c_comp; break
-                        if c_heredado <= 0:
-                            for n_comp, c_comp in posibles_padres.items():
-                                n_clean = n_comp.replace(' ', '').upper()
-                                if '1K' in n_clean or '1L' in n_clean:
-                                    c_heredado = c_comp; break
-                        if c_heredado <= 0:
-                            c_heredado = list(posibles_padres.values())[0]
+                    cat_upper = str(p.categoria).upper()
+                    if 'ESENCIA' in cat_upper:
+                        padres_5 = [c for n, c in posibles_padres.items() if get_quantity(n) == 5.0]
+                        if padres_5:
+                            c_heredado = padres_5[0]
+                        else:
+                            padres_1 = [c for n, c in posibles_padres.items() if get_quantity(n) == 1.0]
+                            if padres_1: c_heredado = padres_1[0]
+                            else: c_heredado = list(posibles_padres.values())[0]
                     else:
                         c_heredado = list(posibles_padres.values())[0]
                 
