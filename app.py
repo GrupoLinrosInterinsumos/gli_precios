@@ -9,6 +9,7 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import text # 🔴 Añadido para actualizar la base de datos de forma segura
 
 os.environ['TZ'] = 'America/Lima'
 try: time.tzset()
@@ -64,6 +65,7 @@ class Producto(db.Model):
     dscto_dist_man = db.Column(db.Float, nullable=True)
     es_manual = db.Column(db.Boolean, default=False)
     oculto = db.Column(db.Boolean, default=False)
+    nota = db.Column(db.String(250), default='') # 🔴 NUEVO CAMPO: Nota del Admin
     fecha_act = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Alerta(db.Model):
@@ -73,7 +75,14 @@ class Alerta(db.Model):
     producto = db.Column(db.String(250))
     tipo = db.Column(db.String(50), default="INFO")
 
-with app.app_context(): db.create_all()
+with app.app_context(): 
+    db.create_all()
+    # 🔴 AUTORREPARACIÓN: Añade la columna 'nota' a la tabla si no existe, sin borrar datos
+    try:
+        db.session.execute(text('ALTER TABLE producto ADD COLUMN nota VARCHAR(250) DEFAULT ""'))
+        db.session.commit()
+    except:
+        db.session.rollback()
 
 @login_manager.user_loader
 def load_user(user_id): return User.query.get(int(user_id))
@@ -83,7 +92,6 @@ def load_user(user_id): return User.query.get(int(user_id))
 # =========================================================
 FLETE_ESTANDAR = 0.11 
 
-# Lista estricta de productos que DEBEN estar en Soles S/
 EXCEPCIONES_SOLES = [
     "COLAGENO HIDROLIZADO GELNEX X 1KG",
     "COLAGENO HIDROLIZADO GELNEX X 400G",
@@ -98,17 +106,8 @@ EXCEPCIONES_SOLES = [
     "SAL DE CURA CONCENTRADA TECNAS X 5KG"
 ]
 
-EXCEPCIONES_SACCO_USD = [
-    "LYOTO M 536 R",
-    "LYOTO M 536 S",
-    "LYOFAST AB 1",
-    "LYOFAST Y 438 A",
-    "LYOFAST Y 470 E"
-]
-
-EXCEPCIONES_CLERICI_USD = [
-    "TRANSGLUTAMINASA CAGLIFICIO CLERICI"
-]
+EXCEPCIONES_SACCO_USD = ["LYOTO M 536 R", "LYOTO M 536 S", "LYOFAST AB 1", "LYOFAST Y 438 A", "LYOFAST Y 470 E"]
+EXCEPCIONES_CLERICI_USD = ["TRANSGLUTAMINASA CAGLIFICIO CLERICI"]
 
 def get_tc_actual():
     c = Config.query.filter_by(clave='tipo_cambio').first()
@@ -120,50 +119,35 @@ def get_tc_actual():
 def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
     n_up = str(nombre_odoo).upper()
     n_clean = re.sub(r'\s+', '', n_up)
-    
-    # 🔴 REGLA NATAMICINA / NISINA (Fuerza a INTERINSUMOS)
-    if "NATAMICINA" in n_clean or "NISINA" in n_clean:
-        return "INTERINSUMOS"
-        
+    if "NATAMICINA" in n_clean or "NISINA" in n_clean: return "INTERINSUMOS"
     if "CRAMER" in n_up: return "CRAMER"
     if "SACCO" in n_up: return "SACCO"
     if "CLERICI" in n_up or "CAGLIFICIO" in n_up: return "CAGLIFICIO CLERICI"
     if "LUDAFA" in n_up: return "JM LUDAFA"
-    
     return str(empresa_col).strip().upper()
 
 def get_currency_info(nombre, proveedor):
     n_upper = nombre.upper()
     n_clean = re.sub(r'\s+', '', n_upper).replace('Á', 'A').replace('Ó', 'O')
     
-    # 1. Verificar lista estricta de Soles
     for exc in EXCEPCIONES_SOLES:
-        if exc.replace(" ", "").upper() in n_clean:
-            return "S/", "PEN"
+        if exc.replace(" ", "").upper() in n_clean: return "S/", "PEN"
             
-    # 2. Regla Colágeno genérica de seguridad
     if "COLAGENO" in n_clean:
-        if "1KG" in n_clean or "400G" in n_clean:
-            return "S/", "PEN"
+        if "1KG" in n_clean or "400G" in n_clean: return "S/", "PEN"
         return "$", "USD"
     
-    # 3. Regla Clerici en Soles (con su excepción en Dólares)
     if proveedor == "CAGLIFICIO CLERICI" or "CLERICI" in n_upper or "CAGLIFICIO" in n_upper:
         for exc in EXCEPCIONES_CLERICI_USD:
-            if exc.replace(" ", "").upper() in n_clean:
-                return "$", "USD"
+            if exc.replace(" ", "").upper() in n_clean: return "$", "USD"
         return "S/", "PEN"
     
-    # 4. Regla Sacco en Soles (con sus excepciones en Dólares)
     if proveedor == "SACCO" or "SACCO" in n_upper:
         for exc in EXCEPCIONES_SACCO_USD:
-            if exc.replace(" ", "") in n_clean:
-                return "$", "USD"
+            if exc.replace(" ", "") in n_clean: return "$", "USD"
         return "S/", "PEN"
         
-    # 5. Regla JM LUDAFA en Soles
-    if proveedor == "JM LUDAFA" or "LUDAFA" in n_upper:
-        return "S/", "PEN"
+    if proveedor == "JM LUDAFA" or "LUDAFA" in n_upper: return "S/", "PEN"
         
     return "$", "USD"
 
@@ -278,10 +262,11 @@ def eliminar_usuario(id):
         db.session.delete(u); db.session.commit()
     return jsonify({"success": True})
 
+# 🔴 AHORA EL ROL 'Admin' TAMBIÉN PUEDE EDITAR EL TC
 @app.route('/api/update-tc', methods=['POST'])
 @login_required
 def update_tc():
-    if current_user.role not in ['TC', 'SuperAdmin']: return jsonify({"error": "No"}), 403
+    if current_user.role not in ['TC', 'Admin', 'SuperAdmin']: return jsonify({"error": "No autorizado"}), 403
     c = Config.query.filter_by(clave='tipo_cambio').first()
     if not c:
         c = Config(clave='tipo_cambio', valor=3.80)
@@ -474,21 +459,25 @@ def eliminar_producto():
 @app.route('/api/editar-<tipo>', methods=['POST'])
 @login_required
 def editar_celdas(tipo):
-    if not is_admin_api(): return jsonify({"error": "No"}), 403
+    if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
     p = Producto.query.filter_by(nombre=request.json['nombre']).first()
     if not p: return jsonify({"error": "No existe"}), 404
     
-    # 🔥 AHORA LEE PERFECTAMENTE 'dscto' y 'dscto-dist'
-    val_raw = request.json.get(tipo, request.json.get('costo', 0))
-    val = robust_numeric(val_raw)
-    
-    if tipo == 'margen': p.margen_man = val / 100.0
-    elif tipo == 'merma': p.merma_pct_man = val / 100.0
-    elif tipo == 'costo-real': p.costo_base_man = val if val >= 0 else None
-    elif tipo == 'costo-fab': p.costo_fab_man = val if val >= 0 else None
-    elif tipo == 'costo-coyuntural': p.coyuntural_man = val if val > 0 else -1.0
-    elif tipo == 'dscto': p.dscto_pv_man = val / 100.0
-    elif tipo == 'dscto-dist': p.dscto_dist_man = val / 100.0
+    # 🔴 Lógica especial para guardar la NOTA como texto (no como número)
+    if tipo == 'nota':
+        p.nota = str(request.json.get('valor', '')).strip()
+    else:
+        val_raw = request.json.get(tipo, request.json.get('costo', 0))
+        val = robust_numeric(val_raw)
+        
+        if tipo == 'margen': p.margen_man = val / 100.0
+        elif tipo == 'merma': p.merma_pct_man = val / 100.0
+        elif tipo == 'costo-real': p.costo_base_man = val if val >= 0 else None
+        elif tipo == 'costo-fab': p.costo_fab_man = val if val >= 0 else None
+        elif tipo == 'costo-coyuntural': p.coyuntural_man = val if val > 0 else -1.0
+        elif tipo == 'dscto': p.dscto_pv_man = val / 100.0
+        elif tipo == 'dscto-dist': p.dscto_dist_man = val / 100.0
+        
     db.session.commit()
     return jsonify({"success": True})
 
@@ -561,7 +550,8 @@ def buscar():
                 "margen": round(margen * 100, 2), "precio_lima": p_lima, "precio_provincia": p_prov,
                 "moneda_simbolo": str(p.moneda_simbolo), "moneda_texto": str(p.moneda_texto), 
                 "dscto_pv": round(dscto_pv * 100, 2),
-                "dscto_dist": round(dscto_dist * 100, 2)
+                "dscto_dist": round(dscto_dist * 100, 2),
+                "nota": str(p.nota) if p.nota else "" # 🔴 Envía la nota a la vista
             })
         
         try: db.session.commit()
