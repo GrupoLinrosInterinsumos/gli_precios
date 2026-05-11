@@ -169,10 +169,23 @@ def get_col_val(row, poss_names, def_val=0):
 
 # 🔥 EXTRACTOR DE NÚCLEO PURO 🔥
 def get_core_name(name):
-    # Amputar la medida (soporta KG, L, LTS, GR, GALONES, etc.)
     core = re.sub(r'\bX?\s*\d+(?:[\.,]\d+)?\s*(?:KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', '', name, flags=re.IGNORECASE)
     core = re.sub(r'[^a-zA-Z0-9\s]', '', core)
     return re.sub(r'\s+', ' ', core).strip()
+
+def get_quantity(name):
+    match = re.search(r'\bX?\s*(\d+(?:[\.,]\d+)?)\s*(?:KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', name, flags=re.IGNORECASE)
+    if match:
+        try: return float(match.group(1).replace(',', '.'))
+        except: pass
+    return 0.0
+
+def son_familia(core1, core2):
+    if core1 == core2: return True
+    w1 = set(core1.split()); w2 = set(core2.split())
+    if len(w1) >= 2 and len(w2) >= 2:
+        if w1.issubset(w2) or w2.issubset(w1): return True
+    return False
 
 # =========================================================
 # 🚀 RUTAS Y LÓGICA DE NEGOCIO
@@ -308,7 +321,16 @@ def subir_relaciones():
         for _, row in df.iterrows():
             nombre = str(row.get('nombre', '')).strip().upper()
             if not nombre: continue
+            
+            # 🔥 Limpieza de espacios para encontrar el producto sí o sí 🔥
+            nombre_clean = re.sub(r'\s+', ' ', nombre)
+            
             p = Producto.query.filter_by(nombre=nombre).first()
+            if not p:
+                for prod in Producto.query.all():
+                    if re.sub(r'\s+', ' ', prod.nombre.upper()) == nombre_clean:
+                        p = prod; break
+
             if p:
                 p.categoria = str(row.get('categoria', '')).strip().upper()
                 p.codigo = str(row.get('referencia interna', p.codigo)).strip()
@@ -399,7 +421,6 @@ def buscar():
         prods = Producto.query.all()
         res = []
         
-        # 🔥 OPTIMIZACIÓN EXTREMA: Pre-cálculo en memoria RAM (O(1)) 🔥
         data_comprados = []
         for c in prods:
             if c.tipo_origen == 'COMPRADO' and not c.oculto:
@@ -415,7 +436,6 @@ def buscar():
         for p in prods:
             if p.oculto: continue
             
-            # FILTRO INMEDIATO PARA ACELERAR BÚSQUEDA
             if q and q not in p.nombre.upper() and q not in str(p.codigo).upper(): continue
             
             prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
@@ -430,32 +450,26 @@ def buscar():
             
             c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
             
-            # 🔥 MOTOR DE HERENCIA INTELIGENTE (TURBO) 🔥
             if p.tipo_origen == 'FABRICADO':
                 core_fab = get_core_name(p.nombre)
                 c_heredado = 0.0
                 
-                # 1ro: Búsqueda estricta (ultra rápida)
                 posibles_padres = [d for d in data_comprados if d['core'] == core_fab]
                 
-                # 2do: Búsqueda difusa (Fuzzy Matcher) si no encontró
                 if not posibles_padres:
                     w_fab = set(core_fab.split())
                     if len(w_fab) >= 2:
                         for d in data_comprados:
-                            # Si las palabras del padre contienen al hijo, o viceversa, son familia
                             if w_fab.issubset(d['w_core']) or d['w_core'].issubset(w_fab):
                                 posibles_padres.append(d)
                 
                 if posibles_padres:
                     cat_upper = str(p.categoria).upper()
                     if 'ESENCIA' in cat_upper:
-                        # Busca textualmente 5K o 5L
                         p_5 = [d for d in posibles_padres if '5K' in d['clean'] or '5L' in d['clean']]
                         if p_5: 
                             c_heredado = p_5[0]['costo']
                         else:
-                            # Si no hay 5, busca 1K o 1L
                             p_1 = [d for d in posibles_padres if '1K' in d['clean'] or '1L' in d['clean']]
                             if p_1: c_heredado = p_1[0]['costo']
                             else: c_heredado = posibles_padres[0]['costo']
@@ -464,6 +478,9 @@ def buscar():
                 
                 if c_heredado > 0: 
                     c_base = c_heredado
+                    # 🔥 SINCRONIZACIÓN DURA A LA BASE DE DATOS 🔥
+                    if p.costo_base_man != c_heredado:
+                        p.costo_base_man = c_heredado
             
             c_fab = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
             margen = get_val(p.margen_man, p.margen_ex, 0.20)
@@ -511,7 +528,6 @@ def exportar_excel():
     if not nombres: return jsonify({"error": "Vacío"}), 400
     prods = Producto.query.filter(Producto.nombre.in_(nombres)).all()
     
-    # Pre-cálculo para la exportación también
     data_comprados = []
     for c in Producto.query.all():
         if c.tipo_origen == 'COMPRADO' and not c.oculto:
