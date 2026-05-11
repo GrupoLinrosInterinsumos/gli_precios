@@ -167,29 +167,12 @@ def get_col_val(row, poss_names, def_val=0):
         if n in row: return row[n]
     return def_val
 
-# 🔥 MOTOR DE INTELIGENCIA DE TEXTO PARA HERENCIA DE COSTOS 🔥
+# 🔥 EXTRACTOR DE NÚCLEO PURO 🔥
 def get_core_name(name):
     # Amputar la medida (soporta KG, L, LTS, GR, GALONES, etc.)
     core = re.sub(r'\bX?\s*\d+(?:[\.,]\d+)?\s*(?:KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', '', name, flags=re.IGNORECASE)
-    # Limpiar caracteres raros y dejarlo purificado
     core = re.sub(r'[^a-zA-Z0-9\s]', '', core)
     return re.sub(r'\s+', ' ', core).strip()
-
-def get_quantity(name):
-    # Detectar exactamente el número de la medida
-    match = re.search(r'\bX?\s*(\d+(?:[\.,]\d+)?)\s*(?:KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', name, flags=re.IGNORECASE)
-    if match:
-        try: return float(match.group(1).replace(',', '.'))
-        except: pass
-    return 0.0
-
-def son_familia(core1, core2):
-    # Si comparten palabras estructurales, son familia (Padre-Hijo)
-    if core1 == core2: return True
-    w1 = set(core1.split()); w2 = set(core2.split())
-    if len(w1) >= 2 and len(w2) >= 2:
-        if w1.issubset(w2) or w2.issubset(w1): return True
-    return False
 
 # =========================================================
 # 🚀 RUTAS Y LÓGICA DE NEGOCIO
@@ -374,62 +357,6 @@ def crear_producto():
         
     db.session.commit(); return jsonify({"success": True})
 
-@app.route('/api/exportar', methods=['POST'])
-@login_required
-def exportar_excel():
-    if not is_admin_api(): return jsonify({"error": "No"}), 403
-    nombres = request.json.get('productos', [])
-    if not nombres: return jsonify({"error": "Vacío"}), 400
-    prods = Producto.query.filter(Producto.nombre.in_(nombres)).all()
-    
-    costos_comprados = {p.nombre: get_val(p.costo_base_man, p.costo_base_ex, 0.0) for p in prods if p.tipo_origen == 'COMPRADO'}
-
-    data = []; tc = get_tc_actual()
-    for p in prods:
-        c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
-        
-        # 🔥 MOTOR DE HERENCIA INTELIGENTE
-        if p.tipo_origen == 'FABRICADO':
-            core_fab = get_core_name(p.nombre)
-            c_heredado = 0.0
-            posibles_padres = {n: c for n, c in costos_comprados.items() if son_familia(core_fab, get_core_name(n))}
-            
-            if posibles_padres:
-                cat_upper = str(p.categoria).upper()
-                if 'ESENCIA' in cat_upper:
-                    padres_5 = [c for n, c in posibles_padres.items() if get_quantity(n) == 5.0]
-                    if padres_5: c_heredado = padres_5[0]
-                    else:
-                        padres_1 = [c for n, c in posibles_padres.items() if get_quantity(n) == 1.0]
-                        if padres_1: c_heredado = padres_1[0]
-                        else: c_heredado = list(posibles_padres.values())[0]
-                else:
-                    c_heredado = list(posibles_padres.values())[0]
-            
-            if c_heredado > 0: c_base = c_heredado
-
-        cf = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
-        mg = get_val(p.margen_man, p.margen_ex, 0.20)
-        cy = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
-        merma_pct = p.merma_pct_man or 0.0
-        
-        merma = c_base * merma_pct; ct = c_base + cf + merma
-        c_ref = cy if (cy > 0 and ct <= cy) else ct
-        
-        if c_ref <= 0.0001: mg = 0.0; pl = 0.0; pp = 0.0
-        else:
-            flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
-            pl = c_ref * (1 + mg); pp = pl + flete
-            
-        data.append({
-            "Producto": p.nombre, "Código": p.codigo, "Empresa": p.empresa, "Categoría": p.categoria, "Origen": p.tipo_origen, "Moneda": p.moneda_texto,
-            "Costo Real": c_base, "Costo Fab": cf, "Merma (%)": merma_pct*100, "Costo Total": ct,
-            "Coyuntural": cy, "Margen (%)": mg*100, "Precio LIMA": pl, "Precio PROVINCIA": pp, "Nota": p.nota
-        })
-    df = pd.DataFrame(data); output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer: df.to_excel(writer, index=False)
-    output.seek(0); return send_file(output, download_name='Precios_GLI.xlsx', as_attachment=True)
-
 @app.route('/api/eliminar-producto', methods=['POST'])
 @login_required
 def eliminar_producto():
@@ -469,11 +396,27 @@ def buscar():
         tc = get_tc_actual()
         Alerta.query.filter_by(tipo="ACTIVA").delete()
         
-        prods = Producto.query.all(); res = []
-        costos_comprados = {p.nombre: get_val(p.costo_base_man, p.costo_base_ex, 0.0) for p in prods if p.tipo_origen == 'COMPRADO'}
+        prods = Producto.query.all()
+        res = []
+        
+        # 🔥 OPTIMIZACIÓN EXTREMA: Pre-cálculo en memoria RAM (O(1)) 🔥
+        data_comprados = []
+        for c in prods:
+            if c.tipo_origen == 'COMPRADO' and not c.oculto:
+                core_val = get_core_name(c.nombre)
+                data_comprados.append({
+                    'nombre': c.nombre,
+                    'costo': get_val(c.costo_base_man, c.costo_base_ex, 0.0),
+                    'core': core_val,
+                    'w_core': set(core_val.split()),
+                    'clean': c.nombre.replace(' ', '').upper()
+                })
 
         for p in prods:
-            if p.oculto == True: continue
+            if p.oculto: continue
+            
+            # FILTRO INMEDIATO PARA ACELERAR BÚSQUEDA
+            if q and q not in p.nombre.upper() and q not in str(p.codigo).upper(): continue
             
             prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
             sim_real, txt_real = get_currency_info(p.nombre, prov_real)
@@ -485,30 +428,39 @@ def buscar():
             if p.moneda_texto != txt_real or p.proveedor != prov_real:
                 p.proveedor = prov_real; p.moneda_simbolo = sim_real; p.moneda_texto = txt_real
             
-            if q and q not in p.nombre.upper() and q not in str(p.codigo).upper(): continue
-            
             c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
             
-            # 🔥 MOTOR DE HERENCIA CON INTELIGENCIA DE TEXTO 🔥
+            # 🔥 MOTOR DE HERENCIA INTELIGENTE (TURBO) 🔥
             if p.tipo_origen == 'FABRICADO':
                 core_fab = get_core_name(p.nombre)
                 c_heredado = 0.0
                 
-                # Busca a la familia usando Subset Matching
-                posibles_padres = {n: c for n, c in costos_comprados.items() if son_familia(core_fab, get_core_name(n))}
+                # 1ro: Búsqueda estricta (ultra rápida)
+                posibles_padres = [d for d in data_comprados if d['core'] == core_fab]
+                
+                # 2do: Búsqueda difusa (Fuzzy Matcher) si no encontró
+                if not posibles_padres:
+                    w_fab = set(core_fab.split())
+                    if len(w_fab) >= 2:
+                        for d in data_comprados:
+                            # Si las palabras del padre contienen al hijo, o viceversa, son familia
+                            if w_fab.issubset(d['w_core']) or d['w_core'].issubset(w_fab):
+                                posibles_padres.append(d)
                 
                 if posibles_padres:
                     cat_upper = str(p.categoria).upper()
                     if 'ESENCIA' in cat_upper:
-                        padres_5 = [c for n, c in posibles_padres.items() if get_quantity(n) == 5.0]
-                        if padres_5:
-                            c_heredado = padres_5[0]
+                        # Busca textualmente 5K o 5L
+                        p_5 = [d for d in posibles_padres if '5K' in d['clean'] or '5L' in d['clean']]
+                        if p_5: 
+                            c_heredado = p_5[0]['costo']
                         else:
-                            padres_1 = [c for n, c in posibles_padres.items() if get_quantity(n) == 1.0]
-                            if padres_1: c_heredado = padres_1[0]
-                            else: c_heredado = list(posibles_padres.values())[0]
+                            # Si no hay 5, busca 1K o 1L
+                            p_1 = [d for d in posibles_padres if '1K' in d['clean'] or '1L' in d['clean']]
+                            if p_1: c_heredado = p_1[0]['costo']
+                            else: c_heredado = posibles_padres[0]['costo']
                     else:
-                        c_heredado = list(posibles_padres.values())[0]
+                        c_heredado = posibles_padres[0]['costo']
                 
                 if c_heredado > 0: 
                     c_base = c_heredado
@@ -550,5 +502,66 @@ def buscar():
         alertas_activas = [{"producto": a.producto, "msg": a.msg} for a in Alerta.query.filter_by(tipo="ACTIVA").all()]
         return jsonify({"productos": res, "tc_actual": tc, "alertas": alertas_activas})
     except Exception as e: return jsonify({"productos": [], "tc_actual": 3.80, "alertas": [{"producto": "Error de servidor", "msg": str(e)}]}), 500
+
+@app.route('/api/exportar', methods=['POST'])
+@login_required
+def exportar_excel():
+    if not is_admin_api(): return jsonify({"error": "No"}), 403
+    nombres = request.json.get('productos', [])
+    if not nombres: return jsonify({"error": "Vacío"}), 400
+    prods = Producto.query.filter(Producto.nombre.in_(nombres)).all()
+    
+    # Pre-cálculo para la exportación también
+    data_comprados = []
+    for c in Producto.query.all():
+        if c.tipo_origen == 'COMPRADO' and not c.oculto:
+            core_val = get_core_name(c.nombre)
+            data_comprados.append({'nombre': c.nombre, 'costo': get_val(c.costo_base_man, c.costo_base_ex, 0.0), 'core': core_val, 'w_core': set(core_val.split()), 'clean': c.nombre.replace(' ', '').upper()})
+
+    data = []; tc = get_tc_actual()
+    for p in prods:
+        c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
+        
+        if p.tipo_origen == 'FABRICADO':
+            core_fab = get_core_name(p.nombre)
+            c_heredado = 0.0
+            posibles_padres = [d for d in data_comprados if d['core'] == core_fab]
+            if not posibles_padres:
+                w_fab = set(core_fab.split())
+                if len(w_fab) >= 2:
+                    for d in data_comprados:
+                        if w_fab.issubset(d['w_core']) or d['w_core'].issubset(w_fab): posibles_padres.append(d)
+            if posibles_padres:
+                if 'ESENCIA' in str(p.categoria).upper():
+                    p_5 = [d for d in posibles_padres if '5K' in d['clean'] or '5L' in d['clean']]
+                    if p_5: c_heredado = p_5[0]['costo']
+                    else:
+                        p_1 = [d for d in posibles_padres if '1K' in d['clean'] or '1L' in d['clean']]
+                        if p_1: c_heredado = p_1[0]['costo']
+                        else: c_heredado = posibles_padres[0]['costo']
+                else: c_heredado = posibles_padres[0]['costo']
+            if c_heredado > 0: c_base = c_heredado
+
+        cf = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
+        mg = get_val(p.margen_man, p.margen_ex, 0.20)
+        cy = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
+        merma_pct = p.merma_pct_man or 0.0
+        
+        merma = c_base * merma_pct; ct = c_base + cf + merma
+        c_ref = cy if (cy > 0 and ct <= cy) else ct
+        
+        if c_ref <= 0.0001: mg = 0.0; pl = 0.0; pp = 0.0
+        else:
+            flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
+            pl = c_ref * (1 + mg); pp = pl + flete
+            
+        data.append({
+            "Producto": p.nombre, "Código": p.codigo, "Empresa": p.empresa, "Categoría": p.categoria, "Origen": p.tipo_origen, "Moneda": p.moneda_texto,
+            "Costo Real": c_base, "Costo Fab": cf, "Merma (%)": merma_pct*100, "Costo Total": ct,
+            "Coyuntural": cy, "Margen (%)": mg*100, "Precio LIMA": pl, "Precio PROVINCIA": pp, "Nota": p.nota
+        })
+    df = pd.DataFrame(data); output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer: df.to_excel(writer, index=False)
+    output.seek(0); return send_file(output, download_name='Precios_GLI.xlsx', as_attachment=True)
 
 if __name__ == '__main__': app.run(debug=True)
