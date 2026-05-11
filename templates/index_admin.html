@@ -6,7 +6,6 @@
     <title>GLI | Panel de Administrador</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
@@ -21,7 +20,7 @@
         .brand-subtitle { font-size: 0.65rem; color: var(--text-light); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; cursor: default; }
         
         .card-pro { background: var(--white-pure); border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
-        .upload-box { border: 1px solid #d1d5db; border-radius: 6px; padding: 1.2rem; text-align: center; transition: 0.2s; cursor: pointer; background: #f9fafb; height: 100%; display: flex; flex-direction: column; justify-content: center; }
+        .upload-box { border: 1px solid #d1d5db; border-radius: 6px; padding: 1rem; text-align: center; transition: 0.2s; cursor: pointer; background: #f9fafb; height: 100%; display: flex; flex-direction: column; justify-content: center; }
         .upload-box:hover { border-color: var(--primary-color); background-color: #f3f4f6; }
         
         .search-container { position: relative; max-width: 700px; margin: 0 auto; width: 100%; }
@@ -50,7 +49,6 @@
         .badges-wrapper { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
         .badge-custom { font-size: 0.55rem; padding: 2px 5px; border-radius: 4px; font-weight: 500; display: inline-flex; align-items: center; gap: 3px; background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb;}
         
-        /* Estilos de Filas */
         .row-coyuntural td { background-color: #f0f1fa !important; } 
         .row-alerta td { background-color: #fef2f2 !important; } 
         .nombre-alerta { color: #b91c1c !important; } 
@@ -63,10 +61,8 @@
         .btn-accion:hover { background: #f3f4f6; border-color: #9ca3af; }
 
         @media (max-width: 768px) { .mobile-hide-text { display: none !important; } }
-        
         main { flex-grow: 1; }
         .footer-copyright { background: transparent; padding: 1.5rem 0; text-align: center; font-size: 0.75rem; color: #9ca3af; font-weight: 500; letter-spacing: 0.3px; }
-        
         .modal-label { font-size: 0.65rem; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; }
     </style>
 </head>
@@ -124,23 +120,30 @@
                 <button class="btn-close" onclick="toggleAdminPanel()"></button>
             </div>
             <div class="row g-2 g-md-3">
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-3">
                     <div class="upload-box" onclick="document.getElementById('fileMaestro').click()">
                         <div class="mb-1 text-brand"><i class="bi bi-cloud-arrow-up-fill fs-3"></i></div>
-                        <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.85rem;">Subir Excel Maestro</h6>
+                        <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.8rem;">Excel Maestro (Costos)</h6>
                         <input type="file" id="fileMaestro" class="d-none" accept=".xlsx, .csv" onchange="subirArchivo()">
                     </div>
                 </div>
-                <div class="col-6 col-md-4">
-                    <div class="upload-box" onclick="abrirModalVariante()">
-                        <div class="mb-1 text-brand"><i class="bi bi-file-earmark-plus-fill fs-3"></i></div>
-                        <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.85rem;">Crear Producto</h6>
+                <div class="col-12 col-md-3">
+                    <div class="upload-box" onclick="document.getElementById('fileRelaciones').click()">
+                        <div class="mb-1 text-success"><i class="bi bi-diagram-3-fill fs-3"></i></div>
+                        <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.8rem;">Lista Categorías/Origen</h6>
+                        <input type="file" id="fileRelaciones" class="d-none" accept=".xlsx, .csv" onchange="subirRelaciones()">
                     </div>
                 </div>
-                <div class="col-6 col-md-4">
+                <div class="col-6 col-md-3">
+                    <div class="upload-box" onclick="abrirModalVariante()">
+                        <div class="mb-1 text-brand"><i class="bi bi-file-earmark-plus-fill fs-3"></i></div>
+                        <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.8rem;">Crear Producto</h6>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
                     <div class="upload-box" onclick="abrirModalExportar()">
                         <div class="mb-1 text-brand"><i class="bi bi-file-earmark-excel-fill fs-3"></i></div>
-                        <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.85rem;">Exportar Excel</h6>
+                        <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.8rem;">Exportar Excel</h6>
                     </div>
                 </div>
             </div>
@@ -172,7 +175,7 @@
                         <th class="w-desc">% Dist</th>
                         <th class="w-col">Margen</th>
                         <th class="w-precio">Precio Lima</th>
-                        <th class="w-precio">Precio AQP / TRU</th>
+                        <th class="w-precio">Provincia</th>
                     </tr>
                 </thead>
                 <tbody id="tablaResultados"></tbody>
@@ -218,7 +221,7 @@
         <div class="modal-body p-4 bg-light">
             <div id="alertaCrear" class="alert alert-danger d-none p-2 small fw-bold mb-3"></div>
             
-            <label class="modal-label text-primary"><i class="bi bi-magic me-1"></i> Usar plantilla de un producto existente (Opcional)</label>
+            <label class="modal-label text-primary"><i class="bi bi-magic me-1"></i> Usar plantilla de un producto existente</label>
             <select id="varPlantilla" class="form-select border-secondary-subtle rounded mb-3" onchange="cargarPlantilla()"></select>
 
             <div class="row g-3">
@@ -305,14 +308,11 @@
 
     document.addEventListener('DOMContentLoaded', () => { ejecutarBusqueda(); });
 
-    // 🔴 LÓGICA MARQUEE TURBO: scrollamount 10 hace que pase muy rápido
     function animarTexto(el) {
         if (el.scrollWidth > el.clientWidth) {
             let txt = el.getAttribute('data-texto');
             el.innerHTML = `<marquee scrollamount="10">${txt}</marquee>`;
-            if(!el.classList.contains('nombre-alerta')) {
-                el.style.color = "var(--primary-color)"; 
-            }
+            if(!el.classList.contains('nombre-alerta')) el.style.color = "var(--primary-color)"; 
         }
     }
 
@@ -320,9 +320,7 @@
         if (el.querySelector('marquee')) {
             let txt = el.getAttribute('data-texto');
             el.innerHTML = txt;
-            if(!el.classList.contains('nombre-alerta')) {
-                el.style.color = "";
-            }
+            if(!el.classList.contains('nombre-alerta')) el.style.color = "";
         }
     }
 
@@ -343,10 +341,8 @@
         editContext = { tipo: 'tc', nombre: 'Tipo de Cambio' };
         document.getElementById('modalEdicionTitulo').innerText = "Modificar Tipo de Cambio";
         document.getElementById('modalEdicionLabel').innerText = "Nuevo valor de TC";
-        
         let input = document.getElementById('inputEdicionUniversal');
-        input.type = 'number';
-        input.value = tcGlobal;
+        input.type = 'number'; input.value = tcGlobal;
         modalEdicion.show();
     }
 
@@ -354,18 +350,14 @@
         editContext = { tipo: tipo, nombre: nombre };
         let input = document.getElementById('inputEdicionUniversal');
 
-        // 🔴 Configuración Dinámica del Modal: ¿Es Número o es Texto de Nota?
         if(tipo === 'nota') {
             document.getElementById('modalEdicionTitulo').innerText = "Editar Nota del Producto";
-            input.type = 'text';
-            input.placeholder = "Escribe una nota aquí (Ej. Sin stock, Precio subirá...)";
+            input.type = 'text'; input.placeholder = "Escribe una nota aquí...";
         } else {
             const titles = { 'costo-real': 'Costo Base', 'costo-fab': 'Costo Fab.', 'merma': '% Merma', 'costo-coyuntural': 'Costo Coyuntural', 'dscto': '% Dscto PV', 'dscto-dist': '% Dscto Dist', 'margen': '% Margen' };
             document.getElementById('modalEdicionTitulo').innerText = `Editar ${titles[tipo] || 'Valor'}`;
-            input.type = 'number';
-            input.placeholder = "0.00";
+            input.type = 'number'; input.placeholder = "0.00";
         }
-
         document.getElementById('modalEdicionLabel').innerText = `Producto: ${nombre.substring(0,30)}...`;
         input.value = valorActual;
         modalEdicion.show();
@@ -373,31 +365,18 @@
 
     async function guardarEdicionUniversal() {
         const val = document.getElementById('inputEdicionUniversal').value;
-        
-        // Si no es nota, obligamos a que tenga un número. Si es nota, permitimos que esté en blanco para borrarla.
         if(editContext.tipo !== 'nota' && val === "") return alert("Ingresa un número válido.");
 
         if(editContext.tipo === 'tc') {
             let res = await fetch('/api/update-tc', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tc: val})});
-            if(res.ok) { 
-                modalEdicion.hide(); 
-                ejecutarBusqueda(); 
-            } else alert("Error: Permiso denegado.");
+            if(res.ok) { modalEdicion.hide(); ejecutarBusqueda(); } else alert("Error: Permiso denegado.");
         } else {
-            // Empaquetamos los datos de manera inteligente
             let bodyData = { nombre: editContext.nombre };
-            if(editContext.tipo === 'nota') {
-                bodyData.valor = val;
-            } else {
-                let keyName = editContext.tipo.includes('costo') ? 'costo' : editContext.tipo;
-                bodyData[keyName] = val;
-            }
+            if(editContext.tipo === 'nota') bodyData.valor = val;
+            else { let keyName = editContext.tipo.includes('costo') ? 'costo' : editContext.tipo; bodyData[keyName] = val; }
 
             let res = await fetch(`/api/editar-${editContext.tipo}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(bodyData) });
-            if(res.ok) { 
-                modalEdicion.hide(); 
-                ejecutarBusqueda(); 
-            } else alert("Error al guardar.");
+            if(res.ok) { modalEdicion.hide(); ejecutarBusqueda(); } else alert("Error al guardar.");
         }
     }
 
@@ -408,10 +387,7 @@
         timerBusqueda = setTimeout(() => { ejecutarBusqueda(); }, 300);
     }
 
-    function irAProducto(nombre) {
-        document.getElementById('txtBuscar').value = nombre;
-        buscar();
-    }
+    function irAProducto(nombre) { document.getElementById('txtBuscar').value = nombre; buscar(); }
 
     async function ejecutarBusqueda() {
         const q = document.getElementById('txtBuscar').value.trim();
@@ -420,20 +396,14 @@
         try {
             const res = await fetch(`/buscar?q=${encodeURIComponent(q)}&_=${new Date().getTime()}`);
             const json = await res.json();
-            allProductsData = json.productos; 
-            tcGlobal = json.tc_actual;
+            allProductsData = json.productos; tcGlobal = json.tc_actual;
             
             const alertasBox = document.getElementById('contenedorAlertas');
             if(json.alertas && json.alertas.length > 0) {
                 let alHTML = `<div class="alert alert-secondary py-2 mb-3 shadow-sm border-secondary" style="font-size:0.8rem;"><strong class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> Alertas del Sistema:</strong> <div class="mt-2">`;
-                json.alertas.forEach(a => {
-                    alHTML += `<button class="btn btn-sm btn-outline-dark me-2 mb-2 py-0 px-2 fw-bold" onclick="irAProducto('${a.producto.replace(/'/g, "\\'")}')" title="${a.msg}">${a.producto} <span class="badge bg-danger ms-1">Coyuntural</span></button>`;
-                });
-                alHTML += `</div></div>`;
-                alertasBox.innerHTML = alHTML;
-            } else {
-                alertasBox.innerHTML = '';
-            }
+                json.alertas.forEach(a => { alHTML += `<button class="btn btn-sm btn-outline-dark me-2 mb-2 py-0 px-2 fw-bold" onclick="irAProducto('${a.producto.replace(/'/g, "\\'")}')" title="${a.msg}">${a.producto} <span class="badge bg-danger ms-1">Coyuntural</span></button>`; });
+                alHTML += `</div></div>`; alertasBox.innerHTML = alHTML;
+            } else alertasBox.innerHTML = '';
 
             if(document.getElementById('valTC')) document.getElementById('valTC').innerText = tcGlobal.toFixed(2);
             document.getElementById('loading').style.display = 'none';
@@ -444,7 +414,6 @@
             }
 
             let htmlContent = '';
-            
             allProductsData.forEach((p) => {
                 let sim = p.moneda_simbolo, txt = p.moneda_texto;
                 let vb = p.costo_base, vf = p.costo_fab, vmer = p.merma_monto, vt = p.costo_actual, vcy = p.costo_coyuntural, vl = p.precio_lima, vp = p.precio_provincia;
@@ -452,19 +421,16 @@
                 if (modoMoneda === 'PEN' && txt === 'USD') { vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN'; } 
                 else if (modoMoneda === 'USD' && txt === 'PEN') { vb/=tcGlobal; vf/=tcGlobal; vmer/=tcGlobal; vt/=tcGlobal; vcy/=tcGlobal; vl/=tcGlobal; vp/=tcGlobal; sim='$'; txt='USD'; }
 
-                let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' 
-                    ? `<span class="badge-custom"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
-                let badgeEmpresa = p.empresa && p.empresa !== "MANUAL" 
-                    ? `<span class="badge-custom" style="background-color: #ffffff; color: #4b5563;"><i class="bi bi-building"></i> ${p.empresa}</span>` : '';
+                let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' ? `<span class="badge-custom"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
+                let badgeEmpresa = p.empresa && p.empresa !== "MANUAL" ? `<span class="badge-custom" style="background-color: #ffffff; color: #4b5563;"><i class="bi bi-building"></i> ${p.empresa}</span>` : '';
+                
+                // Badge de Herencia si es Fabricado
+                let badgeOrigen = p.tipo_origen === 'FABRICADO' ? `<span class="badge-custom bg-light border-success text-success" title="Costo heredado automáticamente"><i class="bi bi-diagram-2"></i> Fabricado</span>` : '';
 
                 let hasCoyuntural = vcy > 0;
                 let isAlerta = hasCoyuntural && (vt > vcy);
-                
                 let textCoyuntural = hasCoyuntural ? `${sim}${vcy.toFixed(3)}` : `${sim}${vt.toFixed(3)}`;
-                let btnCoyunturalClass = hasCoyuntural ? 'btn-coyuntural-active btn-accion' : 'btn-coyuntural-inactive btn-accion';
-                
-                if (isAlerta) btnCoyunturalClass = 'btn-alerta btn-accion'; 
-                
+                let btnCoyunturalClass = isAlerta ? 'btn-alerta btn-accion' : (hasCoyuntural ? 'btn-coyuntural-active btn-accion' : 'btn-coyuntural-inactive btn-accion');
                 let rowClass = isAlerta ? 'row-alerta' : (hasCoyuntural ? 'row-coyuntural' : '');
                 let prodNameClass = isAlerta ? 'nombre-alerta' : 'text-dark';
 
@@ -472,33 +438,30 @@
                 let escapedName = p.nombre.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                 let escapedNota = (p.nota || "").replace(/"/g, '&quot;').replace(/'/g, "\\'");
 
-                // 🔴 UI DE LA NOTA
                 let htmlNota = p.nota ? `<span class="text-muted d-block mt-1" style="font-size:0.65rem; font-style:italic;"><i class="bi bi-journal-text text-primary"></i> ${p.nota}</span>` : '';
+
+                // El Costo Base es de solo lectura si es FABRICADO
+                let btnCostoReal = p.tipo_origen === 'FABRICADO' 
+                    ? `<div class="text-success fw-bold p-1" style="font-size:0.7rem; border:1px dashed #198754; border-radius:4px; background:#f8fff9;" title="Heredado del Comprado">${vb > 0 ? sim + vb.toFixed(3) : '-'}</div>`
+                    : `<button class="btn-accion" onclick="editarCelda('costo-real', '${safeName}', ${p.costo_base})">${vb > 0 ? sim + vb.toFixed(3) : '-'}</button>`;
 
                 htmlContent += `
                 <tr class="${rowClass}">
                     <td class="text-start ps-2" title="Desliza o haz hover para leer">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div class="fw-bold ${prodNameClass} text-truncate pe-1" 
-                                 style="font-size: 0.78rem; max-width: calc(100% - 65px); cursor: ew-resize;"
-                                 onmouseenter="animarTexto(this)" 
-                                 onmouseleave="detenerTexto(this)"
-                                 data-texto="${escapedName}">
-                                ${p.nombre}
-                            </div>
+                            <div class="fw-bold ${prodNameClass} text-truncate pe-1" style="font-size: 0.78rem; max-width: calc(100% - 65px); cursor: ew-resize;" onmouseenter="animarTexto(this)" onmouseleave="detenerTexto(this)" data-texto="${escapedName}">${p.nombre}</div>
                             <div class="text-end text-nowrap" style="width: 65px;">
                                 <button class="btn btn-sm btn-light border p-1 py-0 text-secondary" onclick="clonarProducto('${safeName}')" title="Usar como base"><i class="bi bi-copy"></i></button>
                                 <button class="btn btn-sm btn-light border text-secondary p-1 py-0 ms-1" onclick="eliminarProducto('${safeName}')" title="Eliminar"><i class="bi bi-trash-fill"></i></button>
                             </div>
                         </div>
-                        <div class="badges-wrapper">${badgeEmpresa} ${badgeCodigo}</div>
+                        <div class="badges-wrapper">${badgeEmpresa} ${badgeCodigo} ${badgeOrigen}</div>
                         ${htmlNota}
                         <button class="btn btn-sm text-primary py-0 px-0 border-0 mt-1" onclick="editarCelda('nota', '${safeName}', '${escapedNota}')" style="font-size:0.65rem; background:transparent;">
                             <i class="bi bi-pencil-square"></i> ${p.nota ? 'Editar nota' : '+ Añadir nota'}
                         </button>
                     </td>
-                    
-                    <td><button class="btn-accion" onclick="editarCelda('costo-real', '${safeName}', ${p.costo_base})">${vb > 0 ? sim + vb.toFixed(3) : '-'}</button></td>
+                    <td>${btnCostoReal}</td>
                     <td><button class="btn-accion" onclick="editarCelda('costo-fab', '${safeName}', ${p.costo_fab})">${vf > 0 ? sim + vf.toFixed(3) : '-'}</button></td>
                     <td><button class="btn-accion" onclick="editarCelda('merma', '${safeName}', ${p.merma_porcentaje})">${p.merma_porcentaje}%</button></td>
                     <td class="fw-bold text-dark">${sim}${vt.toFixed(3)}</td>
@@ -506,15 +469,8 @@
                     <td><button class="btn-accion" onclick="editarCelda('dscto', '${safeName}', ${p.dscto_pv})">${p.dscto_pv}%</button></td>
                     <td><button class="btn-accion" onclick="editarCelda('dscto-dist', '${safeName}', ${p.dscto_dist})">${p.dscto_dist}%</button></td>
                     <td><button class="btn-edit-margen m-0" onclick="editarCelda('margen', '${safeName}', ${p.margen})">${p.margen}%</button></td>
-                    
-                    <td class="text-end">
-                        <div class="price-tag">${sim} ${vl.toFixed(2)}</div>
-                        <div class="text-muted small" style="font-size:0.55rem; font-weight:600;">LIMA (${txt})</div>
-                    </td>
-                    <td class="text-end pe-4">
-                        <div class="price-tag price-secondary">${sim} ${vp.toFixed(2)}</div>
-                        <div class="text-muted small" style="font-size:0.55rem; font-weight:600;">AQP/TRU (${txt})</div>
-                    </td>
+                    <td class="text-end"><div class="price-tag">${sim} ${vl.toFixed(2)}</div><div class="text-muted small" style="font-size:0.55rem; font-weight:600;">LIMA (${txt})</div></td>
+                    <td class="text-end pe-4"><div class="price-tag price-secondary">${sim} ${vp.toFixed(2)}</div><div class="text-muted small" style="font-size:0.55rem; font-weight:600;">AQP/TRU (${txt})</div></td>
                 </tr>`;
             });
             tbody.innerHTML = htmlContent;
@@ -522,12 +478,7 @@
     }
 
     function eliminarProducto(nombre) { 
-        if(confirm(`¿Eliminar ${nombre}?`)) { 
-            fetch('/api/eliminar-producto', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre})})
-            .then(()=> {
-                ejecutarBusqueda();
-            }); 
-        } 
+        if(confirm(`¿Eliminar ${nombre}?`)) fetch('/api/eliminar-producto', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre})}).then(()=> ejecutarBusqueda()); 
     }
 
     async function subirArchivo() {
@@ -536,95 +487,64 @@
         let fd = new FormData(); fd.append('archivo', input.files[0]);
         document.getElementById('status').innerText = "Procesando Maestro...";
         let res = await fetch('/subir-maestro', {method:'POST', body:fd});
-        if(res.ok) { 
-            document.getElementById('status').innerText = "✅ Listo"; 
-            ejecutarBusqueda(); 
-        } else {
-            document.getElementById('status').innerText = "❌ Error";
-        }
+        if(res.ok) { document.getElementById('status').innerText = "✅ Listo"; ejecutarBusqueda(); } 
+        else document.getElementById('status').innerText = "❌ Error";
+    }
+
+    async function subirRelaciones() {
+        let input = document.getElementById('fileRelaciones');
+        if(!input.files[0]) return;
+        let fd = new FormData(); fd.append('archivo', input.files[0]);
+        document.getElementById('status').innerText = "Vinculando origen...";
+        let res = await fetch('/api/subir-relaciones', {method:'POST', body:fd});
+        if(res.ok) { document.getElementById('status').innerText = "✅ Relaciones OK"; ejecutarBusqueda(); } 
+        else document.getElementById('status').innerText = "❌ Error";
     }
 
     function poblarSelectPlantillas() {
         let select = document.getElementById('varPlantilla');
         select.innerHTML = '<option value="">-- Cargar datos de producto existente --</option>';
-        allProductsData.forEach(p => {
-            select.innerHTML += `<option value="${p.nombre.replace(/"/g, '&quot;')}">${p.nombre}</option>`;
-        });
+        allProductsData.forEach(p => { select.innerHTML += `<option value="${p.nombre.replace(/"/g, '&quot;')}">${p.nombre}</option>`; });
     }
 
     function abrirModalVariante() { 
         document.getElementById('alertaCrear').classList.add('d-none');
-        document.getElementById('varNombre').value = ''; 
-        document.getElementById('varCodigo').value = '';
-        document.getElementById('varEmpresa').value = ''; 
-        document.getElementById('varCostoReal').value = '';
-        document.getElementById('varCostoFab').value = ''; 
-        document.getElementById('varCoyuntural').value = ''; 
-        document.getElementById('varMerma').value = ''; 
+        ['varNombre','varCodigo','varEmpresa','varCostoReal','varCostoFab','varCoyuntural','varMerma','varDsctoPV','varDsctoDist'].forEach(id => document.getElementById(id).value = '');
         document.getElementById('varMargen').value = '20';
-        document.getElementById('varDsctoPV').value = ''; 
-        document.getElementById('varDsctoDist').value = '';
-        
-        poblarSelectPlantillas();
-        modalVar.show(); 
+        poblarSelectPlantillas(); modalVar.show(); 
     }
     
     function cargarPlantilla() {
         let nombrePlantilla = document.getElementById('varPlantilla').value;
         if(!nombrePlantilla) return;
-        
         let p = allProductsData.find(x => x.nombre === nombrePlantilla);
         if(!p) return;
-        
         document.getElementById('alertaCrear').classList.add('d-none');
         document.getElementById('varNombre').value = p.nombre + " - NUEVA VERSIÓN"; 
-        document.getElementById('varCodigo').value = p.codigo;
-        document.getElementById('varEmpresa').value = p.empresa; 
-        document.getElementById('varCostoReal').value = p.costo_base;
-        document.getElementById('varCostoFab').value = p.costo_fab; 
+        document.getElementById('varCodigo').value = p.codigo; document.getElementById('varEmpresa').value = p.empresa; 
+        document.getElementById('varCostoReal').value = p.costo_base; document.getElementById('varCostoFab').value = p.costo_fab; 
         document.getElementById('varCoyuntural').value = p.costo_coyuntural > 0 ? p.costo_coyuntural : ''; 
-        document.getElementById('varMerma').value = p.merma_porcentaje; 
-        document.getElementById('varMargen').value = p.margen;
-        document.getElementById('varDsctoPV').value = p.dscto_pv;
-        document.getElementById('varDsctoDist').value = p.dscto_dist;
+        document.getElementById('varMerma').value = p.merma_porcentaje; document.getElementById('varMargen').value = p.margen;
+        document.getElementById('varDsctoPV').value = p.dscto_pv; document.getElementById('varDsctoDist').value = p.dscto_dist;
     }
 
-    function clonarProducto(nombre) {
-        poblarSelectPlantillas();
-        document.getElementById('varPlantilla').value = nombre;
-        cargarPlantilla();
-        modalVar.show(); 
-    }
+    function clonarProducto(nombre) { poblarSelectPlantillas(); document.getElementById('varPlantilla').value = nombre; cargarPlantilla(); modalVar.show(); }
     
     async function guardarVariante() {
         let data = { 
-            nombre: document.getElementById('varNombre').value, 
-            codigo: document.getElementById('varCodigo').value, 
-            empresa: document.getElementById('varEmpresa').value, 
-            costo_base: document.getElementById('varCostoReal').value, 
-            costo_fab: document.getElementById('varCostoFab').value, 
-            coyuntural: document.getElementById('varCoyuntural').value, 
-            merma: document.getElementById('varMerma').value, 
-            margen: document.getElementById('varMargen').value,
-            dscto_pv: document.getElementById('varDsctoPV').value,
-            dscto_dist: document.getElementById('varDsctoDist').value
+            nombre: document.getElementById('varNombre').value, codigo: document.getElementById('varCodigo').value, 
+            empresa: document.getElementById('varEmpresa').value, costo_base: document.getElementById('varCostoReal').value, 
+            costo_fab: document.getElementById('varCostoFab').value, coyuntural: document.getElementById('varCoyuntural').value, 
+            merma: document.getElementById('varMerma').value, margen: document.getElementById('varMargen').value,
+            dscto_pv: document.getElementById('varDsctoPV').value, dscto_dist: document.getElementById('varDsctoDist').value
         };
-        
         let res = await fetch('/api/crear-producto', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
-        if(res.ok) { 
-            modalVar.hide(); 
-            ejecutarBusqueda(); 
-        } else {
-            let err = await res.json();
-            let cajaAlerta = document.getElementById('alertaCrear');
-            cajaAlerta.innerText = "Error: " + err.error;
-            cajaAlerta.classList.remove('d-none');
-        }
+        if(res.ok) { modalVar.hide(); ejecutarBusqueda(); } 
+        else { let err = await res.json(); let caja = document.getElementById('alertaCrear'); caja.innerText = "Error: " + err.error; caja.classList.remove('d-none'); }
     }
 
     function abrirModalExportar() {
-        let divLista = document.getElementById('listaProductosExportar');
-        divLista.innerHTML = '';
+        let divLista = document.getElementById('listaProductosExportar'); divLista.innerHTML = '';
         allProductsData.forEach(p => { divLista.innerHTML += `<div class="form-check mb-1 border-bottom border-light"><input class="form-check-input chk-exportar" type="checkbox" value="${p.nombre.replace(/"/g, '&quot;')}" checked> <label class="form-check-label text-dark fw-bold" style="font-size:0.85rem;">${p.nombre}</label></div>`; });
         new bootstrap.Modal(document.getElementById('modalExportar')).show();
     }
@@ -635,11 +555,7 @@
         let seleccionados = Array.from(document.querySelectorAll('.chk-exportar:checked')).map(c => c.value);
         if(seleccionados.length === 0) return alert("Selecciona productos");
         let res = await fetch(`/api/exportar`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({productos: seleccionados}) });
-        if(res.ok) {
-            let blob = await res.blob();
-            let a = document.createElement('a'); a.href = window.URL.createObjectURL(blob);
-            a.download = `Precios_GLI.xlsx`; a.click();
-        }
+        if(res.ok) { let blob = await res.blob(); let a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `Precios_GLI.xlsx`; a.click(); }
     }
 </script>
 </body>
