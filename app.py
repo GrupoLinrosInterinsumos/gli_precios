@@ -68,7 +68,6 @@ class Producto(db.Model):
     nota = db.Column(db.String(250), default='') 
     categoria = db.Column(db.String(100), default='')
     tipo_origen = db.Column(db.String(20), default='COMPRADO')
-    # 🔴 NUEVO CAMPO: Visibilidad para Vendedores
     visible_ventas = db.Column(db.Boolean, default=True)
     fecha_act = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -81,7 +80,6 @@ class Alerta(db.Model):
 
 with app.app_context(): 
     db.create_all()
-    # 🔴 AUTO-MIGRACIÓN ROBUSTA
     migraciones = [
         ('nota', 'VARCHAR(250)', "''"), 
         ('categoria', 'VARCHAR(100)', "''"), 
@@ -193,6 +191,14 @@ def son_familia(core1, core2):
     w1 = set(core1.split()); w2 = set(core2.split())
     if len(w1) >= 2 and len(w2) >= 2:
         if w1.issubset(w2) or w2.issubset(w1): return True
+    return False
+
+# 🔥 NUEVA REGLA: EXCEPCIONES QUE NO HEREDAN Y SON EDITABLES MANUALMENTE 🔥
+def es_excepcion_herencia(nombre):
+    n_clean = re.sub(r'\s+', '', nombre).upper()
+    if "COLAGENOHIDROLIZADOGELNEXX1KG" in n_clean or "COLAGENOHIDROLIZADOGELNEXX400G" in n_clean: return True
+    if "FOSFATOPARAJAMONES" in n_clean: return True
+    if "FOSFATOPARAMASAS" in n_clean: return True
     return False
 
 # =========================================================
@@ -396,14 +402,12 @@ def eliminar_producto():
         db.session.commit()
     return jsonify({"success": True})
 
-# 🔴 NUEVA RUTA: Alternar visibilidad para ventas
 @app.route('/api/toggle-visibilidad', methods=['POST'])
 @login_required
 def toggle_visibilidad():
     if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
     p = Producto.query.filter_by(nombre=request.json['nombre']).first()
     if p:
-        # Si era nulo por alguna razón, se asume True y pasa a False
         estado_actual = p.visible_ventas if p.visible_ventas is not None else True
         p.visible_ventas = not estado_actual
         db.session.commit()
@@ -436,8 +440,6 @@ def buscar():
         q = request.args.get('q', '').upper()
         tc = get_tc_actual()
         Alerta.query.filter_by(tipo="ACTIVA").delete()
-        
-        # Detecta si el que consulta es el equipo de Ventas
         es_vendedor = current_user.role in ['Vendedor', 'TC']
         
         prods = Producto.query.all()
@@ -458,10 +460,8 @@ def buscar():
         for p in prods:
             if p.oculto: continue
             
-            # 🔴 Si es vendedor y el producto está oculto para ventas, lo ignora completamente
             visible = p.visible_ventas if p.visible_ventas is not None else True
-            if es_vendedor and not visible:
-                continue
+            if es_vendedor and not visible: continue
             
             if q and q not in p.nombre.upper() and q not in str(p.codigo).upper(): continue
             
@@ -476,36 +476,39 @@ def buscar():
                 p.proveedor = prov_real; p.moneda_simbolo = sim_real; p.moneda_texto = txt_real
             
             c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
+            editable_costo = True # Por defecto asumimos que se puede editar
             
+            # 🔥 LÓGICA DE EXCEPCIONES: Si es Fabricado pero es excepción, NO hereda 🔥
             if p.tipo_origen == 'FABRICADO':
-                core_fab = get_core_name(p.nombre)
-                c_heredado = 0.0
-                
-                posibles_padres = [d for d in data_comprados if d['core'] == core_fab]
-                
-                if not posibles_padres:
-                    w_fab = set(core_fab.split())
-                    if len(w_fab) >= 2:
-                        for d in data_comprados:
-                            if w_fab.issubset(d['w_core']) or d['w_core'].issubset(w_fab):
-                                posibles_padres.append(d)
-                
-                if posibles_padres:
-                    cat_upper = str(p.categoria).upper()
-                    if 'ESENCIA' in cat_upper:
-                        p_5 = [d for d in posibles_padres if '5K' in d['clean'] or '5L' in d['clean']]
-                        if p_5: 
-                            c_heredado = p_5[0]['costo']
+                if es_excepcion_herencia(p.nombre):
+                    editable_costo = True # Mantiene su propio costo_base y botón activo
+                else:
+                    editable_costo = False # Se bloquea y hereda
+                    core_fab = get_core_name(p.nombre)
+                    c_heredado = 0.0
+                    
+                    posibles_padres = [d for d in data_comprados if d['core'] == core_fab]
+                    if not posibles_padres:
+                        w_fab = set(core_fab.split())
+                        if len(w_fab) >= 2:
+                            for d in data_comprados:
+                                if w_fab.issubset(d['w_core']) or d['w_core'].issubset(w_fab): posibles_padres.append(d)
+                    
+                    if posibles_padres:
+                        cat_upper = str(p.categoria).upper()
+                        if 'ESENCIA' in cat_upper:
+                            p_5 = [d for d in posibles_padres if '5K' in d['clean'] or '5L' in d['clean']]
+                            if p_5: c_heredado = p_5[0]['costo']
+                            else:
+                                p_1 = [d for d in posibles_padres if '1K' in d['clean'] or '1L' in d['clean']]
+                                if p_1: c_heredado = p_1[0]['costo']
+                                else: c_heredado = posibles_padres[0]['costo']
                         else:
-                            p_1 = [d for d in posibles_padres if '1K' in d['clean'] or '1L' in d['clean']]
-                            if p_1: c_heredado = p_1[0]['costo']
-                            else: c_heredado = posibles_padres[0]['costo']
-                    else:
-                        c_heredado = posibles_padres[0]['costo']
-                
-                if c_heredado > 0: 
-                    c_base = c_heredado
-                    if p.costo_base_man != c_heredado: p.costo_base_man = c_heredado
+                            c_heredado = posibles_padres[0]['costo']
+                    
+                    if c_heredado > 0: 
+                        c_base = c_heredado
+                        if p.costo_base_man != c_heredado: p.costo_base_man = c_heredado
             
             c_fab = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
             margen = get_val(p.margen_man, p.margen_ex, 0.20)
@@ -535,7 +538,8 @@ def buscar():
                 "moneda_simbolo": str(p.moneda_simbolo), "moneda_texto": str(p.moneda_texto), 
                 "dscto_pv": round(dscto_pv * 100, 2), "dscto_dist": round(dscto_dist * 100, 2),
                 "nota": str(p.nota) if hasattr(p, 'nota') and p.nota else "",
-                "visible_ventas": visible # 🔴 Enviamos el estado al frontend
+                "visible_ventas": visible,
+                "editable_costo": editable_costo # 🔴 Enviamos bandera al frontend
             })
         
         try: db.session.commit()
@@ -564,7 +568,7 @@ def exportar_excel():
     for p in prods:
         c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
         
-        if p.tipo_origen == 'FABRICADO':
+        if p.tipo_origen == 'FABRICADO' and not es_excepcion_herencia(p.nombre):
             core_fab = get_core_name(p.nombre)
             c_heredado = 0.0
             posibles_padres = [d for d in data_comprados if d['core'] == core_fab]
@@ -597,7 +601,6 @@ def exportar_excel():
             flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
             pl = c_ref * (1 + mg); pp = pl + flete
             
-        # 🔴 Añadimos el estado de visibilidad al Excel para que el Admin tenga el control total
         visibilidad_str = "SÍ" if getattr(p, 'visible_ventas', True) else "NO (Oculto)"
             
         data.append({
