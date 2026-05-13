@@ -193,7 +193,6 @@ def son_familia(core1, core2):
         if w1.issubset(w2) or w2.issubset(w1): return True
     return False
 
-# 🔥 NUEVA REGLA: EXCEPCIONES QUE NO HEREDAN Y SON EDITABLES MANUALMENTE 🔥
 def es_excepcion_herencia(nombre):
     n_clean = re.sub(r'\s+', '', nombre).upper()
     if "COLAGENOHIDROLIZADOGELNEXX1KG" in n_clean or "COLAGENOHIDROLIZADOGELNEXX400G" in n_clean: return True
@@ -476,14 +475,13 @@ def buscar():
                 p.proveedor = prov_real; p.moneda_simbolo = sim_real; p.moneda_texto = txt_real
             
             c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
-            editable_costo = True # Por defecto asumimos que se puede editar
+            editable_costo = True
             
-            # 🔥 LÓGICA DE EXCEPCIONES: Si es Fabricado pero es excepción, NO hereda 🔥
             if p.tipo_origen == 'FABRICADO':
                 if es_excepcion_herencia(p.nombre):
-                    editable_costo = True # Mantiene su propio costo_base y botón activo
+                    editable_costo = True 
                 else:
-                    editable_costo = False # Se bloquea y hereda
+                    editable_costo = False 
                     core_fab = get_core_name(p.nombre)
                     c_heredado = 0.0
                     
@@ -527,7 +525,13 @@ def buscar():
             c_ref = coyun if (coyun > 0 and c_total <= coyun) else c_total
             if c_ref <= 0.0001: margen = 0.0; p_lima = 0.0; p_prov = 0.0
             else:
-                flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
+                # 🔥 REGLA FRAGANCIAS: A diferencia de esencias de Cramer, las Fragancias SÍ cobran flete
+                is_fragancia = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
+                if p.proveedor in ["CRAMER", "SACCO"] and not is_fragancia:
+                    flete = 0.0
+                else:
+                    flete = FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0)
+                    
                 p_lima = c_ref * (1 + margen); p_prov = p_lima + flete
             
             res.append({
@@ -539,7 +543,7 @@ def buscar():
                 "dscto_pv": round(dscto_pv * 100, 2), "dscto_dist": round(dscto_dist * 100, 2),
                 "nota": str(p.nota) if hasattr(p, 'nota') and p.nota else "",
                 "visible_ventas": visible,
-                "editable_costo": editable_costo # 🔴 Enviamos bandera al frontend
+                "editable_costo": editable_costo 
             })
         
         try: db.session.commit()
@@ -598,7 +602,13 @@ def exportar_excel():
         
         if c_ref <= 0.0001: mg = 0.0; pl = 0.0; pp = 0.0
         else:
-            flete = 0.0 if p.proveedor in ["CRAMER", "SACCO"] else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
+            # 🔥 REGLA FRAGANCIAS: A diferencia de esencias de Cramer, las Fragancias SÍ cobran flete
+            is_fragancia = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
+            if p.proveedor in ["CRAMER", "SACCO"] and not is_fragancia:
+                flete = 0.0
+            else:
+                flete = FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0)
+                
             pl = c_ref * (1 + mg); pp = pl + flete
             
         visibilidad_str = "SÍ" if getattr(p, 'visible_ventas', True) else "NO (Oculto)"
