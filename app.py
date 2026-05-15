@@ -457,7 +457,6 @@ def buscar():
         for p in prods:
             if p.oculto: continue
             
-            # 🔥 REGLA DE VISIBILIDAD PARA CUAJOS 🔥
             if "CUAJO IL CASARO SACHETS CAGLIFICIO CLERICI" in p.nombre.upper():
                 p.visible_ventas = True
 
@@ -498,8 +497,13 @@ def buscar():
             c_ref = cy if (cy > 0 and ct <= cy) else ct
             if c_ref <= 0.0001: margen = 0.0; p_lima = 0.0; p_prov = 0.0
             else:
+                # 🔥 REGLA DE FLETE ACTUALIZADA PARA LUDAFA Y FRAGANCIAS 🔥
                 is_frag = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
-                flete = 0.0 if (prov_real in ["CRAMER", "SACCO"] and not is_frag) else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
+                if prov_real == "JM LUDAFA" or (prov_real in ["CRAMER", "SACCO"] and not is_frag):
+                    flete = 0.0
+                else:
+                    flete = FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0)
+                
                 p_lima = c_ref * (1 + mg); p_prov = p_lima + flete
             
             res.append({
@@ -527,15 +531,53 @@ def exportar_excel():
     nombres = request.json.get('productos', [])
     prods = Producto.query.filter(Producto.nombre.in_(nombres)).all()
     tc = get_tc_actual(); data = []
+    
+    data_comprados = []
+    for c in Producto.query.all():
+        if c.tipo_origen == 'COMPRADO' and not c.oculto:
+            core_val = get_core_name(c.nombre)
+            data_comprados.append({'nombre': c.nombre, 'costo': get_val(c.costo_base_man, c.costo_base_ex, 0.0), 'core': core_val, 'w_core': set(core_val.split()), 'clean': c.nombre.replace(' ', '').upper()})
+    
     for p in prods:
         c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
         c_fab = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
         mg = get_val(p.margen_man, p.margen_ex, 0.20)
         cy = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
         merma_pct = p.merma_pct_man or 0.0
+        
+        if p.tipo_origen == 'FABRICADO' and not es_excepcion_herencia(p.nombre):
+            core_fab = get_core_name(p.nombre)
+            c_heredado = 0.0
+            posibles_padres = [d for d in data_comprados if d['core'] == core_fab]
+            if not posibles_padres:
+                w_fab = set(core_fab.split())
+                if len(w_fab) >= 2:
+                    for d in data_comprados:
+                        if w_fab.issubset(d['w_core']) or d['w_core'].issubset(w_fab): posibles_padres.append(d)
+            if posibles_padres:
+                if 'ESENCIA' in str(p.categoria).upper():
+                    p_5 = [d for d in posibles_padres if '5K' in d['clean'] or '5L' in d['clean']]
+                    if p_5: c_heredado = p_5[0]['costo']
+                    else:
+                        p_1 = [d for d in posibles_padres if '1K' in d['clean'] or '1L' in d['clean']]
+                        if p_1: c_heredado = p_1[0]['costo']
+                        else: c_heredado = posibles_padres[0]['costo']
+                else: c_heredado = posibles_padres[0]['costo']
+            
+            if c_heredado > 0:
+                if p.costo_base_man is not None and p.costo_base_man > 0: c_base = p.costo_base_man
+                else: c_base = c_heredado
+
         ct = c_base + c_fab + (c_base * merma_pct); c_ref = cy if (cy > 0 and ct <= cy) else ct
+        
+        # 🔥 REGLA DE FLETE ACTUALIZADA PARA LUDAFA Y FRAGANCIAS 🔥
+        prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
         is_frag = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
-        flete = 0.0 if (detectar_proveedor_exacto(p.nombre, p.empresa) in ["CRAMER", "SACCO"] and not is_frag) else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
+        if prov_real == "JM LUDAFA" or (prov_real in ["CRAMER", "SACCO"] and not is_frag):
+            flete = 0.0
+        else:
+            flete = FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0)
+            
         pl = c_ref * (1 + mg); pp = pl + flete
         data.append({
             "Producto": p.nombre, "Kilaje": get_quantity(p.nombre), "Código": p.codigo, "Empresa": p.empresa, "Categoría": p.categoria, "Origen": p.tipo_origen, "Moneda": p.moneda_texto,
