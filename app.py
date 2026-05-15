@@ -170,6 +170,11 @@ def parse_percentage(val, default=0.0):
         return v
     except: return default
 
+def get_col_val(row, poss_names, def_val=0):
+    for n in poss_names:
+        if n in row: return row[n]
+    return def_val
+
 def get_core_name(name):
     core = re.sub(r'\bX?\s*\d+(?:[\.,]\d+)?\s*(?:KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', '', name, flags=re.IGNORECASE)
     core = re.sub(r'[^a-zA-Z0-9\s]', '', core)
@@ -359,7 +364,6 @@ def crear_producto():
     n_clean_check = re.sub(r'\s+', '', nombre)
     if "NATAMICINA" in n_clean_check or "NISINA" in n_clean_check: empresa_val = "INTERINSUMOS"
     
-    # 🔴 Capturamos el origen desde el nuevo selector en la UI
     tipo_origen_val = str(d.get('origen', 'COMPRADO')).upper().strip()
     
     p = Producto.query.filter_by(nombre=nombre).first()
@@ -475,12 +479,11 @@ def buscar():
                 p.proveedor = prov_real; p.moneda_simbolo = sim_real; p.moneda_texto = txt_real
             
             c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
-            editable_costo = True # Todos los botones se envían activados
+            editable_costo = True 
             
-            # 🔥 LÓGICA DE HERENCIA OVERRIDEABLE 🔥
             if p.tipo_origen == 'FABRICADO':
                 if es_excepcion_herencia(p.nombre):
-                    editable_costo = True # Amarillo, manual
+                    editable_costo = True 
                 else:
                     core_fab = get_core_name(p.nombre)
                     c_heredado = 0.0
@@ -505,19 +508,17 @@ def buscar():
                             c_heredado = posibles_padres[0]['costo']
                     
                     if c_heredado > 0: 
-                        # Si el Admin editó manualmente el costo, p.costo_base_man tendrá un número > 0.
-                        # Respetamos el manual y mostramos el botón en amarillo (Override)
                         if p.costo_base_man is not None and p.costo_base_man > 0:
                             c_base = p.costo_base_man
-                            editable_costo = True # Forced manual
+                            editable_costo = True 
                         else:
                             c_base = c_heredado
-                            editable_costo = False # Verde, heredado automáticamente
+                            editable_costo = False 
                     else:
-                        # Si es Fabricado pero no encontró ningún padre, lo dejamos editable para no bloquear al usuario
                         editable_costo = True
             
-            cf = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
+            # 🔥 CORRECCIÓN: Variable restaurada correctamente a c_fab 🔥
+            c_fab = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
             margen = get_val(p.margen_man, p.margen_ex, 0.20)
             coyun = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
             merma_pct = p.merma_pct_man or 0.0
@@ -525,14 +526,16 @@ def buscar():
             dscto_dist = get_val(p.dscto_dist_man, p.dscto_dist_ex, 0.0)
             
             if coyun < 0: coyun = 0.0
-            merma_monto = c_base * merma_pct; c_total = c_base + c_fab + merma_monto
+            merma_monto = c_base * merma_pct
+            c_total = c_base + c_fab + merma_monto
             
             if coyun > 0 and c_total > coyun:
                 try: db.session.add(Alerta(fecha="ACTIVA", msg="Superó Costo Coyuntural", producto=p.nombre, tipo="ACTIVA"))
                 except: pass
                 
             c_ref = coyun if (coyun > 0 and c_total <= coyun) else c_total
-            if c_ref <= 0.0001: margen = 0.0; p_lima = 0.0; p_prov = 0.0
+            if c_ref <= 0.0001: 
+                margen = 0.0; p_lima = 0.0; p_prov = 0.0
             else:
                 is_fragancia = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
                 if p.proveedor in ["CRAMER", "SACCO"] and not is_fragancia:
@@ -540,15 +543,28 @@ def buscar():
                 else:
                     flete = FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0)
                     
-                p_lima = c_ref * (1 + margen); p_prov = p_lima + flete
+                p_lima = c_ref * (1 + margen)
+                p_prov = p_lima + flete
             
             res.append({
-                "nombre": str(p.nombre), "codigo": str(p.codigo), "empresa": str(p.empresa or ''), "categoria": str(p.categoria or ''), "tipo_origen": str(p.tipo_origen or ''),
-                "costo_base": float(c_base), "costo_fab": float(c_fab), "merma_porcentaje": round(merma_pct * 100, 2),
-                "merma_monto": float(merma_monto), "costo_actual": float(c_total), "costo_coyuntural": float(coyun),
-                "margen": round(margen * 100, 2), "precio_lima": float(p_lima), "precio_provincia": float(p_prov),
-                "moneda_simbolo": str(p.moneda_simbolo), "moneda_texto": str(p.moneda_texto), 
-                "dscto_pv": round(dscto_pv * 100, 2), "dscto_dist": round(dscto_dist * 100, 2),
+                "nombre": str(p.nombre), 
+                "codigo": str(p.codigo), 
+                "empresa": str(p.empresa or ''), 
+                "categoria": str(p.categoria or ''), 
+                "tipo_origen": str(p.tipo_origen or ''),
+                "costo_base": float(c_base), 
+                "costo_fab": float(c_fab), 
+                "merma_porcentaje": round(merma_pct * 100, 2),
+                "merma_monto": float(merma_monto), 
+                "costo_actual": float(c_total), 
+                "costo_coyuntural": float(coyun),
+                "margen": round(margen * 100, 2), 
+                "precio_lima": float(p_lima), 
+                "precio_provincia": float(p_prov),
+                "moneda_simbolo": str(p.moneda_simbolo), 
+                "moneda_texto": str(p.moneda_texto), 
+                "dscto_pv": round(dscto_pv * 100, 2), 
+                "dscto_dist": round(dscto_dist * 100, 2),
                 "nota": str(p.nota) if hasattr(p, 'nota') and p.nota else "",
                 "visible_ventas": visible,
                 "editable_costo": editable_costo 
@@ -577,8 +593,11 @@ def exportar_excel():
         if c.tipo_origen == 'COMPRADO' and not c.oculto:
             core_val = get_core_name(c.nombre)
             data_comprados.append({
-                'nombre': c.nombre, 'costo': get_val(c.costo_base_man, c.costo_base_ex, 0.0), 
-                'core': core_val, 'w_core': set(core_val.split()), 'clean': c.nombre.replace(' ', '').upper()
+                'nombre': c.nombre, 
+                'costo': get_val(c.costo_base_man, c.costo_base_ex, 0.0), 
+                'core': core_val, 
+                'w_core': set(core_val.split()), 
+                'clean': c.nombre.replace(' ', '').upper()
             })
 
     data = []; tc = get_tc_actual()
@@ -608,12 +627,12 @@ def exportar_excel():
                 if p.costo_base_man is not None and p.costo_base_man > 0: c_base = p.costo_base_man
                 else: c_base = c_heredado
 
-        cf = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
+        c_fab = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
         mg = get_val(p.margen_man, p.margen_ex, 0.20)
         cy = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
         merma_pct = p.merma_pct_man or 0.0
         
-        ct = c_base + cf + (c_base * merma_pct)
+        ct = c_base + c_fab + (c_base * merma_pct)
         c_ref = cy if (cy > 0 and ct <= cy) else ct
         
         is_frag = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
@@ -623,10 +642,23 @@ def exportar_excel():
         visibilidad_str = "SÍ" if getattr(p, 'visible_ventas', True) else "NO (Oculto)"
             
         data.append({
-            "Producto": p.nombre, "Kilaje": get_quantity(p.nombre), "Código": p.codigo, "Empresa": p.empresa, "Categoría": p.categoria, "Origen": p.tipo_origen, "Moneda": p.moneda_texto,
-            "Costo Real": round(c_base, 2), "Costo Fab": round(cf, 2), "Merma (%)": round(merma_pct*100, 2), "Costo Total": round(ct, 2),
-            "Coyuntural": round(cy, 2), "Margen (%)": round(mg*100, 2), "Precio LIMA": round(pl, 2), "Precio PROVINCIA": round(pp, 2), 
-            "Visible Ventas": visibilidad_str, "Nota": p.nota
+            "Producto": p.nombre, 
+            "Kilaje": get_quantity(p.nombre), 
+            "Código": p.codigo, 
+            "Empresa": p.empresa, 
+            "Categoría": p.categoria, 
+            "Origen": p.tipo_origen, 
+            "Moneda": p.moneda_texto,
+            "Costo Real": round(c_base, 2), 
+            "Costo Fab": round(c_fab, 2), 
+            "Merma (%)": round(merma_pct*100, 2), 
+            "Costo Total": round(ct, 2),
+            "Coyuntural": round(cy, 2), 
+            "Margen (%)": round(mg*100, 2), 
+            "Precio LIMA": round(pl, 2), 
+            "Precio PROVINCIA": round(pp, 2), 
+            "Visible Ventas": visibilidad_str, 
+            "Nota": p.nota
         })
     df = pd.DataFrame(data); output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer: df.to_excel(writer, index=False)
