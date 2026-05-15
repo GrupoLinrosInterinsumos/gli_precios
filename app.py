@@ -100,11 +100,13 @@ def load_user(user_id): return User.query.get(int(user_id))
 # =========================================================
 FLETE_ESTANDAR = 0.11 
 
+# 🔥 LISTA ACTUALIZADA CON EL LEVAMAX X 5KG 🔥
 EXCEPCIONES_SOLES = [
     "COLAGENO HIDROLIZADO GELNEX X 1KG", "COLAGENO HIDROLIZADO GELNEX X 400G",
     "FOSFATO PARA JAMONES BUDENHEIM X 1KG", "FOSFATO PARA JAMONES BUDENHEIM X 5KG",
     "FOSFATO PARA MASAS BUDENHEIM X 1KG", "FOSFATO PARA MASAS BUDENHEIM X 5KG",
-    "POLVO DE HORNEAR LEVAMAX TOP P40 LINROS X 25KG", "PREPARADO VITAMINA C LINROS X 500G",
+    "POLVO DE HORNEAR LEVAMAX TOP P40 LINROS X 25KG", "POLVO DE HORNEAR LEVAMAX TOP P40 LINROS X 5KG",
+    "PREPARADO VITAMINA C LINROS X 500G",
     "SAL DE CURA CONCENTRADA TECNAS X 1KG", "SAL DE CURA CONCENTRADA TECNAS X 25KG", "SAL DE CURA CONCENTRADA TECNAS X 5KG"
 ]
 
@@ -475,7 +477,7 @@ def buscar():
                 p.proveedor = prov_real; p.moneda_simbolo = sim_real; p.moneda_texto = txt_real
             
             c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
-            editable_costo = True
+            editable_costo = True 
             
             if p.tipo_origen == 'FABRICADO':
                 if es_excepcion_herencia(p.nombre):
@@ -525,7 +527,6 @@ def buscar():
             c_ref = coyun if (coyun > 0 and c_total <= coyun) else c_total
             if c_ref <= 0.0001: margen = 0.0; p_lima = 0.0; p_prov = 0.0
             else:
-                # 🔥 REGLA FRAGANCIAS: A diferencia de esencias de Cramer, las Fragancias SÍ cobran flete
                 is_fragancia = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
                 if p.proveedor in ["CRAMER", "SACCO"] and not is_fragancia:
                     flete = 0.0
@@ -602,13 +603,11 @@ def exportar_excel():
         
         if c_ref <= 0.0001: mg = 0.0; pl = 0.0; pp = 0.0
         else:
-            # 🔥 REGLA FRAGANCIAS: A diferencia de esencias de Cramer, las Fragancias SÍ cobran flete
             is_fragancia = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
             if p.proveedor in ["CRAMER", "SACCO"] and not is_fragancia:
                 flete = 0.0
             else:
                 flete = FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0)
-                
             pl = c_ref * (1 + mg); pp = pl + flete
             
         visibilidad_str = "SÍ" if getattr(p, 'visible_ventas', True) else "NO (Oculto)"
