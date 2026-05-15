@@ -175,7 +175,7 @@
                         <th class="w-desc">% Dist</th>
                         <th class="w-col">Margen</th>
                         <th class="w-precio">Precio Lima</th>
-                        <th class="w-precio">Precio AQP / TRU</th>
+                        <th class="w-precio">Provincia</th>
                     </tr>
                 </thead>
                 <tbody id="tablaResultados"></tbody>
@@ -229,11 +229,18 @@
                     <label class="modal-label">Nombre Completo del Producto</label>
                     <input type="text" id="varNombre" class="form-control border-secondary-subtle rounded" placeholder="Ej: Ácido Cítrico Fino...">
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <label class="modal-label">Origen (Comprado o Fabricado)</label>
+                    <select id="varOrigen" class="form-select border-secondary-subtle rounded fw-bold text-primary">
+                        <option value="COMPRADO">COMPRADO (Base)</option>
+                        <option value="FABRICADO">FABRICADO (Hereda costo)</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
                     <label class="modal-label">Código Interno</label>
                     <input type="text" id="varCodigo" class="form-control border-secondary-subtle rounded" placeholder="S/C">
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label class="modal-label">Empresa / Marca</label>
                     <input type="text" id="varEmpresa" class="form-control border-secondary-subtle rounded" placeholder="GLI, CRAMER, SACCO...">
                 </div>
@@ -357,15 +364,22 @@
             const titles = { 'costo-real': 'Costo Base', 'costo-fab': 'Costo Fab.', 'merma': '% Merma', 'costo-coyuntural': 'Costo Coyuntural', 'dscto': '% Dscto PV', 'dscto-dist': '% Dscto Dist', 'margen': '% Margen' };
             document.getElementById('modalEdicionTitulo').innerText = `Editar ${titles[tipo] || 'Valor'}`;
             input.type = 'number'; input.placeholder = "0.00";
+            
+            // 🔴 Mensaje especial si está editando un costo heredado
+            if(tipo === 'costo-real' && valorActual === 'HEREDADO') {
+                document.getElementById('modalEdicionLabel').innerHTML = `Producto: ${nombre.substring(0,30)}...<br><span class="text-danger">Aviso: Poner un número forzará el manual. Pon 0 para volver a heredar.</span>`;
+                input.value = '';
+            } else {
+                document.getElementById('modalEdicionLabel').innerText = `Producto: ${nombre.substring(0,30)}...`;
+                input.value = valorActual;
+            }
         }
-        document.getElementById('modalEdicionLabel').innerText = `Producto: ${nombre.substring(0,30)}...`;
-        input.value = valorActual;
         modalEdicion.show();
     }
 
     async function guardarEdicionUniversal() {
         const val = document.getElementById('inputEdicionUniversal').value;
-        if(editContext.tipo !== 'nota' && val === "") return alert("Ingresa un número válido.");
+        if(editContext.tipo !== 'nota' && val === "") return alert("Ingresa un número válido (O pon 0 para restaurar herencia).");
 
         if(editContext.tipo === 'tc') {
             let res = await fetch('/api/update-tc', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tc: val})});
@@ -429,17 +443,18 @@
                 let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' ? `<span class="badge-custom"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
                 let badgeEmpresa = p.empresa && p.empresa !== "MANUAL" ? `<span class="badge-custom" style="background-color: #ffffff; color: #4b5563;"><i class="bi bi-building"></i> ${p.empresa}</span>` : '';
                 
-                // 🔴 UI: Distinguir FABRICADOS HEREDADOS vs FABRICADOS MANUALES (Excepciones)
                 let badgeOrigen = '';
                 let btnCostoReal = '';
                 let safeName = p.nombre.replace(/'/g, "\\'");
                 
+                // 🔴 LÓGICA DE BOTÓN VERDE/AMARILLO (AHORA SIEMPRE CLICABLES)
                 if (p.tipo_origen === 'FABRICADO' && !p.editable_costo) {
                     badgeOrigen = `<span class="badge-custom bg-light border-success text-success" title="Costo heredado automáticamente"><i class="bi bi-diagram-2"></i> Fabricado</span>`;
-                    btnCostoReal = `<div class="text-success fw-bold p-1" style="font-size:0.7rem; border:1px dashed #198754; border-radius:4px; background:#f8fff9;" title="Heredado del Comprado">${vb > 0 ? sim + vb.toFixed(3) : '-'}</div>`;
+                    // ES BOTÓN! Al hacer clic, pasa 'HEREDADO' como valor para advertir en el popup
+                    btnCostoReal = `<button class="btn-accion text-success fw-bold" style="border-color:#198754; background:#f8fff9;" onclick="editarCelda('costo-real', '${safeName}', 'HEREDADO')" title="Heredado del Comprado. Click para forzar manual.">${vb > 0 ? sim + vb.toFixed(3) : '-'}</button>`;
                 } else {
                     if (p.tipo_origen === 'FABRICADO') {
-                        badgeOrigen = `<span class="badge-custom bg-light border-warning text-warning" title="Costo Manual (Excepción)"><i class="bi bi-diagram-2"></i> Fab. (Manual)</span>`;
+                        badgeOrigen = `<span class="badge-custom bg-light border-warning text-warning" title="Costo Manual (Excepción o Override)"><i class="bi bi-diagram-2"></i> Fab. (Manual)</span>`;
                     }
                     btnCostoReal = `<button class="btn-accion" onclick="editarCelda('costo-real', '${safeName}', ${p.costo_base})">${vb > 0 ? sim + vb.toFixed(3) : '-'}</button>`;
                 }
@@ -540,6 +555,7 @@
         document.getElementById('alertaCrear').classList.add('d-none');
         document.getElementById('varNombre').value = p.nombre + " - NUEVA VERSIÓN"; 
         document.getElementById('varCodigo').value = p.codigo; document.getElementById('varEmpresa').value = p.empresa; 
+        document.getElementById('varOrigen').value = p.tipo_origen; // Carga el origen también
         document.getElementById('varCostoReal').value = p.costo_base; document.getElementById('varCostoFab').value = p.costo_fab; 
         document.getElementById('varCoyuntural').value = p.costo_coyuntural > 0 ? p.costo_coyuntural : ''; 
         document.getElementById('varMerma').value = p.merma_porcentaje; document.getElementById('varMargen').value = p.margen;
@@ -551,6 +567,7 @@
     async function guardarVariante() {
         let data = { 
             nombre: document.getElementById('varNombre').value, codigo: document.getElementById('varCodigo').value, 
+            origen: document.getElementById('varOrigen').value, // 🔴 Se envía el origen al backend
             empresa: document.getElementById('varEmpresa').value, costo_base: document.getElementById('varCostoReal').value, 
             costo_fab: document.getElementById('varCostoFab').value, coyuntural: document.getElementById('varCoyuntural').value, 
             merma: document.getElementById('varMerma').value, margen: document.getElementById('varMargen').value,
