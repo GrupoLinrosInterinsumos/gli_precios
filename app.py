@@ -100,7 +100,6 @@ def load_user(user_id): return User.query.get(int(user_id))
 # =========================================================
 FLETE_ESTANDAR = 0.11 
 
-# 🔥 LISTA ACTUALIZADA CON EL LEVAMAX X 5KG 🔥
 EXCEPCIONES_SOLES = [
     "COLAGENO HIDROLIZADO GELNEX X 1KG", "COLAGENO HIDROLIZADO GELNEX X 400G",
     "FOSFATO PARA JAMONES BUDENHEIM X 1KG", "FOSFATO PARA JAMONES BUDENHEIM X 5KG",
@@ -186,7 +185,7 @@ def get_quantity(name):
     if match:
         try: return float(match.group(1).replace(',', '.'))
         except: pass
-    return 0.0
+    return ""
 
 def son_familia(core1, core2):
     if core1 == core2: return True
@@ -336,14 +335,12 @@ def subir_relaciones():
         for _, row in df.iterrows():
             nombre = str(row.get('nombre', '')).strip().upper()
             if not nombre: continue
-            
             nombre_clean = re.sub(r'\s+', ' ', nombre)
             p = Producto.query.filter_by(nombre=nombre).first()
             if not p:
                 for prod in Producto.query.all():
                     if re.sub(r'\s+', ' ', prod.nombre.upper()) == nombre_clean:
                         p = prod; break
-
             if p:
                 p.categoria = str(row.get('categoria', '')).strip().upper()
                 p.codigo = str(row.get('referencia interna', p.codigo)).strip()
@@ -359,49 +356,27 @@ def crear_producto():
     d = request.json
     nombre = str(d.get('nombre', '')).upper().strip()
     if not nombre: return jsonify({"error": "El producto debe tener un nombre."}), 400
-    
     codigo_val = str(d.get('codigo', '')).upper().strip() or 'S/C'
     empresa_val = str(d.get('empresa', '')).upper().strip()
-    n_clean_check = re.sub(r'\s+', '', nombre)
-    if "NATAMICINA" in n_clean_check or "NISINA" in n_clean_check: empresa_val = "INTERINSUMOS"
-    
     p = Producto.query.filter_by(nombre=nombre).first()
     c_base = robust_numeric(d.get('costo_base'))
     c_fab = robust_numeric(d.get('costo_fab'))
     coyun = robust_numeric(d.get('coyuntural'))
     merma = (robust_numeric(str(d.get('merma', '')).strip()) / 100.0) if str(d.get('merma', '')).strip() else 0.0
-    margen_val = str(d.get('margen', '')).strip()
-    margen = (robust_numeric(margen_val) / 100.0) if margen_val != '' else 0.20
-    dscto_pv = (robust_numeric(str(d.get('dscto_pv', '')).strip()) / 100.0) if str(d.get('dscto_pv', '')).strip() else 0.0
-    dscto_dist = (robust_numeric(str(d.get('dscto_dist', '')).strip()) / 100.0) if str(d.get('dscto_dist', '')).strip() else 0.0
-
+    margen = (robust_numeric(str(d.get('margen', '')).strip()) / 100.0) if str(d.get('margen', '')).strip() != '' else 0.20
     if p:
-        if not p.oculto: return jsonify({"error": "El producto ya existe y está activo."}), 400
         p.oculto = False; p.es_manual = True; p.codigo = codigo_val; p.empresa = empresa_val
         p.proveedor = detectar_proveedor_exacto(nombre, empresa_val)
         p.moneda_simbolo, p.moneda_texto = get_currency_info(nombre, p.proveedor)
         p.costo_base_man = c_base; p.costo_fab_man = c_fab; p.coyuntural_man = coyun
-        p.margen_man = margen; p.merma_pct_man = merma; p.dscto_pv_man = dscto_pv; p.dscto_dist_man = dscto_dist
+        p.margen_man = margen; p.merma_pct_man = merma
     else:
         p = Producto(nombre=nombre, codigo=codigo_val, empresa=empresa_val, es_manual=True, oculto=False)
         p.proveedor = detectar_proveedor_exacto(nombre, p.empresa)
         p.moneda_simbolo, p.moneda_texto = get_currency_info(nombre, p.proveedor)
         p.costo_base_man = c_base; p.costo_fab_man = c_fab; p.coyuntural_man = coyun
-        p.margen_man = margen; p.merma_pct_man = merma; p.dscto_pv_man = dscto_pv; p.dscto_dist_man = dscto_dist
-        db.session.add(p)
-        
+        p.margen_man = margen; p.merma_pct_man = merma; db.session.add(p)
     db.session.commit(); return jsonify({"success": True})
-
-@app.route('/api/eliminar-producto', methods=['POST'])
-@login_required
-def eliminar_producto():
-    if not is_admin_api(): return jsonify({"error": "No"}), 403
-    p = Producto.query.filter_by(nombre=request.json['nombre']).first()
-    if p:
-        if p.es_manual: db.session.delete(p)
-        else: p.oculto = True
-        db.session.commit()
-    return jsonify({"success": True})
 
 @app.route('/api/toggle-visibilidad', methods=['POST'])
 @login_required
@@ -409,8 +384,7 @@ def toggle_visibilidad():
     if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
     p = Producto.query.filter_by(nombre=request.json['nombre']).first()
     if p:
-        estado_actual = p.visible_ventas if p.visible_ventas is not None else True
-        p.visible_ventas = not estado_actual
+        p.visible_ventas = not (p.visible_ventas if p.visible_ventas is not None else True)
         db.session.commit()
     return jsonify({"success": True})
 
@@ -419,19 +393,14 @@ def toggle_visibilidad():
 def editar_celdas(tipo):
     if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
     p = Producto.query.filter_by(nombre=request.json['nombre']).first()
-    if not p: return jsonify({"error": "No existe"}), 404
-    
     if tipo == 'nota': p.nota = str(request.json.get('valor', '')).strip()
     else:
         val = robust_numeric(request.json.get(tipo, request.json.get('costo', request.json.get('valor', 0))))
         if tipo == 'margen': p.margen_man = val / 100.0
         elif tipo == 'merma': p.merma_pct_man = val / 100.0
-        elif tipo == 'costo-real': p.costo_base_man = val if val >= 0 else None
-        elif tipo == 'costo-fab': p.costo_fab_man = val if val >= 0 else None
-        elif tipo == 'costo-coyuntural': p.coyuntural_man = val if val > 0 else -1.0
-        elif tipo == 'dscto': p.dscto_pv_man = val / 100.0
-        elif tipo == 'dscto-dist': p.dscto_dist_man = val / 100.0
-        
+        elif tipo == 'costo-real': p.costo_base_man = val
+        elif tipo == 'costo-fab': p.costo_fab_man = val
+        elif tipo == 'costo-coyuntural': p.coyuntural_man = val
     db.session.commit(); return jsonify({"success": True})
 
 @app.route('/buscar')
@@ -442,180 +411,90 @@ def buscar():
         tc = get_tc_actual()
         Alerta.query.filter_by(tipo="ACTIVA").delete()
         es_vendedor = current_user.role in ['Vendedor', 'TC']
-        
-        prods = Producto.query.all()
-        res = []
-        
-        data_comprados = []
-        for c in prods:
-            if c.tipo_origen == 'COMPRADO' and not c.oculto:
-                core_val = get_core_name(c.nombre)
-                data_comprados.append({
-                    'nombre': c.nombre,
-                    'costo': get_val(c.costo_base_man, c.costo_base_ex, 0.0),
-                    'core': core_val,
-                    'w_core': set(core_val.split()),
-                    'clean': c.nombre.replace(' ', '').upper()
-                })
+        prods = Producto.query.all(); res = []
+        data_comprados = [{'nombre': c.nombre, 'costo': get_val(c.costo_base_man, c.costo_base_ex, 0.0), 'core': get_core_name(c.nombre), 'clean': c.nombre.replace(' ', '').upper()} for c in prods if c.tipo_origen == 'COMPRADO' and not c.oculto]
 
         for p in prods:
             if p.oculto: continue
-            
-            visible = p.visible_ventas if p.visible_ventas is not None else True
-            if es_vendedor and not visible: continue
-            
+            if es_vendedor and not (p.visible_ventas if p.visible_ventas is not None else True): continue
             if q and q not in p.nombre.upper() and q not in str(p.codigo).upper(): continue
             
-            prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
-            sim_real, txt_real = get_currency_info(p.nombre, prov_real)
-            
-            n_clean_check = re.sub(r'\s+', '', p.nombre.upper())
-            if "NATAMICINA" in n_clean_check or "NISINA" in n_clean_check:
-                if p.empresa != "INTERINSUMOS": p.empresa = "INTERINSUMOS"
-                
-            if p.moneda_texto != txt_real or p.proveedor != prov_real:
-                p.proveedor = prov_real; p.moneda_simbolo = sim_real; p.moneda_texto = txt_real
-            
+            p.proveedor = detectar_proveedor_exacto(p.nombre, p.empresa)
+            p.moneda_simbolo, p.moneda_texto = get_currency_info(p.nombre, p.proveedor)
             c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
-            editable_costo = True 
+            editable_costo = True
             
-            if p.tipo_origen == 'FABRICADO':
-                if es_excepcion_herencia(p.nombre):
-                    editable_costo = True 
-                else:
-                    editable_costo = False 
-                    core_fab = get_core_name(p.nombre)
-                    c_heredado = 0.0
-                    
-                    posibles_padres = [d for d in data_comprados if d['core'] == core_fab]
-                    if not posibles_padres:
-                        w_fab = set(core_fab.split())
-                        if len(w_fab) >= 2:
-                            for d in data_comprados:
-                                if w_fab.issubset(d['w_core']) or d['w_core'].issubset(w_fab): posibles_padres.append(d)
-                    
-                    if posibles_padres:
-                        cat_upper = str(p.categoria).upper()
-                        if 'ESENCIA' in cat_upper:
-                            p_5 = [d for d in posibles_padres if '5K' in d['clean'] or '5L' in d['clean']]
-                            if p_5: c_heredado = p_5[0]['costo']
-                            else:
-                                p_1 = [d for d in posibles_padres if '1K' in d['clean'] or '1L' in d['clean']]
-                                if p_1: c_heredado = p_1[0]['costo']
-                                else: c_heredado = posibles_padres[0]['costo']
-                        else:
-                            c_heredado = posibles_padres[0]['costo']
-                    
-                    if c_heredado > 0: 
-                        c_base = c_heredado
-                        if p.costo_base_man != c_heredado: p.costo_base_man = c_heredado
+            if p.tipo_origen == 'FABRICADO' and not es_excepcion_herencia(p.nombre):
+                editable_costo = False; core_fab = get_core_name(p.nombre); c_heredado = 0.0
+                p_padres = [d for d in data_comprados if d['core'] == core_fab]
+                if p_padres:
+                    if 'ESENCIA' in str(p.categoria).upper():
+                        p_5 = [d for d in p_padres if '5K' in d['clean'] or '5L' in d['clean']]
+                        c_heredado = p_5[0]['costo'] if p_5 else p_padres[0]['costo']
+                    else: c_heredado = p_padres[0]['costo']
+                if c_heredado > 0: c_base = c_heredado; p.costo_base_man = c_base
+
+            cf = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
+            mg = get_val(p.margen_man, p.margen_ex, 0.20)
+            cy = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
+            ct = c_base + cf + (c_base * (p.merma_pct_man or 0.0))
+            if cy > 0 and ct > cy: db.session.add(Alerta(fecha="ACTIVA", msg="Superó Coyuntural", producto=p.nombre, tipo="ACTIVA"))
+            c_ref = cy if (cy > 0 and ct <= cy) else ct
             
-            c_fab = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
-            margen = get_val(p.margen_man, p.margen_ex, 0.20)
-            coyun = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
-            merma_pct = p.merma_pct_man or 0.0
-            dscto_pv = get_val(p.dscto_pv_man, p.dscto_pv_ex, 0.0)
-            dscto_dist = get_val(p.dscto_dist_man, p.dscto_dist_ex, 0.0)
-            
-            if coyun < 0: coyun = 0.0
-            merma_monto = c_base * merma_pct; c_total = c_base + c_fab + merma_monto
-            
-            if coyun > 0 and c_total > coyun:
-                try: db.session.add(Alerta(fecha="ACTIVA", msg="Superó Costo Coyuntural", producto=p.nombre, tipo="ACTIVA"))
-                except: pass
-                
-            c_ref = coyun if (coyun > 0 and c_total <= coyun) else c_total
-            if c_ref <= 0.0001: margen = 0.0; p_lima = 0.0; p_prov = 0.0
-            else:
-                is_fragancia = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
-                if p.proveedor in ["CRAMER", "SACCO"] and not is_fragancia:
-                    flete = 0.0
-                else:
-                    flete = FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0)
-                    
-                p_lima = c_ref * (1 + margen); p_prov = p_lima + flete
+            flete = 0.0 if (p.proveedor in ["CRAMER", "SACCO"] and 'FRAGANCIA' not in str(p.categoria).upper() and 'FRAGANCIA' not in p.nombre.upper()) else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
+            p_lima = c_ref * (1 + mg); p_prov = p_lima + flete
             
             res.append({
-                "nombre": str(p.nombre), "codigo": str(p.codigo), "empresa": str(p.empresa or ''), "categoria": str(p.categoria or ''), "tipo_origen": str(p.tipo_origen or ''),
-                "costo_base": c_base, "costo_fab": c_fab, "merma_porcentaje": round(merma_pct * 100, 2),
-                "merma_monto": merma_monto, "costo_actual": c_total, "costo_coyuntural": coyun,
-                "margen": round(margen * 100, 2), "precio_lima": p_lima, "precio_provincia": p_prov,
-                "moneda_simbolo": str(p.moneda_simbolo), "moneda_texto": str(p.moneda_texto), 
-                "dscto_pv": round(dscto_pv * 100, 2), "dscto_dist": round(dscto_dist * 100, 2),
-                "nota": str(p.nota) if hasattr(p, 'nota') and p.nota else "",
-                "visible_ventas": visible,
-                "editable_costo": editable_costo 
+                "nombre": p.nombre, "codigo": p.codigo, "empresa": p.empresa, "categoria": p.categoria, "tipo_origen": p.tipo_origen,
+                "costo_base": c_base, "costo_fab": cf, "merma_porcentaje": round((p.merma_pct_man or 0.0)*100, 2),
+                "costo_actual": ct, "costo_coyuntural": cy, "margen": round(mg*100, 2), "precio_lima": p_lima, "precio_provincia": p_prov,
+                "moneda_simbolo": p.moneda_simbolo, "moneda_texto": p.moneda_texto, "nota": p.nota, "visible_ventas": (p.visible_ventas if p.visible_ventas is not None else True), "editable_costo": editable_costo
             })
-        
-        try: db.session.commit()
-        except: db.session.rollback()
+        db.session.commit(); res.sort(key=lambda x: x['nombre'])
+        return jsonify({"productos": res, "tc_actual": tc, "alertas": [{"producto": a.producto, "msg": a.msg} for a in Alerta.query.filter_by(tipo="ACTIVA").all()]})
+    except Exception as e: return jsonify({"error": str(e)}), 500
 
-        res.sort(key=lambda x: x['nombre'])
-        alertas_activas = [{"producto": a.producto, "msg": a.msg} for a in Alerta.query.filter_by(tipo="ACTIVA").all()]
-        return jsonify({"productos": res, "tc_actual": tc, "alertas": alertas_activas})
-    except Exception as e: return jsonify({"productos": [], "tc_actual": 3.80, "alertas": [{"producto": "Error de servidor", "msg": str(e)}]}), 500
-
+# 🔥 RUTA DE EXPORTACIÓN: AHORA CON KILAJE Y 2 DECIMALES 🔥
 @app.route('/api/exportar', methods=['POST'])
 @login_required
 def exportar_excel():
     if not is_admin_api(): return jsonify({"error": "No"}), 403
     nombres = request.json.get('productos', [])
-    if not nombres: return jsonify({"error": "Vacío"}), 400
     prods = Producto.query.filter(Producto.nombre.in_(nombres)).all()
+    tc = get_tc_actual(); data = []
     
-    data_comprados = []
-    for c in Producto.query.all():
-        if c.tipo_origen == 'COMPRADO' and not c.oculto:
-            core_val = get_core_name(c.nombre)
-            data_comprados.append({'nombre': c.nombre, 'costo': get_val(c.costo_base_man, c.costo_base_ex, 0.0), 'core': core_val, 'w_core': set(core_val.split()), 'clean': c.nombre.replace(' ', '').upper()})
-
-    data = []; tc = get_tc_actual()
     for p in prods:
         c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
-        
-        if p.tipo_origen == 'FABRICADO' and not es_excepcion_herencia(p.nombre):
-            core_fab = get_core_name(p.nombre)
-            c_heredado = 0.0
-            posibles_padres = [d for d in data_comprados if d['core'] == core_fab]
-            if not posibles_padres:
-                w_fab = set(core_fab.split())
-                if len(w_fab) >= 2:
-                    for d in data_comprados:
-                        if w_fab.issubset(d['w_core']) or d['w_core'].issubset(w_fab): posibles_padres.append(d)
-            if posibles_padres:
-                if 'ESENCIA' in str(p.categoria).upper():
-                    p_5 = [d for d in posibles_padres if '5K' in d['clean'] or '5L' in d['clean']]
-                    if p_5: c_heredado = p_5[0]['costo']
-                    else:
-                        p_1 = [d for d in posibles_padres if '1K' in d['clean'] or '1L' in d['clean']]
-                        if p_1: c_heredado = p_1[0]['costo']
-                        else: c_heredado = posibles_padres[0]['costo']
-                else: c_heredado = posibles_padres[0]['costo']
-            if c_heredado > 0: c_base = c_heredado
-
         cf = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
         mg = get_val(p.margen_man, p.margen_ex, 0.20)
         cy = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
         merma_pct = p.merma_pct_man or 0.0
         
-        merma = c_base * merma_pct; ct = c_base + cf + merma
+        ct = c_base + cf + (c_base * merma_pct)
         c_ref = cy if (cy > 0 and ct <= cy) else ct
         
-        if c_ref <= 0.0001: mg = 0.0; pl = 0.0; pp = 0.0
-        else:
-            is_fragancia = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
-            if p.proveedor in ["CRAMER", "SACCO"] and not is_fragancia:
-                flete = 0.0
-            else:
-                flete = FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0)
-            pl = c_ref * (1 + mg); pp = pl + flete
-            
-        visibilidad_str = "SÍ" if getattr(p, 'visible_ventas', True) else "NO (Oculto)"
+        is_frag = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
+        flete = 0.0 if (p.proveedor in ["CRAMER", "SACCO"] and not is_frag) else (FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0))
+        pl = c_ref * (1 + mg); pp = pl + flete
             
         data.append({
-            "Producto": p.nombre, "Código": p.codigo, "Empresa": p.empresa, "Categoría": p.categoria, "Origen": p.tipo_origen, "Moneda": p.moneda_texto,
-            "Costo Real": c_base, "Costo Fab": cf, "Merma (%)": merma_pct*100, "Costo Total": ct,
-            "Coyuntural": cy, "Margen (%)": mg*100, "Precio LIMA": pl, "Precio PROVINCIA": pp, "Visible Ventas": visibilidad_str, "Nota": p.nota
+            "Producto": p.nombre,
+            "Kilaje": get_quantity(p.nombre), # 🔴 NUEVA COLUMNA KILAJE
+            "Código": p.codigo,
+            "Empresa": p.empresa,
+            "Categoría": p.categoria,
+            "Origen": p.tipo_origen,
+            "Moneda": p.moneda_texto,
+            "Costo Real": round(c_base, 2), # 🔴 2 DECIMALES
+            "Costo Fab": round(cf, 2), # 🔴 2 DECIMALES
+            "Merma (%)": round(merma_pct*100, 2),
+            "Costo Total": round(ct, 2), # 🔴 2 DECIMALES
+            "Coyuntural": round(cy, 2), # 🔴 2 DECIMALES
+            "Margen (%)": round(mg*100, 2),
+            "Precio LIMA": round(pl, 2), # 🔴 2 DECIMALES
+            "Precio PROVINCIA": round(pp, 2), # 🔴 2 DECIMALES
+            "Visible Ventas": "SÍ" if (p.visible_ventas if p.visible_ventas is not None else True) else "NO",
+            "Nota": p.nota
         })
     df = pd.DataFrame(data); output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer: df.to_excel(writer, index=False)
