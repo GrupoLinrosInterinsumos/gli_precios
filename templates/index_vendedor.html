@@ -78,9 +78,17 @@
             <button class="btn btn-outline-secondary btn-sm rounded fw-bold shadow-sm px-3" onclick="toggleMoneda()">
                 <i class="bi bi-currency-exchange me-1"></i> <span id="lblMoneda">Original</span>
             </button>
+            
+            {% if current_user.role in ['TC', 'Admin', 'SuperAdmin'] %}
+            <button class="btn btn-dark btn-sm rounded fw-bold shadow-sm px-3" onclick="abrirModalTC()">
+                TC: <span id="valTC">--</span> <i class="bi bi-pencil-fill ms-1" style="font-size:0.6rem;"></i>
+            </button>
+            {% else %}
             <div class="btn btn-light btn-sm border rounded fw-bold px-3 shadow-sm text-dark" style="cursor: default; pointer-events: none;">
                 TC: <span id="valTC">--</span>
             </div>
+            {% endif %}
+
             <a href="/logout" class="btn btn-light btn-sm border rounded px-2 text-dark ms-2">
                 <i class="bi bi-box-arrow-right"></i>
             </a>
@@ -121,11 +129,37 @@
     &copy; 2026 Grupo Linros Interinsumos (GLI). Todos los derechos reservados.
 </footer>
 
+<div class="modal fade" id="modalEdicionUniversal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded">
+            <div class="modal-header bg-dark text-white border-0">
+                <h6 class="modal-title fw-bold" id="modalEdicionTitulo">Modificar Tipo de Cambio</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 bg-light text-center">
+                <label id="modalEdicionLabel" class="form-label small fw-bold text-muted text-uppercase mb-2">Nuevo valor de TC</label>
+                <input type="number" id="inputEdicionUniversal" class="form-control text-center fw-bold text-dark fs-5 rounded" step="any" placeholder="0.00">
+            </div>
+            <div class="modal-footer bg-light border-0">
+                <button type="button" class="btn btn-secondary btn-sm rounded px-3 fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-dark btn-sm rounded px-4 fw-bold" onclick="guardarEdicionUniversal()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     let timerBusqueda, modoMoneda = 'ORIGINAL', tcGlobal = 3.80, allProductsData = [];
-
-    document.addEventListener('DOMContentLoaded', () => { ejecutarBusqueda(); });
+    
+    // Inicializar el modal si existe en el DOM
+    let modalEdicion;
+    document.addEventListener('DOMContentLoaded', () => { 
+        if(document.getElementById('modalEdicionUniversal')){
+            modalEdicion = new bootstrap.Modal(document.getElementById('modalEdicionUniversal'));
+        }
+        ejecutarBusqueda(); 
+    });
 
     function toggleMoneda() {
         if(modoMoneda === 'ORIGINAL') modoMoneda = 'PEN';
@@ -133,6 +167,25 @@
         else modoMoneda = 'ORIGINAL';
         document.getElementById('lblMoneda').innerText = modoMoneda === 'ORIGINAL' ? "Original" : (modoMoneda === 'PEN' ? "Todo S/" : "Todo $");
         renderTabla(); 
+    }
+
+    // 🔥 RESTAURADAS FUNCIONES DE TIPO DE CAMBIO 🔥
+    function abrirModalTC() {
+        document.getElementById('inputEdicionUniversal').value = tcGlobal;
+        if(modalEdicion) modalEdicion.show();
+    }
+
+    async function guardarEdicionUniversal() {
+        const val = document.getElementById('inputEdicionUniversal').value;
+        if(!val || isNaN(val)) return alert("Por favor ingresa un número válido.");
+
+        let res = await fetch('/api/update-tc', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tc: val})});
+        if(res.ok) {
+            if(modalEdicion) modalEdicion.hide();
+            ejecutarBusqueda();
+        } else {
+            alert("Error: Permiso denegado.");
+        }
     }
 
     function buscar() {
@@ -169,7 +222,6 @@
 
             let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' ? `<span class="badge-custom mt-1"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
             
-            // 🔥 LÓGICA DE NOTA VISIBLE Y RESALTADA PARA CUAJOS 🔥
             let isCuajo = p.nombre.toUpperCase().includes("CUAJO IL CASARO");
             let classNota = isCuajo ? "nota-cuajo" : "text-danger d-block mt-1 fw-bold";
             let htmlNota = p.nota ? `<span class="${classNota}" style="font-size:0.7rem;"><i class="bi bi-exclamation-triangle-fill"></i> ${p.nota}</span>` : '';
