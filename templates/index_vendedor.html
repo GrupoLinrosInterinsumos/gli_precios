@@ -37,26 +37,13 @@
         
         .badge-custom { font-size: 0.65rem; padding: 3px 6px; border-radius: 4px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb; }
         
-        /* 🔥 ESTILO ESPECIAL PARA NOTAS DE CUAJO 🔥 */
         .nota-cuajo {
-            background-color: #ffeb3b; 
-            color: #d32f2f; 
-            padding: 5px 8px; 
-            border-radius: 4px; 
-            font-weight: 800 !important; 
-            border: 2px solid #d32f2f;
-            display: inline-block;
-            margin-top: 5px;
-            font-size: 0.75rem !important;
+            background-color: #ffeb3b; color: #d32f2f; padding: 5px 8px; border-radius: 4px; font-weight: 800 !important; 
+            border: 2px solid #d32f2f; display: inline-block; margin-top: 5px; font-size: 0.75rem !important;
             animation: pulse-note 2s infinite;
         }
 
-        @keyframes pulse-note {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.02); }
-            100% { transform: scale(1); }
-        }
-        
+        @keyframes pulse-note { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
         main { flex-grow: 1; }
         .footer-copyright { background: transparent; padding: 1.5rem 0; text-align: center; font-size: 0.75rem; color: #9ca3af; font-weight: 500; letter-spacing: 0.3px; }
     </style>
@@ -152,7 +139,6 @@
 <script>
     let timerBusqueda, modoMoneda = 'ORIGINAL', tcGlobal = 3.80, allProductsData = [];
     
-    // Inicializar el modal si existe en el DOM
     let modalEdicion;
     document.addEventListener('DOMContentLoaded', () => { 
         if(document.getElementById('modalEdicionUniversal')){
@@ -169,7 +155,6 @@
         renderTabla(); 
     }
 
-    // 🔥 RESTAURADAS FUNCIONES DE TIPO DE CAMBIO 🔥
     function abrirModalTC() {
         document.getElementById('inputEdicionUniversal').value = tcGlobal;
         if(modalEdicion) modalEdicion.show();
@@ -217,8 +202,13 @@
             let sim = p.moneda_simbolo, txt = p.moneda_texto;
             let vl = p.precio_lima, vp = p.precio_provincia;
 
-            if (modoMoneda === 'PEN' && txt === 'USD') { vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN'; } 
-            else if (modoMoneda === 'USD' && txt === 'PEN') { vl/=tcGlobal; vp/=tcGlobal; sim='$'; txt='USD'; }
+            // 🔥 LA CONVERSIÓN VISUAL DEL BOTÓN RESPETA EL TC 4 PARA SOLES 🔥
+            if (modoMoneda === 'PEN' && txt === 'USD') { 
+                vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN'; 
+            } 
+            else if (modoMoneda === 'USD' && txt === 'PEN') { 
+                vl/=4.0; vp/=4.0; sim='$'; txt='USD'; 
+            }
 
             let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' ? `<span class="badge-custom mt-1"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
             
