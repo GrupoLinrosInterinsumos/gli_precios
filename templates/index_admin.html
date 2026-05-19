@@ -192,6 +192,7 @@
     &copy; 2026 Grupo Linros Interinsumos (GLI). Todos los derechos reservados.
 </footer>
 
+<!-- Modal edición de celdas individuales -->
 <div class="modal fade" id="modalEdicionUniversal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-0 shadow-lg rounded">
@@ -211,11 +212,12 @@
     </div>
 </div>
 
+<!-- Modal crear / editar producto completo -->
 <div class="modal fade" id="modalVariante" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content border-0 shadow-lg rounded">
         <div class="modal-header bg-dark text-white border-0">
-          <h6 class="modal-title fw-bold"><i class="bi bi-box-seam me-2"></i>Gestión de Producto</h6>
+          <h6 class="modal-title fw-bold" id="modalVarianteTitulo"><i class="bi bi-box-seam me-2"></i>Gestión de Producto</h6>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body p-4 bg-light">
@@ -285,6 +287,7 @@
     </div>
 </div>
 
+<!-- Modal exportar -->
 <div class="modal fade" id="modalExportar" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg"> 
       <div class="modal-content border-0 shadow-lg rounded">
@@ -430,19 +433,18 @@
             let htmlContent = '';
             allProductsData.forEach((p) => {
                 
-                // TODO VIENE EN USD DE LA BASE DE DATOS
                 let sim = '$', txt = 'USD';
                 let vb = p.costo_base_usd, vf = p.costo_fab_usd, vmer = p.merma_monto_usd, vt = p.costo_actual_usd, vcy = p.costo_coyuntural_usd;
                 let vl = p.precio_lima_usd, vp = p.precio_provincia_usd;
 
-                // 🔥 LÓGICA DE PRESENTACIÓN 🔥
+                // 🔥 LÓGICA DE PRESENTACIÓN — Sacco tiene is_pen_exception=false,
+                //    sus valores en BD ya están en soles, se muestran tal cual.
                 if (modoMoneda === 'ORIGINAL') {
                     if (p.es_pen_exception) {
                         vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; sim='S/'; txt='PEN';
                     }
                 } 
                 else if (modoMoneda === 'PEN') { 
-                    // Si forzamos a soles TODO, usamos TC 4.0 para los de Perú, y TC normal para los gringos
                     if (p.es_pen_exception) {
                         vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; sim='S/'; txt='PEN';
                     } else {
@@ -450,7 +452,6 @@
                     }
                 } 
                 else if (modoMoneda === 'USD') { 
-                    // Ya está todo en USD nativo, no hacemos nada de matemática.
                     sim='$'; txt='USD'; 
                 }
 
@@ -461,7 +462,6 @@
                 let btnCostoReal = '';
                 let safeName = p.nombre.replace(/'/g, "\\'");
                 
-                // 🔥 BOTONES 100% EDITABLES 🔥
                 if (p.tipo_origen === 'FABRICADO' && !p.editable_costo) {
                     badgeOrigen = `<span class="badge-custom bg-light border-success text-success" title="Costo heredado automáticamente"><i class="bi bi-diagram-2"></i> Fabricado</span>`;
                     btnCostoReal = `<button class="btn-accion text-success fw-bold" style="border-color:#198754; background:#f8fff9;" onclick="editarCelda('costo-real', '${safeName}', ${p.costo_base_usd})" title="Heredado del Comprado. Click para forzar manual.">${vb > 0 ? sim + vb.toFixed(3) : '-'}</button>`;
@@ -494,9 +494,11 @@
                 <tr class="${rowClass}" style="opacity: ${rowOpacity}; transition: 0.3s;">
                     <td class="text-start ps-2" title="Desliza o haz hover para leer">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div class="fw-bold ${prodNameClass} text-truncate pe-1" style="font-size: 0.78rem; max-width: calc(100% - 90px); cursor: ew-resize;" onmouseenter="animarTexto(this)" onmouseleave="detenerTexto(this)" data-texto="${escapedName}">${p.nombre}</div>
-                            <div class="text-end text-nowrap" style="width: 90px;">
+                            <div class="fw-bold ${prodNameClass} text-truncate pe-1" style="font-size: 0.78rem; max-width: calc(100% - 110px); cursor: ew-resize;" onmouseenter="animarTexto(this)" onmouseleave="detenerTexto(this)" data-texto="${escapedName}">${p.nombre}</div>
+                            <div class="text-end text-nowrap" style="width: 110px;">
                                 <button class="btn btn-sm btn-light border p-1 py-0 ${btnVisClass}" onclick="toggleVisibilidad('${safeName}')" title="${btnVisTitle}"><i class="bi ${btnVisIcon}"></i></button>
+                                <!-- 🔥 BOTÓN EDITAR PRODUCTO (abre modal con todos los datos cargados) -->
+                                <button class="btn btn-sm btn-light border text-primary p-1 py-0 ms-1" onclick="editarProducto('${safeName}')" title="Editar producto completo"><i class="bi bi-pencil-square"></i></button>
                                 <button class="btn btn-sm btn-light border p-1 py-0 text-secondary ms-1" onclick="clonarProducto('${safeName}')" title="Usar como base"><i class="bi bi-copy"></i></button>
                                 <button class="btn btn-sm btn-light border text-secondary p-1 py-0 ms-1" onclick="eliminarProducto('${safeName}')" title="Eliminar"><i class="bi bi-trash-fill"></i></button>
                             </div>
@@ -555,17 +557,50 @@
 
     function abrirModalVariante() { 
         document.getElementById('alertaCrear').classList.add('d-none');
+        document.getElementById('modalVarianteTitulo').innerHTML = '<i class="bi bi-box-seam me-2"></i>Nuevo Producto';
         ['varNombre','varCodigo','varEmpresa','varCostoReal','varCostoFab','varCoyuntural','varMerma','varDsctoPV','varDsctoDist'].forEach(id => document.getElementById(id).value = '');
         document.getElementById('varMargen').value = '20';
+        document.getElementById('varOrigen').value = 'COMPRADO';
         poblarSelectPlantillas(); modalVar.show(); 
     }
     
+    // 🔥 NUEVA FUNCIÓN: Editar producto completo desde el botón lápiz de la tabla
+    function editarProducto(nombre) {
+        let p = allProductsData.find(x => x.nombre === nombre);
+        if (!p) return;
+
+        // Actualizar título del modal para indicar que es edición
+        document.getElementById('modalVarianteTitulo').innerHTML = `<i class="bi bi-pencil-square me-2"></i>Editando: ${p.nombre.substring(0, 35)}${p.nombre.length > 35 ? '...' : ''}`;
+        document.getElementById('alertaCrear').classList.add('d-none');
+
+        poblarSelectPlantillas();
+
+        // Limpiar el selector de plantilla (no es una plantilla, es edición directa)
+        document.getElementById('varPlantilla').value = '';
+
+        // Rellenar todos los campos con los valores actuales del producto
+        document.getElementById('varNombre').value       = p.nombre;
+        document.getElementById('varCodigo').value       = p.codigo !== 'NAN' ? p.codigo : '';
+        document.getElementById('varEmpresa').value      = p.empresa;
+        document.getElementById('varOrigen').value       = p.tipo_origen || 'COMPRADO';
+        document.getElementById('varCostoReal').value    = p.costo_base_usd > 0 ? p.costo_base_usd : '';
+        document.getElementById('varCostoFab').value     = p.costo_fab_usd > 0 ? p.costo_fab_usd : '';
+        document.getElementById('varCoyuntural').value   = p.costo_coyuntural_usd > 0 ? p.costo_coyuntural_usd : '';
+        document.getElementById('varMerma').value        = p.merma_porcentaje > 0 ? p.merma_porcentaje : '';
+        document.getElementById('varMargen').value       = p.margen;
+        document.getElementById('varDsctoPV').value      = p.dscto_pv > 0 ? p.dscto_pv : '';
+        document.getElementById('varDsctoDist').value    = p.dscto_dist > 0 ? p.dscto_dist : '';
+
+        modalVar.show();
+    }
+
     function cargarPlantilla() {
         let nombrePlantilla = document.getElementById('varPlantilla').value;
         if(!nombrePlantilla) return;
         let p = allProductsData.find(x => x.nombre === nombrePlantilla);
         if(!p) return;
         document.getElementById('alertaCrear').classList.add('d-none');
+        document.getElementById('modalVarianteTitulo').innerHTML = '<i class="bi bi-box-seam me-2"></i>Nuevo Producto (desde plantilla)';
         document.getElementById('varNombre').value = p.nombre + " - NUEVA VERSIÓN"; 
         document.getElementById('varCodigo').value = p.codigo; document.getElementById('varEmpresa').value = p.empresa; 
         document.getElementById('varOrigen').value = p.tipo_origen; 
@@ -575,7 +610,12 @@
         document.getElementById('varDsctoPV').value = p.dscto_pv; document.getElementById('varDsctoDist').value = p.dscto_dist;
     }
 
-    function clonarProducto(nombre) { poblarSelectPlantillas(); document.getElementById('varPlantilla').value = nombre; cargarPlantilla(); modalVar.show(); }
+    function clonarProducto(nombre) { 
+        poblarSelectPlantillas(); 
+        document.getElementById('varPlantilla').value = nombre; 
+        cargarPlantilla(); 
+        modalVar.show(); 
+    }
     
     async function guardarVariante() {
         let data = { 
