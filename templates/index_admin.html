@@ -434,37 +434,18 @@
             allProductsData.forEach((p) => {
                 
                 let esSacco = p.empresa && p.empresa.toUpperCase().includes('SACCO');
-let sim = esSacco ? 'S/' : '$';
-let txt = esSacco ? 'PEN' : 'USD';
+                let sim = esSacco ? 'S/' : '$';
+                let txt = esSacco ? 'PEN' : 'USD';
                 let vb = p.costo_base_usd, vf = p.costo_fab_usd, vmer = p.merma_monto_usd, vt = p.costo_actual_usd, vcy = p.costo_coyuntural_usd;
                 let vl = p.precio_lima_usd, vp = p.precio_provincia_usd;
 
                 // 🔥 LÓGICA DE PRESENTACIÓN — Sacco tiene is_pen_exception=false,
                 //    sus valores en BD ya están en soles, se muestran tal cual.
-               // Detectar si es Sacco (costos ya en soles, sin conversión)
-let esSacco = p.empresa && p.empresa.toUpperCase().includes('SACCO');
-
-if (modoMoneda === 'ORIGINAL') {
-    if (p.es_pen_exception) {
-        vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; sim='S/'; txt='PEN';
-    } else if (esSacco) {
-        // Sacco: costos ya en soles en BD, solo cambia el símbolo
-        sim='S/'; txt='PEN';
-    }
-} 
-else if (modoMoneda === 'PEN') { 
-    if (p.es_pen_exception) {
-        vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; sim='S/'; txt='PEN';
-    } else if (esSacco) {
-        // Sacco en modo "Todo S/": ya están en soles, no se multiplica nada
-        sim='S/'; txt='PEN';
-    } else {
-        vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN';
-    }
-} 
-else if (modoMoneda === 'USD') { 
-    sim='$'; txt='USD'; 
-}
+                if (modoMoneda === 'ORIGINAL') {
+                    if (p.es_pen_exception) {
+                        vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; sim='S/'; txt='PEN';
+                    }
+                } 
                 else if (modoMoneda === 'PEN') { 
                     if (p.es_pen_exception) {
                         vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; sim='S/'; txt='PEN';
