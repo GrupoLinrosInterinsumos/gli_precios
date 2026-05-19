@@ -474,8 +474,12 @@ def buscar():
                     p_padres = [d for d in data_comprados if d['core'] == core_fab]
                     if p_padres:
                         if 'ESENCIA' in str(p.categoria).upper():
+                            # Primero busca 1KG, si no hay agarra 5KG, si no el primero
+                            p_1 = [d for d in p_padres if '1K' in d['clean'] or '1L' in d['clean']]
                             p_5 = [d for d in p_padres if '5K' in d['clean'] or '5L' in d['clean']]
-                            c_heredado_usd = p_5[0]['costo_usd'] if p_5 else p_padres[0]['costo_usd']
+                            if p_1: c_heredado_usd = p_1[0]['costo_usd']
+                            elif p_5: c_heredado_usd = p_5[0]['costo_usd']
+                            else: c_heredado_usd = p_padres[0]['costo_usd']
                         else: c_heredado_usd = p_padres[0]['costo_usd']
                     if c_heredado_usd > 0:
                         if p.costo_base_man is not None and p.costo_base_man > 0:
@@ -560,12 +564,12 @@ def exportar_excel():
                         if w_fab.issubset(d['w_core']) or d['w_core'].issubset(w_fab): posibles_padres.append(d)
             if posibles_padres:
                 if 'ESENCIA' in str(p.categoria).upper():
+                    # Primero busca 1KG, si no hay agarra 5KG, si no el primero
+                    p_1 = [d for d in posibles_padres if '1K' in d['clean'] or '1L' in d['clean']]
                     p_5 = [d for d in posibles_padres if '5K' in d['clean'] or '5L' in d['clean']]
-                    if p_5: c_heredado_usd = p_5[0]['costo_usd']
-                    else:
-                        p_1 = [d for d in posibles_padres if '1K' in d['clean'] or '1L' in d['clean']]
-                        if p_1: c_heredado_usd = p_1[0]['costo_usd']
-                        else: c_heredado_usd = posibles_padres[0]['costo_usd']
+                    if p_1: c_heredado_usd = p_1[0]['costo_usd']
+                    elif p_5: c_heredado_usd = p_5[0]['costo_usd']
+                    else: c_heredado_usd = posibles_padres[0]['costo_usd']
                 else: c_heredado_usd = posibles_padres[0]['costo_usd']
             
             if c_heredado_usd > 0:
