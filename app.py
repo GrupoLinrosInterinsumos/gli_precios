@@ -126,8 +126,17 @@ def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
     if "LUDAFA" in n_up: return "JM LUDAFA"
     return str(empresa_col).strip().upper()
 
-# Verifica si el precio final del producto debe mostrarse en Soles
 def es_excepcion_soles(nombre, proveedor):
+    """
+    Determina si un producto tiene precio final en Soles.
+    IMPORTANTE: Sacco NUNCA aplica esta lógica — sus costos ya están en soles
+    en la BD y se muestran tal cual, sin ningún factor de conversión.
+    """
+    # 🔥 SACCO: nunca es "excepción soles" porque sus costos ya están en soles
+    #    directamente en la BD. No se multiplica por 4.0 ni por TC.
+    if proveedor == "SACCO" or "SACCO" in str(nombre).upper():
+        return False
+
     n_upper = nombre.upper()
     n_clean = re.sub(r'\s+', '', n_upper).replace('Á', 'A').replace('Ó', 'O')
     for exc in EXCEPCIONES_SOLES:
@@ -137,10 +146,6 @@ def es_excepcion_soles(nombre, proveedor):
     if proveedor == "CAGLIFICIO CLERICI" or "CLERICI" in n_upper or "CAGLIFICIO" in n_upper:
         for exc in EXCEPCIONES_CLERICI_USD:
             if exc.replace(" ", "").upper() in n_clean: return False
-        return True
-    if proveedor == "SACCO" or "SACCO" in n_upper:
-        for exc in EXCEPCIONES_SACCO_USD:
-            if exc.replace(" ", "") in n_clean: return False
         return True
     if proveedor == "JM LUDAFA" or "LUDAFA" in n_upper: return True
     return False
@@ -288,7 +293,6 @@ def subir_maestro():
         nombre = str(get_col_val(row, ['nombre', 'producto'], '')).strip().upper()
         if not nombre or nombre == 'NAN': continue
         
-        # TODO EN USD EN LA BASE DE DATOS
         c_base = robust_numeric(get_col_val(row, ['costo real', 'costo base']))
         c_fab = robust_numeric(get_col_val(row, ['costo de fabricacion', 'costo fab']))
         coyun = robust_numeric(get_col_val(row, ['costo coyuntural']))
@@ -304,7 +308,7 @@ def subir_maestro():
             
         p.codigo = str(get_col_val(row, ['referencia interna', 'codigo', 'referencia'], 'S/C')).strip()
         p.empresa = emp; p.proveedor = prov
-        p.moneda_simbolo = '$'; p.moneda_texto = 'USD' # Internamente es USD
+        p.moneda_simbolo = '$'; p.moneda_texto = 'USD'
         p.oculto = False 
         
         p.costo_base_ex = c_base; p.costo_fab_ex = c_fab; p.coyuntural_ex = coyun
@@ -361,7 +365,6 @@ def crear_producto():
     
     prov = detectar_proveedor_exacto(nombre, empresa_val)
     
-    # Llegan como Dólares
     c_base = robust_numeric(d.get('costo_base'))
     c_fab = robust_numeric(d.get('costo_fab'))
     coyun = robust_numeric(d.get('coyuntural'))
@@ -417,7 +420,6 @@ def editar_celdas(tipo):
     
     if tipo == 'nota': p.nota = str(request.json.get('valor', '')).strip()
     else:
-        # Se recibe el input en Dólares siempre
         val = robust_numeric(request.json.get(tipo, request.json.get('costo', request.json.get('valor', 0))))
             
         if tipo == 'margen': p.margen_man = val / 100.0
@@ -456,9 +458,11 @@ def buscar():
             if q and q not in p.nombre.upper() and q not in str(p.codigo).upper(): continue
             
             prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
+
+            # 🔥 CORRECCIÓN SACCO: sus costos ya están en soles en la BD,
+            #    is_pen_exception = False para que el frontend NO aplique factor alguno.
             is_pen_exception = es_excepcion_soles(p.nombre, prov_real)
             
-            # 🔥 NÚCLEO EN USD 🔥
             c_base_usd = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
             editable_costo = True 
             
@@ -539,6 +543,8 @@ def exportar_excel():
     
     for p in prods:
         prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
+
+        # 🔥 CORRECCIÓN SACCO en exportación: misma regla que en /buscar
         is_pen_exception = es_excepcion_soles(p.nombre, prov_real)
         
         c_base_usd = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
@@ -580,7 +586,8 @@ def exportar_excel():
             
         p_lima_usd = c_ref_usd * (1 + mg); p_prov_usd = p_lima_usd + flete_usd
         
-        # 🔥 EL EXCEL TAMBIÉN DEBE RESPETAR EL TC=4 PARA EL PRECIO FINAL DE EXCEPCIONES 🔥
+        # 🔥 Sacco: is_pen_exception=False, así que va con valores USD directos.
+        #    Las otras excepciones de soles sí usan el factor 4.0.
         if is_pen_exception:
             pl_final = p_lima_usd * 4.0; pp_final = p_prov_usd * 4.0; txt_final = 'PEN'
         else:
