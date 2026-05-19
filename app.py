@@ -69,6 +69,7 @@ class Producto(db.Model):
     categoria = db.Column(db.String(100), default='')
     tipo_origen = db.Column(db.String(20), default='COMPRADO')
     visible_ventas = db.Column(db.Boolean, default=True)
+    usd_converted = db.Column(db.Boolean, default=False)
     fecha_act = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Alerta(db.Model):
@@ -84,12 +85,11 @@ with app.app_context():
         ('nota', 'VARCHAR(250)', "''"), 
         ('categoria', 'VARCHAR(100)', "''"), 
         ('tipo_origen', 'VARCHAR(20)', "'COMPRADO'"),
-        ('visible_ventas', 'BOOLEAN', 'TRUE')
+        ('visible_ventas', 'BOOLEAN', 'TRUE'),
+        ('usd_converted', 'BOOLEAN', 'FALSE')
     ]
     for col, tip, val_def in migraciones:
-        try:
-            db.session.execute(text(f"ALTER TABLE producto ADD COLUMN {col} {tip} DEFAULT {val_def};"))
-            db.session.commit()
+        try: db.session.execute(text(f"ALTER TABLE producto ADD COLUMN {col} {tip} DEFAULT {val_def};")); db.session.commit()
         except: db.session.rollback()
 
 @login_manager.user_loader
@@ -299,21 +299,29 @@ def subir_maestro():
         
         c_base = robust_numeric(get_col_val(row, ['costo real', 'costo base']))
         c_fab = robust_numeric(get_col_val(row, ['costo de fabricacion', 'costo fab']))
+        coyun = robust_numeric(get_col_val(row, ['costo coyuntural']))
         
         emp = str(get_col_val(row, ['empresa', 'marca'], '')).strip().upper()
         n_clean_check = re.sub(r'\s+', '', nombre)
         if "NATAMICINA" in n_clean_check or "NISINA" in n_clean_check: emp = "INTERINSUMOS"
             
+        prov = detectar_proveedor_exacto(nombre, emp)
+        sim, txt = get_currency_info(nombre, prov)
+        
+        # 🔥 SI EL EXCEL TRAE SOLES, GUARDAMOS NATIVO EN USD CON TC=4.0 🔥
+        if txt == 'PEN':
+            c_base /= 4.0; c_fab /= 4.0
+            if coyun > 0: coyun /= 4.0
+
         p = Producto.query.filter_by(nombre=nombre).first()
-        if not p: p = Producto(nombre=nombre, oculto=False); db.session.add(p)
+        if not p: p = Producto(nombre=nombre, oculto=False, usd_converted=True); db.session.add(p)
             
         p.codigo = str(get_col_val(row, ['referencia interna', 'codigo', 'referencia'], 'S/C')).strip()
-        p.empresa = emp; p.proveedor = detectar_proveedor_exacto(nombre, emp)
-        p.moneda_simbolo, p.moneda_texto = get_currency_info(nombre, p.proveedor)
+        p.empresa = emp; p.proveedor = prov
+        p.moneda_simbolo = sim; p.moneda_texto = txt
         p.oculto = False 
         
-        p.costo_base_ex = c_base; p.costo_fab_ex = c_fab
-        p.coyuntural_ex = robust_numeric(get_col_val(row, ['costo coyuntural']))
+        p.costo_base_ex = c_base; p.costo_fab_ex = c_fab; p.coyuntural_ex = coyun
         p.margen_ex = parse_percentage(get_col_val(row, ['margen', 'margen %']), 0.20)
         p.dscto_pv_ex = parse_percentage(get_col_val(row, ['dscto pv', 'descuento pv']), 0.0)
         p.dscto_dist_ex = parse_percentage(get_col_val(row, ['dscto dist', 'descuento dist']), 0.0)
@@ -363,31 +371,36 @@ def crear_producto():
     empresa_val = str(d.get('empresa', '')).upper().strip()
     n_clean_check = re.sub(r'\s+', '', nombre)
     if "NATAMICINA" in n_clean_check or "NISINA" in n_clean_check: empresa_val = "INTERINSUMOS"
-    
     tipo_origen_val = str(d.get('origen', 'COMPRADO')).upper().strip()
     
-    p = Producto.query.filter_by(nombre=nombre).first()
+    prov = detectar_proveedor_exacto(nombre, empresa_val)
+    sim, txt = get_currency_info(nombre, prov)
+    
     c_base = robust_numeric(d.get('costo_base'))
     c_fab = robust_numeric(d.get('costo_fab'))
     coyun = robust_numeric(d.get('coyuntural'))
+    
+    # 🔥 SI EL ADMIN CREA MANUALMENTE UN PROD EN SOLES, DIVIDIMOS ENTRE 4.0 PARA GUARDAR USD 🔥
+    if txt == 'PEN':
+        c_base /= 4.0; c_fab /= 4.0
+        if coyun > 0: coyun /= 4.0
+
     merma = (robust_numeric(str(d.get('merma', '')).strip()) / 100.0) if str(d.get('merma', '')).strip() else 0.0
     margen_val = str(d.get('margen', '')).strip()
     margen = (robust_numeric(margen_val) / 100.0) if margen_val != '' else 0.20
     dscto_pv = (robust_numeric(str(d.get('dscto_pv', '')).strip()) / 100.0) if str(d.get('dscto_pv', '')).strip() else 0.0
     dscto_dist = (robust_numeric(str(d.get('dscto_dist', '')).strip()) / 100.0) if str(d.get('dscto_dist', '')).strip() else 0.0
 
+    p = Producto.query.filter_by(nombre=nombre).first()
     if p:
-        if not p.oculto: return jsonify({"error": "El producto ya existe y está activo."}), 400
         p.oculto = False; p.es_manual = True; p.codigo = codigo_val; p.empresa = empresa_val
-        p.proveedor = detectar_proveedor_exacto(nombre, empresa_val)
-        p.moneda_simbolo, p.moneda_texto = get_currency_info(nombre, p.proveedor)
+        p.proveedor = prov; p.moneda_simbolo = sim; p.moneda_texto = txt
         p.costo_base_man = c_base; p.costo_fab_man = c_fab; p.coyuntural_man = coyun
         p.margen_man = margen; p.merma_pct_man = merma; p.dscto_pv_man = dscto_pv; p.dscto_dist_man = dscto_dist
         p.tipo_origen = tipo_origen_val
     else:
-        p = Producto(nombre=nombre, codigo=codigo_val, empresa=empresa_val, es_manual=True, oculto=False, tipo_origen=tipo_origen_val)
-        p.proveedor = detectar_proveedor_exacto(nombre, p.empresa)
-        p.moneda_simbolo, p.moneda_texto = get_currency_info(nombre, p.proveedor)
+        p = Producto(nombre=nombre, codigo=codigo_val, empresa=empresa_val, es_manual=True, oculto=False, tipo_origen=tipo_origen_val, usd_converted=True)
+        p.proveedor = prov; p.moneda_simbolo = sim; p.moneda_texto = txt
         p.costo_base_man = c_base; p.costo_fab_man = c_fab; p.coyuntural_man = coyun
         p.margen_man = margen; p.merma_pct_man = merma; p.dscto_pv_man = dscto_pv; p.dscto_dist_man = dscto_dist
         db.session.add(p)
@@ -411,8 +424,7 @@ def toggle_visibilidad():
     if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
     p = Producto.query.filter_by(nombre=request.json['nombre']).first()
     if p:
-        estado_actual = p.visible_ventas if p.visible_ventas is not None else True
-        p.visible_ventas = not estado_actual
+        p.visible_ventas = not (p.visible_ventas if p.visible_ventas is not None else True)
         db.session.commit()
     return jsonify({"success": True})
 
@@ -426,6 +438,13 @@ def editar_celdas(tipo):
     if tipo == 'nota': p.nota = str(request.json.get('valor', '')).strip()
     else:
         val = robust_numeric(request.json.get(tipo, request.json.get('costo', request.json.get('valor', 0))))
+        
+        # 🔥 SI EDITA UN PROD EN SOLES, DIVIDE POR 4.0 PARA GUARDAR EN USD NATIVO 🔥
+        prov = detectar_proveedor_exacto(p.nombre, p.empresa)
+        sim, txt = get_currency_info(p.nombre, prov)
+        if txt == 'PEN' and tipo in ['costo-real', 'costo-fab', 'costo-coyuntural'] and val > 0:
+            val /= 4.0
+            
         if tipo == 'margen': p.margen_man = val / 100.0
         elif tipo == 'merma': p.merma_pct_man = val / 100.0
         elif tipo == 'costo-real': p.costo_base_man = val if val >= 0 else None
@@ -468,27 +487,43 @@ def buscar():
             prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
             p.moneda_simbolo, p.moneda_texto = get_currency_info(p.nombre, prov_real)
             
-            c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
+            c_base_usd = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
             editable_costo = True 
             
-            if p.tipo_origen == 'FABRICADO' and not es_excepcion_herencia(p.nombre):
-                core_fab = get_core_name(p.nombre); c_heredado = 0.0
-                p_padres = [d for d in data_comprados if d['core'] == core_fab]
-                if p_padres:
-                    if 'ESENCIA' in str(p.categoria).upper():
-                        p_5 = [d for d in p_padres if '5K' in d['clean'] or '5L' in d['clean']]
-                        c_heredado = p_5[0]['costo'] if p_5 else p_padres[0]['costo']
-                    else: c_heredado = p_padres[0]['costo']
-                if c_heredado > 0:
-                    if p.costo_base_man is not None and p.costo_base_man > 0:
-                        c_base = p.costo_base_man; editable_costo = True 
-                    else:
-                        c_base = c_heredado; editable_costo = False 
+            if p.tipo_origen == 'FABRICADO':
+                if es_excepcion_herencia(p.nombre):
+                    pass
+                else:
+                    core_fab = get_core_name(p.nombre); c_heredado = 0.0
+                    p_padres = [d for d in data_comprados if d['core'] == core_fab]
+                    if p_padres:
+                        if 'ESENCIA' in str(p.categoria).upper():
+                            p_5 = [d for d in p_padres if '5K' in d['clean'] or '5L' in d['clean']]
+                            c_heredado = p_5[0]['costo'] if p_5 else p_padres[0]['costo']
+                        else: c_heredado = p_padres[0]['costo']
+                    if c_heredado > 0:
+                        if p.costo_base_man is not None and p.costo_base_man > 0:
+                            c_base_usd = p.costo_base_man; editable_costo = True 
+                        else:
+                            c_base_usd = c_heredado; editable_costo = False 
 
-            c_fab = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
+            c_fab_usd = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
+            coyun_usd = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
+            
+            # 🔥 MULTIPLICADOR 4.0 ESTRICTO PARA EXCEPCIONES PERUANAS 🔥
+            if p.moneda_texto == 'PEN':
+                c_base = c_base_usd * 4.0
+                c_fab = c_fab_usd * 4.0
+                cy = coyun_usd * 4.0 if coyun_usd > 0 else 0.0
+            else:
+                c_base = c_base_usd
+                c_fab = c_fab_usd
+                cy = coyun_usd if coyun_usd > 0 else 0.0
+
             mg = get_val(p.margen_man, p.margen_ex, 0.20)
-            cy = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
-            ct = c_base + c_fab + (c_base * (p.merma_pct_man or 0.0))
+            merma_pct = p.merma_pct_man or 0.0
+            merma_monto = c_base * merma_pct
+            ct = c_base + c_fab + merma_monto
             
             if cy > 0 and ct > cy:
                 try: db.session.add(Alerta(fecha="ACTIVA", msg="Superó Costo Coyuntural", producto=p.nombre, tipo="ACTIVA"))
@@ -497,19 +532,18 @@ def buscar():
             c_ref = cy if (cy > 0 and ct <= cy) else ct
             if c_ref <= 0.0001: margen = 0.0; p_lima = 0.0; p_prov = 0.0
             else:
-                # 🔥 REGLA DE FLETE ACTUALIZADA PARA LUDAFA Y FRAGANCIAS 🔥
                 is_frag = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
                 if prov_real == "JM LUDAFA" or (prov_real in ["CRAMER", "SACCO"] and not is_frag):
                     flete = 0.0
                 else:
-                    flete = FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0)
+                    flete = FLETE_ESTANDAR * (4.0 if p.moneda_texto == 'PEN' else 1.0)
                 
                 p_lima = c_ref * (1 + mg); p_prov = p_lima + flete
             
             res.append({
                 "nombre": str(p.nombre), "codigo": str(p.codigo), "empresa": str(p.empresa or ''), "categoria": str(p.categoria or ''), "tipo_origen": str(p.tipo_origen or ''),
-                "costo_base": float(c_base), "costo_fab": float(c_fab), "merma_porcentaje": round((p.merma_pct_man or 0.0) * 100, 2),
-                "merma_monto": float(c_base * (p.merma_pct_man or 0.0)), "costo_actual": float(ct), "costo_coyuntural": float(cy),
+                "costo_base": float(c_base), "costo_fab": float(c_fab), "merma_porcentaje": round(merma_pct * 100, 2),
+                "merma_monto": float(merma_monto), "costo_actual": float(ct), "costo_coyuntural": float(cy),
                 "margen": round(mg * 100, 2), "precio_lima": float(p_lima), "precio_provincia": float(p_prov),
                 "moneda_simbolo": str(p.moneda_simbolo), "moneda_texto": str(p.moneda_texto), 
                 "dscto_pv": round(get_val(p.dscto_pv_man, p.dscto_pv_ex, 0.0)*100, 2),
@@ -539,11 +573,10 @@ def exportar_excel():
             data_comprados.append({'nombre': c.nombre, 'costo': get_val(c.costo_base_man, c.costo_base_ex, 0.0), 'core': core_val, 'w_core': set(core_val.split()), 'clean': c.nombre.replace(' ', '').upper()})
     
     for p in prods:
-        c_base = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
-        c_fab = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
-        mg = get_val(p.margen_man, p.margen_ex, 0.20)
-        cy = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
-        merma_pct = p.merma_pct_man or 0.0
+        prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
+        sim_real, txt_real = get_currency_info(p.nombre, prov_real)
+        
+        c_base_usd = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
         
         if p.tipo_origen == 'FABRICADO' and not es_excepcion_herencia(p.nombre):
             core_fab = get_core_name(p.nombre)
@@ -565,22 +598,35 @@ def exportar_excel():
                 else: c_heredado = posibles_padres[0]['costo']
             
             if c_heredado > 0:
-                if p.costo_base_man is not None and p.costo_base_man > 0: c_base = p.costo_base_man
-                else: c_base = c_heredado
+                if p.costo_base_man is not None and p.costo_base_man > 0: c_base_usd = p.costo_base_man
+                else: c_base_usd = c_heredado
 
+        c_fab_usd = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
+        coyun_usd = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
+        
+        if txt_real == 'PEN':
+            c_base = c_base_usd * 4.0
+            c_fab = c_fab_usd * 4.0
+            cy = coyun_usd * 4.0 if coyun_usd > 0 else 0.0
+        else:
+            c_base = c_base_usd
+            c_fab = c_fab_usd
+            cy = coyun_usd if coyun_usd > 0 else 0.0
+
+        mg = get_val(p.margen_man, p.margen_ex, 0.20)
+        merma_pct = p.merma_pct_man or 0.0
+        
         ct = c_base + c_fab + (c_base * merma_pct); c_ref = cy if (cy > 0 and ct <= cy) else ct
         
-        # 🔥 REGLA DE FLETE ACTUALIZADA PARA LUDAFA Y FRAGANCIAS 🔥
-        prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
         is_frag = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
         if prov_real == "JM LUDAFA" or (prov_real in ["CRAMER", "SACCO"] and not is_frag):
             flete = 0.0
         else:
-            flete = FLETE_ESTANDAR * (tc if p.moneda_texto == 'USD' else 1.0)
+            flete = FLETE_ESTANDAR * (4.0 if txt_real == 'PEN' else 1.0)
             
         pl = c_ref * (1 + mg); pp = pl + flete
         data.append({
-            "Producto": p.nombre, "Kilaje": get_quantity(p.nombre), "Código": p.codigo, "Empresa": p.empresa, "Categoría": p.categoria, "Origen": p.tipo_origen, "Moneda": p.moneda_texto,
+            "Producto": p.nombre, "Kilaje": get_quantity(p.nombre), "Código": p.codigo, "Empresa": p.empresa, "Categoría": p.categoria, "Origen": p.tipo_origen, "Moneda": txt_real,
             "Costo Real": round(c_base, 2), "Costo Fab": round(c_fab, 2), "Merma (%)": round(merma_pct*100, 2), "Costo Total": round(ct, 2),
             "Coyuntural": round(cy, 2), "Margen (%)": round(mg*100, 2), "Precio LIMA": round(pl, 2), "Precio PROVINCIA": round(pp, 2), 
             "Visible Ventas": "SÍ" if (p.visible_ventas if p.visible_ventas is not None else True) else "NO", "Nota": p.nota
