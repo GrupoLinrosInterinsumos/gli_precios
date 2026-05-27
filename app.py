@@ -100,7 +100,6 @@ def load_user(user_id): return User.query.get(int(user_id))
 # =========================================================
 FLETE_ESTANDAR = 0.11 
 
-# 🔥 AQUÍ SE AÑADIÓ LA AMILASA MALTOGÉNICA A LA LISTA DE SOLES 🔥
 EXCEPCIONES_SOLES = [
     "COLAGENO HIDROLIZADO GELNEX X 1KG", "COLAGENO HIDROLIZADO GELNEX X 400G",
     "FOSFATO PARA JAMONES BUDENHEIM X 1KG", "FOSFATO PARA JAMONES BUDENHEIM X 5KG",
@@ -312,15 +311,17 @@ def subir_maestro():
         if 'nombre' in rs or 'producto' in rs: header_idx = idx; break
             
     f.seek(0); df = pd.read_excel(f, header=header_idx)
-    df.columns = [str(c).strip().lower().replace('.', '').replace('ó', 'o') for c in df.columns]
+    # 🔥 ARREGLO: Limpieza profunda de nombres de columna para que encaje 100% con la exportación 🔥
+    df.columns = [str(c).strip().lower().replace('.', '').replace('ó', 'o').replace('í', 'i') for c in df.columns]
     
     for _, row in df.iterrows():
         nombre = str(get_col_val(row, ['nombre', 'producto'], '')).strip().upper()
         if not nombre or nombre == 'NAN': continue
         
+        # Reconocemos las columnas nativas del sistema, incluyendo "Coyuntural" y "Merma (%)"
         c_base = robust_numeric(get_col_val(row, ['costo real', 'costo base']))
         c_fab = robust_numeric(get_col_val(row, ['costo de fabricacion', 'costo fab']))
-        coyun = robust_numeric(get_col_val(row, ['costo coyuntural']))
+        coyun = robust_numeric(get_col_val(row, ['costo coyuntural', 'coyuntural']))
         
         emp = str(get_col_val(row, ['empresa', 'marca'], '')).strip().upper()
         n_clean_check = re.sub(r'\s+', '', nombre)
@@ -329,7 +330,6 @@ def subir_maestro():
         prov = detectar_proveedor_exacto(nombre, emp)
         sim, txt = get_currency_info(nombre, prov)
         
-        # Guardar como USD internamente si viene en Soles
         if txt == 'PEN' and prov != "SACCO":
             c_base /= 4.0; c_fab /= 4.0
             if coyun > 0: coyun /= 4.0
@@ -342,11 +342,21 @@ def subir_maestro():
         p.moneda_simbolo = '$'; p.moneda_texto = 'USD'
         p.oculto = False 
         
+        # Guardamos la data subida como EX (Externo)
         p.costo_base_ex = c_base; p.costo_fab_ex = c_fab; p.coyuntural_ex = coyun
-        p.margen_ex = parse_percentage(get_col_val(row, ['margen', 'margen %']), 0.20)
+        p.margen_ex = parse_percentage(get_col_val(row, ['margen', 'margen %', 'margen (%)']), 0.20)
         p.dscto_pv_ex = parse_percentage(get_col_val(row, ['dscto pv', 'descuento pv']), 0.0)
         p.dscto_dist_ex = parse_percentage(get_col_val(row, ['dscto dist', 'descuento dist']), 0.0)
-        p.merma_pct_man = parse_percentage(get_col_val(row, ['margen de merma', 'merma']), 0.0)
+        p.merma_pct_man = parse_percentage(get_col_val(row, ['margen de merma', 'merma', 'merma (%)']), 0.0)
+        
+        # 🔥 EL TRUCO: Limpiamos los manuales para que el Excel asuma el control total 🔥
+        p.costo_base_man = None
+        p.costo_fab_man = None
+        p.coyuntural_man = None
+        # Opcional: si quieres que el Excel también mande en la nota, la leemos:
+        p.nota = str(get_col_val(row, ['nota', 'notas'], p.nota)).strip()
+        if p.nota.lower() == 'nan': p.nota = ''
+        
         p.fecha_act = datetime.utcnow()
 
     db.session.commit()
@@ -386,7 +396,6 @@ def crear_producto():
     if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
     d = request.json
     
-    # Soporte para Edición Total (Lápiz)
     nombre_original = d.get('nombre_original')
     nombre = str(d.get('nombre', '')).upper().strip()
     
@@ -405,8 +414,6 @@ def crear_producto():
     c_fab = robust_numeric(d.get('costo_fab'))
     coyun = robust_numeric(d.get('coyuntural'))
 
-    # Si se crea/edita manual y la moneda destino es Soles, dividimos a USD (solo si no se envió en USD ya)
-    # Asumimos que si estamos editando, el valor viene en USD puro.
     if not nombre_original: 
         if txt == 'PEN' and prov != "SACCO":
             c_base /= 4.0; c_fab /= 4.0
@@ -479,7 +486,6 @@ def editar_celdas(tipo):
     else:
         val = robust_numeric(request.json.get(tipo, request.json.get('costo', request.json.get('valor', 0))))
         
-        # LA EDICIÓN RÁPIDA SE GUARDA EN USD NATIVO DIRECTAMENTE (No hay división automática aquí)
         if tipo == 'margen': p.margen_man = val / 100.0
         elif tipo == 'merma': p.merma_pct_man = val / 100.0
         elif tipo == 'costo-real': p.costo_base_man = val if val >= 0 else None
@@ -583,8 +589,6 @@ def buscar():
                 "dscto_dist": round(get_val(p.dscto_dist_man, p.dscto_dist_ex, 0.0)*100, 2),
                 "nota": str(p.nota) if hasattr(p, 'nota') and p.nota else "",
                 "visible_ventas": visible, "editable_costo": editable_costo,
-                
-                # VARIABLES EXTRA NECESARIAS PARA LA EDICIÓN DIRECTA EN ADMIN:
                 "costo_base_usd": float(c_base_usd), "costo_fab_usd": float(c_fab_usd), 
                 "costo_coyuntural_usd": float(coyun_usd), "es_pen_exception": es_excepcion_soles(p.nombre, prov_real)
             })
@@ -652,12 +656,16 @@ def exportar_excel():
             
         p_lima_usd = c_ref_usd * (1 + mg); p_prov_usd = p_lima_usd + flete_usd
         
-        factor = 4.0 if (txt_real == 'PEN' and prov_real != "SACCO") else 1.0
+        is_pen_exception = es_excepcion_soles(p.nombre, prov_real)
+        if is_pen_exception:
+            pl_final = p_lima_usd * 4.0; pp_final = p_prov_usd * 4.0; txt_final = 'PEN'
+        else:
+            pl_final = p_lima_usd; pp_final = p_prov_usd; txt_final = 'USD'
             
         data.append({
-            "Producto": p.nombre, "Kilaje": get_quantity(p.nombre), "Código": p.codigo, "Empresa": p.empresa, "Categoría": p.categoria, "Origen": p.tipo_origen, "Moneda": txt_real,
-            "Costo Real": round(c_base_usd * factor, 2), "Costo Fab": round(c_fab_usd * factor, 2), "Merma (%)": round(merma_pct*100, 2), "Costo Total": round(ct_usd * factor, 2),
-            "Coyuntural": round(coyun_usd * factor, 2), "Margen (%)": round(mg*100, 2), "Precio LIMA": round(p_lima_usd * factor, 2), "Precio PROVINCIA": round(p_prov_usd * factor, 2), 
+            "Producto": p.nombre, "Kilaje": get_quantity(p.nombre), "Código": p.codigo, "Empresa": p.empresa, "Categoría": p.categoria, "Origen": p.tipo_origen, "Moneda": txt_final,
+            "Costo Real (USD)": round(c_base_usd, 2), "Costo Fab (USD)": round(c_fab_usd, 2), "Merma (%)": round(merma_pct*100, 2), "Costo Total (USD)": round(ct_usd, 2),
+            "Coyuntural (USD)": round(coyun_usd, 2), "Margen (%)": round(mg*100, 2), "Precio LIMA": round(pl_final, 2), "Precio PROVINCIA": round(pp_final, 2), 
             "Visible Ventas": "SÍ" if (p.visible_ventas if p.visible_ventas is not None else True) else "NO", "Nota": p.nota
         })
     df = pd.DataFrame(data); output = io.BytesIO()
