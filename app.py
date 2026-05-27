@@ -100,13 +100,15 @@ def load_user(user_id): return User.query.get(int(user_id))
 # =========================================================
 FLETE_ESTANDAR = 0.11 
 
+# 🔥 AQUÍ SE AÑADIÓ LA AMILASA MALTOGÉNICA A LA LISTA DE SOLES 🔥
 EXCEPCIONES_SOLES = [
     "COLAGENO HIDROLIZADO GELNEX X 1KG", "COLAGENO HIDROLIZADO GELNEX X 400G",
     "FOSFATO PARA JAMONES BUDENHEIM X 1KG", "FOSFATO PARA JAMONES BUDENHEIM X 5KG",
     "FOSFATO PARA MASAS BUDENHEIM X 1KG", "FOSFATO PARA MASAS BUDENHEIM X 5KG",
     "POLVO DE HORNEAR LEVAMAX TOP P40 LINROS X 25KG", "POLVO DE HORNEAR LEVAMAX TOP P40 LINROS X 5KG",
     "PREPARADO VITAMINA C LINROS X 500G",
-    "SAL DE CURA CONCENTRADA TECNAS X 1KG", "SAL DE CURA CONCENTRADA TECNAS X 25KG", "SAL DE CURA CONCENTRADA TECNAS X 5KG"
+    "SAL DE CURA CONCENTRADA TECNAS X 1KG", "SAL DE CURA CONCENTRADA TECNAS X 25KG", "SAL DE CURA CONCENTRADA TECNAS X 5KG",
+    "AMILASA MALTOGENICA MTG1500"
 ]
 
 EXCEPCIONES_SACCO_USD = ["LYOTO M 536 R", "LYOTO M 536 S", "LYOFAST AB 1", "LYOFAST Y 438 A", "LYOFAST Y 470 E"]
@@ -217,6 +219,7 @@ def es_excepcion_herencia(nombre):
     if "COLAGENOHIDROLIZADOGELNEXX1KG" in n_clean or "COLAGENOHIDROLIZADOGELNEXX400G" in n_clean: return True
     if "FOSFATOPARAJAMONES" in n_clean: return True
     if "FOSFATOPARAMASAS" in n_clean: return True
+    if "AMILASAMALTOGENICAMTG1500" in n_clean: return True
     return False
 
 # =========================================================
@@ -326,6 +329,7 @@ def subir_maestro():
         prov = detectar_proveedor_exacto(nombre, emp)
         sim, txt = get_currency_info(nombre, prov)
         
+        # Guardar como USD internamente si viene en Soles
         if txt == 'PEN' and prov != "SACCO":
             c_base /= 4.0; c_fab /= 4.0
             if coyun > 0: coyun /= 4.0
@@ -381,7 +385,11 @@ def subir_relaciones():
 def crear_producto():
     if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
     d = request.json
+    
+    # Soporte para Edición Total (Lápiz)
+    nombre_original = d.get('nombre_original')
     nombre = str(d.get('nombre', '')).upper().strip()
+    
     if not nombre: return jsonify({"error": "El producto debe tener un nombre."}), 400
     
     codigo_val = str(d.get('codigo', '')).upper().strip() or 'S/C'
@@ -396,11 +404,13 @@ def crear_producto():
     c_base = robust_numeric(d.get('costo_base'))
     c_fab = robust_numeric(d.get('costo_fab'))
     coyun = robust_numeric(d.get('coyuntural'))
-    
-    # Si se crea manual y es de Soles, lo pasamos a USD nativo
-    if txt == 'PEN' and prov != "SACCO":
-        c_base /= 4.0; c_fab /= 4.0
-        if coyun > 0: coyun /= 4.0
+
+    # Si se crea/edita manual y la moneda destino es Soles, dividimos a USD (solo si no se envió en USD ya)
+    # Asumimos que si estamos editando, el valor viene en USD puro.
+    if not nombre_original: 
+        if txt == 'PEN' and prov != "SACCO":
+            c_base /= 4.0; c_fab /= 4.0
+            if coyun > 0: coyun /= 4.0
 
     merma = (robust_numeric(str(d.get('merma', '')).strip()) / 100.0) if str(d.get('merma', '')).strip() else 0.0
     margen_val = str(d.get('margen', '')).strip()
@@ -408,19 +418,31 @@ def crear_producto():
     dscto_pv = (robust_numeric(str(d.get('dscto_pv', '')).strip()) / 100.0) if str(d.get('dscto_pv', '')).strip() else 0.0
     dscto_dist = (robust_numeric(str(d.get('dscto_dist', '')).strip()) / 100.0) if str(d.get('dscto_dist', '')).strip() else 0.0
 
-    p = Producto.query.filter_by(nombre=nombre).first()
-    if p:
-        p.oculto = False; p.es_manual = True; p.codigo = codigo_val; p.empresa = empresa_val
-        p.proveedor = prov; p.moneda_simbolo = '$'; p.moneda_texto = 'USD'
-        p.costo_base_man = c_base; p.costo_fab_man = c_fab; p.coyuntural_man = coyun
-        p.margen_man = margen; p.merma_pct_man = merma; p.dscto_pv_man = dscto_pv; p.dscto_dist_man = dscto_dist
-        p.tipo_origen = tipo_origen_val
+    if nombre_original:
+        p = Producto.query.filter_by(nombre=nombre_original).first()
+        if p:
+            p.nombre = nombre
+            p.codigo = codigo_val
+            p.empresa = empresa_val
+            p.proveedor = prov
+            p.moneda_simbolo = '$'; p.moneda_texto = 'USD'
+            p.costo_base_man = c_base; p.costo_fab_man = c_fab; p.coyuntural_man = coyun
+            p.margen_man = margen; p.merma_pct_man = merma; p.dscto_pv_man = dscto_pv; p.dscto_dist_man = dscto_dist
+            p.tipo_origen = tipo_origen_val
     else:
-        p = Producto(nombre=nombre, codigo=codigo_val, empresa=empresa_val, es_manual=True, oculto=False, tipo_origen=tipo_origen_val, usd_converted=True)
-        p.proveedor = prov; p.moneda_simbolo = '$'; p.moneda_texto = 'USD'
-        p.costo_base_man = c_base; p.costo_fab_man = c_fab; p.coyuntural_man = coyun
-        p.margen_man = margen; p.merma_pct_man = merma; p.dscto_pv_man = dscto_pv; p.dscto_dist_man = dscto_dist
-        db.session.add(p)
+        p = Producto.query.filter_by(nombre=nombre).first()
+        if p:
+            p.oculto = False; p.es_manual = True; p.codigo = codigo_val; p.empresa = empresa_val
+            p.proveedor = prov; p.moneda_simbolo = '$'; p.moneda_texto = 'USD'
+            p.costo_base_man = c_base; p.costo_fab_man = c_fab; p.coyuntural_man = coyun
+            p.margen_man = margen; p.merma_pct_man = merma; p.dscto_pv_man = dscto_pv; p.dscto_dist_man = dscto_dist
+            p.tipo_origen = tipo_origen_val
+        else:
+            p = Producto(nombre=nombre, codigo=codigo_val, empresa=empresa_val, es_manual=True, oculto=False, tipo_origen=tipo_origen_val, usd_converted=True)
+            p.proveedor = prov; p.moneda_simbolo = '$'; p.moneda_texto = 'USD'
+            p.costo_base_man = c_base; p.costo_fab_man = c_fab; p.coyuntural_man = coyun
+            p.margen_man = margen; p.merma_pct_man = merma; p.dscto_pv_man = dscto_pv; p.dscto_dist_man = dscto_dist
+            db.session.add(p)
         
     db.session.commit(); return jsonify({"success": True})
 
@@ -457,13 +479,7 @@ def editar_celdas(tipo):
     else:
         val = robust_numeric(request.json.get(tipo, request.json.get('costo', request.json.get('valor', 0))))
         
-        prov = detectar_proveedor_exacto(p.nombre, p.empresa)
-        sim, txt = get_currency_info(p.nombre, prov)
-        
-        # 🔥 EL ADMIN PONE EL VALOR EN PANTALLA EN SOLES SI ES EXCEPCIÓN. DIVIDIMOS PARA GUARDAR EN USD 🔥
-        if txt == 'PEN' and prov != "SACCO" and tipo in ['costo-real', 'costo-fab', 'costo-coyuntural'] and val > 0:
-            val /= 4.0
-            
+        # LA EDICIÓN RÁPIDA SE GUARDA EN USD NATIVO DIRECTAMENTE (No hay división automática aquí)
         if tipo == 'margen': p.margen_man = val / 100.0
         elif tipo == 'merma': p.merma_pct_man = val / 100.0
         elif tipo == 'costo-real': p.costo_base_man = val if val >= 0 else None
@@ -547,7 +563,6 @@ def buscar():
             p_lima_usd = c_ref_usd * (1 + mg)
             p_prov_usd = p_lima_usd + flete_usd
 
-            # 🔥 FACTOR PUENTE: Si es PEN y no es SACCO, usamos 4.0. Sino, se queda en USD (Factor 1.0) 🔥
             factor = 4.0 if (p.moneda_texto == 'PEN' and prov_real != "SACCO") else 1.0
 
             res.append({
@@ -567,7 +582,11 @@ def buscar():
                 "dscto_pv": round(get_val(p.dscto_pv_man, p.dscto_pv_ex, 0.0)*100, 2),
                 "dscto_dist": round(get_val(p.dscto_dist_man, p.dscto_dist_ex, 0.0)*100, 2),
                 "nota": str(p.nota) if hasattr(p, 'nota') and p.nota else "",
-                "visible_ventas": visible, "editable_costo": editable_costo 
+                "visible_ventas": visible, "editable_costo": editable_costo,
+                
+                # VARIABLES EXTRA NECESARIAS PARA LA EDICIÓN DIRECTA EN ADMIN:
+                "costo_base_usd": float(c_base_usd), "costo_fab_usd": float(c_fab_usd), 
+                "costo_coyuntural_usd": float(coyun_usd), "es_pen_exception": es_excepcion_soles(p.nombre, prov_real)
             })
         
         try: db.session.commit()
