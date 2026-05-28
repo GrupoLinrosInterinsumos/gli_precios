@@ -50,8 +50,6 @@ class Producto(db.Model):
     proveedor = db.Column(db.String(100), default='')
     moneda_simbolo = db.Column(db.String(10), default='$')
     moneda_texto = db.Column(db.String(10), default='USD')
-    
-    # Columnas originales del Excel
     costo_base_ex = db.Column(db.Float, default=0.0)
     costo_fab_ex = db.Column(db.Float, default=0.0)
     coyuntural_ex = db.Column(db.Float, default=0.0)
@@ -59,7 +57,6 @@ class Producto(db.Model):
     dscto_pv_ex = db.Column(db.Float, default=0.0)
     dscto_dist_ex = db.Column(db.Float, default=0.0)
     
-    # Columnas Manuales (Sobrescriben)
     costo_base_man = db.Column(db.Float, nullable=True)
     costo_fab_man = db.Column(db.Float, nullable=True)
     coyuntural_man = db.Column(db.Float, nullable=True)
@@ -68,7 +65,6 @@ class Producto(db.Model):
     dscto_pv_man = db.Column(db.Float, nullable=True)
     dscto_dist_man = db.Column(db.Float, nullable=True)
     
-    # Texto libre para descuentos
     pv_str = db.Column(db.String(10), default='')
     dist_str = db.Column(db.String(10), default='')
     
@@ -171,11 +167,19 @@ def es_excepcion_soles(nombre, prov):
     if prov == "JM LUDAFA" or "LUDAFA" in n_upper: return True
     return False
 
-# 🔥 SE RESTAURÓ ESTA FUNCIÓN A 3 ARGUMENTOS PARA NO ROMPER EL FLUJO 🔥
 def get_val(man, ex, default):
     if man is not None: return float(man)
     if ex is not None: return float(ex)
     return default
+
+# 🔥 RECUPERACIÓN INTELIGENTE DE DESCUENTOS ANTIGUOS 🔥
+def format_discount(str_val, num_val_man, num_val_ex):
+    if str_val and str(str_val).strip():
+        return str(str_val).strip()
+    num = get_val(num_val_man, num_val_ex, 0.0) * 100
+    if num == 0: return "0%"
+    num_rounded = round(num, 2)
+    return f"{int(num_rounded)}%" if num_rounded.is_integer() else f"{num_rounded}%"
 
 def robust_numeric(val):
     if val is None or pd.isna(val): return 0.0
@@ -340,7 +344,6 @@ def subir_maestro():
         p.moneda_simbolo = '$'; p.moneda_texto = 'USD'
         p.oculto = False 
         
-        # 🔥 EL EXCEL ACTUALIZA LAS COLUMNAS _ex Y BORRA LAS MANUALES 🔥
         p.costo_base_ex = c_base
         p.costo_fab_ex = c_fab
         p.coyuntural_ex = coyun
@@ -535,7 +538,6 @@ def buscar():
             prov_real = detectar_proveedor_exacto(p.nombre, str(p.empresa or ''))
             p.moneda_simbolo, p.moneda_texto = get_currency_info(p.nombre, prov_real)
             
-            # Recuperación segura del costo en USD
             c_base_usd = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
             editable_costo = True 
             
@@ -593,14 +595,15 @@ def buscar():
                 "precio_provincia": float(p_prov_usd * factor),
                 "moneda_simbolo": str(p.moneda_simbolo), 
                 "moneda_texto": str(p.moneda_texto), 
-                "pv_str": str(p.pv_str or ''), "dist_str": str(p.dist_str or ''),
+                
+                # 🔥 COMBINAMOS EL TEXTO CON EL NÚMERO ANTIGUO PARA NO PERDER TUS PORCENTAJES 🔥
+                "pv_str": str(format_discount(p.pv_str, p.dscto_pv_man, p.dscto_pv_ex)), 
+                "dist_str": str(format_discount(p.dist_str, p.dscto_dist_man, p.dscto_dist_ex)),
+                
                 "nota": str(p.nota) if hasattr(p, 'nota') and p.nota else "",
                 "visible_ventas": visible, "editable_costo": editable_costo,
-                
                 "costo_base_usd": float(c_base_usd), "costo_fab_usd": float(c_fab_usd), 
-                "merma_monto_usd": float(merma_monto_usd), "costo_actual_usd": float(ct_usd),
-                "costo_coyuntural_usd": float(coyun_usd), "precio_lima_usd": float(p_lima_usd),
-                "precio_provincia_usd": float(p_prov_usd), "es_pen_exception": es_excepcion_soles(p.nombre, prov_real)
+                "costo_coyuntural_usd": float(coyun_usd), "es_pen_exception": es_excepcion_soles(p.nombre, prov_real)
             })
         
         try: db.session.commit()
@@ -680,7 +683,8 @@ def exportar_excel():
             "Producto": p.nombre, "Kilaje": get_quantity(p.nombre), "Código": p.codigo, "Empresa": p.empresa, "Categoría": p.categoria, "Origen": p.tipo_origen, "Moneda": txt_final,
             "Costo Real (USD)": round(c_base_usd, 2), "Costo Fab (USD)": round(c_fab_usd, 2), "Merma (%)": round(merma_pct*100, 2), "Costo Total (USD)": round(ct_usd, 2),
             "Coyuntural (USD)": round(coyun_usd, 2), "Margen (%)": round(mg*100, 2), 
-            "PV Autorizado": str(p.pv_str or ''), "Dist Exclusivo": str(p.dist_str or ''),
+            "PV Autorizado": str(format_discount(p.pv_str, p.dscto_pv_man, p.dscto_pv_ex)), 
+            "Dist Exclusivo": str(format_discount(p.dist_str, p.dscto_dist_man, p.dscto_dist_ex)),
             "Precio LIMA": round(pl_final, 2), "Precio PROVINCIA": round(pp_final, 2), 
             "Visible Ventas": "SÍ" if (p.visible_ventas if p.visible_ventas is not None else True) else "NO", "Nota": p.nota
         })
