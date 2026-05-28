@@ -50,15 +50,30 @@ class Producto(db.Model):
     proveedor = db.Column(db.String(100), default='')
     moneda_simbolo = db.Column(db.String(10), default='$')
     moneda_texto = db.Column(db.String(10), default='USD')
-    costo_base_man = db.Column(db.Float, default=0.0)
-    costo_fab_man = db.Column(db.Float, default=0.0)
-    coyuntural_man = db.Column(db.Float, default=0.0)
-    margen_man = db.Column(db.Float, default=0.20)
-    merma_pct_man = db.Column(db.Float, default=0.0)
     
+    # Columnas originales del Excel
+    costo_base_ex = db.Column(db.Float, default=0.0)
+    costo_fab_ex = db.Column(db.Float, default=0.0)
+    coyuntural_ex = db.Column(db.Float, default=0.0)
+    margen_ex = db.Column(db.Float, default=0.20)
+    dscto_pv_ex = db.Column(db.Float, default=0.0)
+    dscto_dist_ex = db.Column(db.Float, default=0.0)
+    
+    # Columnas Manuales (Sobrescriben)
+    costo_base_man = db.Column(db.Float, nullable=True)
+    costo_fab_man = db.Column(db.Float, nullable=True)
+    coyuntural_man = db.Column(db.Float, nullable=True)
+    margen_man = db.Column(db.Float, nullable=True)
+    merma_pct_man = db.Column(db.Float, default=0.0)
+    dscto_pv_man = db.Column(db.Float, nullable=True)
+    dscto_dist_man = db.Column(db.Float, nullable=True)
+    
+    # Texto libre para descuentos
     pv_str = db.Column(db.String(10), default='')
     dist_str = db.Column(db.String(10), default='')
     
+    es_manual = db.Column(db.Boolean, default=False)
+    oculto = db.Column(db.Boolean, default=False)
     nota = db.Column(db.String(250), default='') 
     categoria = db.Column(db.String(100), default='')
     tipo_origen = db.Column(db.String(20), default='COMPRADO')
@@ -156,8 +171,10 @@ def es_excepcion_soles(nombre, prov):
     if prov == "JM LUDAFA" or "LUDAFA" in n_upper: return True
     return False
 
-def get_val(val, default):
-    if val is not None: return float(val)
+# 🔥 SE RESTAURÓ ESTA FUNCIÓN A 3 ARGUMENTOS PARA NO ROMPER EL FLUJO 🔥
+def get_val(man, ex, default):
+    if man is not None: return float(man)
+    if ex is not None: return float(ex)
     return default
 
 def robust_numeric(val):
@@ -311,7 +328,6 @@ def subir_maestro():
         prov = detectar_proveedor_exacto(nombre, emp)
         sim, txt = get_currency_info(nombre, prov)
         
-        # Si el Excel sube Soles y NO es Sacco, divide para guardar en USD nativo
         if txt == 'PEN' and prov != "SACCO":
             c_base /= 4.0; c_fab /= 4.0
             if coyun > 0: coyun /= 4.0
@@ -324,9 +340,17 @@ def subir_maestro():
         p.moneda_simbolo = '$'; p.moneda_texto = 'USD'
         p.oculto = False 
         
-        p.costo_base_man = c_base; p.costo_fab_man = c_fab; p.coyuntural_man = coyun
-        p.margen_man = parse_percentage(get_col_val(row, ['margen', 'margen %', 'margen (%)']), 0.20)
+        # 🔥 EL EXCEL ACTUALIZA LAS COLUMNAS _ex Y BORRA LAS MANUALES 🔥
+        p.costo_base_ex = c_base
+        p.costo_fab_ex = c_fab
+        p.coyuntural_ex = coyun
+        p.margen_ex = parse_percentage(get_col_val(row, ['margen', 'margen %', 'margen (%)']), 0.20)
         p.merma_pct_man = parse_percentage(get_col_val(row, ['margen de merma', 'merma', 'merma (%)']), 0.0)
+        
+        p.costo_base_man = None
+        p.costo_fab_man = None
+        p.coyuntural_man = None
+        p.margen_man = None
         
         pv_val = str(get_col_val(row, ['pv autorizado', 'dscto pv', 'descuento pv'], '')).strip()
         dist_val = str(get_col_val(row, ['dist exclusivo', 'dscto dist', 'descuento dist'], '')).strip()
@@ -495,27 +519,24 @@ def buscar():
         prods = Producto.query.all()
         res = []
         
-        # Diccionario seguro de productos comprados para herencia
         data_comprados = []
         for c in prods:
             if c.tipo_origen == 'COMPRADO' and not c.oculto:
                 core_val = get_core_name(c.nombre)
-                val_usd = get_val(c.costo_base_man, 0.0)
-                data_comprados.append({'nombre': c.nombre,'costo_usd': val_usd,'core': core_val,'clean': c.nombre.replace(' ', '').upper()})
+                data_comprados.append({'nombre': c.nombre,'costo_usd': get_val(c.costo_base_man, c.costo_base_ex, 0.0),'core': core_val,'clean': c.nombre.replace(' ', '').upper()})
 
         for p in prods:
             if p.oculto: continue
-            
             if "CUAJO IL CASARO SACHETS CAGLIFICIO CLERICI" in p.nombre.upper(): p.visible_ventas = True
             visible = p.visible_ventas if p.visible_ventas is not None else True
             if es_vendedor and not visible: continue
             if q and q not in p.nombre.upper() and q not in str(p.codigo).upper(): continue
             
-            prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
+            prov_real = detectar_proveedor_exacto(p.nombre, str(p.empresa or ''))
             p.moneda_simbolo, p.moneda_texto = get_currency_info(p.nombre, prov_real)
             
-            # BLINDAJE MATEMÁTICO: get_val para evitar "None"
-            c_base_usd = get_val(p.costo_base_man, 0.0)
+            # Recuperación segura del costo en USD
+            c_base_usd = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
             editable_costo = True 
             
             if p.tipo_origen == 'FABRICADO':
@@ -533,10 +554,10 @@ def buscar():
                         else:
                             c_base_usd = c_heredado_usd; editable_costo = False 
 
-            c_fab_usd = get_val(p.costo_fab_man, 0.0)
-            coyun_usd = get_val(p.coyuntural_man, 0.0)
-            mg = get_val(p.margen_man, 0.20)
-            merma_pct = get_val(p.merma_pct_man, 0.0)
+            c_fab_usd = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
+            coyun_usd = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
+            mg = get_val(p.margen_man, p.margen_ex, 0.20)
+            merma_pct = p.merma_pct_man or 0.0
             
             merma_monto_usd = c_base_usd * merma_pct
             ct_usd = c_base_usd + c_fab_usd + merma_monto_usd
@@ -576,7 +597,6 @@ def buscar():
                 "nota": str(p.nota) if hasattr(p, 'nota') and p.nota else "",
                 "visible_ventas": visible, "editable_costo": editable_costo,
                 
-                # 🔥 VARIABLES DE DÓLARES NATIVAS PARA ADMIN 🔥
                 "costo_base_usd": float(c_base_usd), "costo_fab_usd": float(c_fab_usd), 
                 "merma_monto_usd": float(merma_monto_usd), "costo_actual_usd": float(ct_usd),
                 "costo_coyuntural_usd": float(coyun_usd), "precio_lima_usd": float(p_lima_usd),
@@ -586,7 +606,6 @@ def buscar():
         try: db.session.commit()
         except: db.session.rollback()
         
-        # 🔥 ORDENAMIENTO POR KILAJE Y FAMILIA 🔥
         res.sort(key=lambda x: (get_core_name(x['nombre']), -get_quantity_normalized(x['nombre']), x['nombre']))
         
         return jsonify({"productos": res, "tc_actual": tc, "alertas": [{"producto": a.producto, "msg": a.msg} for a in Alerta.query.filter_by(tipo="ACTIVA").all()]})
@@ -606,13 +625,13 @@ def exportar_excel():
     for c in Producto.query.all():
         if c.tipo_origen == 'COMPRADO' and not c.oculto:
             core_val = get_core_name(c.nombre)
-            data_comprados.append({'nombre': c.nombre, 'costo_usd': get_val(c.costo_base_man, 0.0), 'core': core_val, 'w_core': set(core_val.split()), 'clean': c.nombre.replace(' ', '').upper()})
+            data_comprados.append({'nombre': c.nombre, 'costo_usd': get_val(c.costo_base_man, c.costo_base_ex, 0.0), 'core': core_val, 'w_core': set(core_val.split()), 'clean': c.nombre.replace(' ', '').upper()})
     
     for p in prods:
-        prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
+        prov_real = detectar_proveedor_exacto(p.nombre, str(p.empresa or ''))
         sim_real, txt_real = get_currency_info(p.nombre, prov_real)
         
-        c_base_usd = get_val(p.costo_base_man, 0.0)
+        c_base_usd = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
         
         if p.tipo_origen == 'FABRICADO' and not es_excepcion_herencia(p.nombre):
             core_fab = get_core_name(p.nombre)
@@ -637,10 +656,10 @@ def exportar_excel():
                 if p.costo_base_man is not None and p.costo_base_man > 0: c_base_usd = p.costo_base_man
                 else: c_base_usd = c_heredado_usd
 
-        c_fab_usd = get_val(p.costo_fab_man, 0.0)
-        coyun_usd = get_val(p.coyuntural_man, 0.0)
-        mg = get_val(p.margen_man, 0.20)
-        merma_pct = get_val(p.merma_pct_man, 0.0)
+        c_fab_usd = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
+        coyun_usd = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
+        mg = get_val(p.margen_man, p.margen_ex, 0.20)
+        merma_pct = p.merma_pct_man or 0.0
         
         ct_usd = c_base_usd + c_fab_usd + (c_base_usd * merma_pct)
         c_ref_usd = coyun_usd if (coyun_usd > 0 and ct_usd <= coyun_usd) else ct_usd
