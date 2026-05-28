@@ -344,7 +344,6 @@
             document.getElementById('modalEdicionTitulo').innerText = "Editar Nota";
             input.type = 'text'; input.removeAttribute('maxlength'); input.placeholder = "Escribe...";
         } else if (tipo === 'dscto' || tipo === 'dscto-dist') {
-            // Celdas de texto para descuentos
             document.getElementById('modalEdicionTitulo').innerText = tipo === 'dscto' ? "P.V. Autorizado" : "Dist. Exclusivo";
             document.getElementById('modalEdicionLabel').innerText = "Puedes usar texto (Ej: CONSULTAR, 15%) - Max 10 caracteres";
             input.type = 'text'; input.maxLength = 10; input.placeholder = "Máx 10";
@@ -454,8 +453,7 @@
                 let textCoyuntural = hasCoyuntural ? `${sim}${vcy.toFixed(3)}` : `${sim}${vt.toFixed(3)}`;
                 let btnCoyunturalClass = isAlerta ? 'btn-alerta btn-accion' : (hasCoyuntural ? 'btn-coyuntural-active btn-accion' : 'btn-coyuntural-inactive btn-accion');
                 let rowClass = isAlerta ? 'row-alerta' : (hasCoyuntural ? 'row-coyuntural' : '');
-                let prodNameClass = isAlerta ? 'nombre-alerta' : 'text-dark';
-
+                
                 let escapedNota = (p.nota || "").replace(/"/g, '&quot;').replace(/'/g, "\\'");
                 let htmlNota = p.nota ? `<span class="text-muted d-block mt-1" style="font-size:0.65rem; font-style:italic;"><i class="bi bi-journal-text text-primary"></i> ${p.nota}</span>` : '';
 
@@ -471,7 +469,7 @@
                 <tr class="${rowClass}" style="opacity: ${rowOpacity}; transition: 0.3s;">
                     <td class="text-start ps-2 w-prod">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div class="fw-bold ${prodNameClass} pe-2" style="font-size: 0.85rem; white-space: normal;">${p.nombre}</div>
+                            <div class="fw-bold text-dark pe-2" style="font-size: 0.85rem; white-space: normal;">${p.nombre}</div>
                             
                             <div class="text-end text-nowrap">
                                 <button class="btn btn-sm btn-light border p-1 py-0 ${btnVisClass}" onclick="toggleVisibilidad('${safeName}')"><i class="bi ${btnVisIcon}"></i></button>
