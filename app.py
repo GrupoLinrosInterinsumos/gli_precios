@@ -168,9 +168,27 @@ def es_excepcion_soles(nombre, prov):
     if prov == "JM LUDAFA" or "LUDAFA" in n_upper: return True
     return False
 
+# 🔥 PUENTE INTELIGENTE: RESCATA NÚMEROS ANTIGUOS Y PROCESA TEXTO NUEVO 🔥
 def format_discount(str_val, num_val_man, num_val_ex):
-    if str_val and str(str_val).strip():
-        return str(str_val).strip()
+    # 1. Evaluamos la celda de texto nuevo
+    if str_val and str(str_val).strip() and str(str_val).strip().lower() != 'nan':
+        s = str(str_val).strip()
+        # Si es un 0 absoluto, lo ignoramos para buscar en el historial viejo
+        if s not in ["0", "0.0", "0.00"]:
+            try:
+                # Intentamos ver si es un número (Ej: 0.15 de Excel, o 15 tipeado)
+                f = float(s)
+                if 0.0 < f <= 1.0: # Viene de Excel como 0.15
+                    num_rounded = round(f * 100, 2)
+                    return f"{int(num_rounded)}%" if num_rounded.is_integer() else f"{num_rounded}%"
+                else: # Viene de un tipeo directo como "15"
+                    num_rounded = round(f, 2)
+                    return f"{int(num_rounded)}%" if num_rounded.is_integer() else f"{num_rounded}%"
+            except ValueError:
+                # Si falló al convertir a float, es texto puro (Ej: "CONSULTAR")
+                return s
+
+    # 2. Si el texto está vacío, Rescatamos de la Base de Datos Antigua
     num = get_val(num_val_man, num_val_ex, 0.0) * 100
     num_rounded = round(num, 2)
     return f"{int(num_rounded)}%" if num_rounded.is_integer() else f"{num_rounded}%"
@@ -358,11 +376,19 @@ def subir_maestro():
         p.margen_man = None
         p.dscto_pv_man = None
         p.dscto_dist_man = None
-        p.pv_str = ''
-        p.dist_str = ''
+        
+        pv_val = str(get_col_val(row, ['pv autorizado', 'dscto pv', 'descuento pv'], '')).strip()
+        dist_val = str(get_col_val(row, ['dist exclusivo', 'dscto dist', 'descuento dist'], '')).strip()
+        
+        if pv_val.lower() == 'nan': pv_val = ''
+        if dist_val.lower() == 'nan': dist_val = ''
+        
+        p.pv_str = pv_val[:10]
+        p.dist_str = dist_val[:10]
         
         p.nota = str(get_col_val(row, ['nota', 'notas'], p.nota)).strip()
         if p.nota.lower() == 'nan': p.nota = ''
+        
         p.fecha_act = datetime.utcnow()
 
     db.session.commit()
@@ -479,7 +505,8 @@ def toggle_visibilidad():
     if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
     p = Producto.query.filter_by(nombre=request.json['nombre']).first()
     if p:
-        p.visible_ventas = not (p.visible_ventas if p.visible_ventas is not None else True)
+        estado_actual = p.visible_ventas if p.visible_ventas is not None else True
+        p.visible_ventas = not estado_actual
         db.session.commit()
     return jsonify({"success": True})
 
@@ -519,7 +546,8 @@ def buscar():
         data_comprados = []
         for c in prods:
             if c.tipo_origen == 'COMPRADO' and not c.oculto:
-                data_comprados.append({'nombre': c.nombre, 'costo_usd': get_val(c.costo_base_man, c.costo_base_ex, 0.0), 'core': get_core_name(c.nombre), 'clean': c.nombre.replace(' ', '').upper()})
+                core_val = get_core_name(c.nombre)
+                data_comprados.append({'nombre': c.nombre,'costo_usd': get_val(c.costo_base_man, c.costo_base_ex, 0.0),'core': core_val,'clean': c.nombre.replace(' ', '').upper()})
 
         for p in prods:
             if p.oculto: continue
@@ -571,11 +599,9 @@ def buscar():
 
             factor = 4.0 if (p.moneda_texto == 'PEN' and prov_real != "SACCO") else 1.0
 
-            # 🔥 DICCIONARIO COMPLETO (INCLUYE TODAS LAS VARIABLES USD) 🔥
             res.append({
                 "nombre": str(p.nombre), "codigo": str(p.codigo), "empresa": str(p.empresa or ''), 
                 "categoria": str(p.categoria or ''), "tipo_origen": str(p.tipo_origen or ''),
-                
                 "costo_base": float(c_base_usd * factor), "costo_fab": float(c_fab_usd * factor), 
                 "merma_porcentaje": round(merma_pct * 100, 2), "merma_monto": float(merma_monto_usd * factor), 
                 "costo_actual": float(ct_usd * factor), "costo_coyuntural": float(coyun_usd * factor),
@@ -586,10 +612,8 @@ def buscar():
                 "merma_monto_usd": float(merma_monto_usd), "costo_actual_usd": float(ct_usd),
                 "costo_coyuntural_usd": float(coyun_usd), "precio_lima_usd": float(p_lima_usd),
                 "precio_provincia_usd": float(p_prov_usd), "es_pen_exception": es_excepcion_soles(p.nombre, prov_real),
-                
                 "moneda_simbolo": str(p.moneda_simbolo), "moneda_texto": str(p.moneda_texto), 
                 
-                # Descuentos Inteligentes: Si hay texto lo muestra, sino pone el % numérico
                 "pv_str": str(format_discount(p.pv_str, p.dscto_pv_man, p.dscto_pv_ex)), 
                 "dist_str": str(format_discount(p.dist_str, p.dscto_dist_man, p.dscto_dist_ex)),
                 
@@ -602,7 +626,9 @@ def buscar():
         
         res.sort(key=lambda x: (get_core_name(x['nombre']), -get_quantity_normalized(x['nombre']), x['nombre']))
         return jsonify({"productos": res, "tc_actual": tc, "alertas": [{"producto": a.producto, "msg": a.msg} for a in Alerta.query.filter_by(tipo="ACTIVA").all()]})
-    except Exception as e: return jsonify({"productos": [], "tc_actual": 3.80, "alertas": [{"producto": "Error", "msg": str(e)}]}), 500
+    except Exception as e: 
+        print(f"Error fatal en buscar: {e}")
+        return jsonify({"productos": [], "tc_actual": 3.80, "alertas": [{"producto": "Error", "msg": str(e)}]}), 500
 
 @app.route('/api/exportar', methods=['POST'])
 @login_required
@@ -615,7 +641,8 @@ def exportar_excel():
     data_comprados = []
     for c in Producto.query.all():
         if c.tipo_origen == 'COMPRADO' and not c.oculto:
-            data_comprados.append({'nombre': c.nombre, 'costo_usd': get_val(c.costo_base_man, c.costo_base_ex, 0.0), 'core': get_core_name(c.nombre), 'clean': c.nombre.replace(' ', '').upper()})
+            core_val = get_core_name(c.nombre)
+            data_comprados.append({'nombre': c.nombre, 'costo_usd': get_val(c.costo_base_man, c.costo_base_ex, 0.0), 'core': core_val, 'w_core': set(core_val.split()), 'clean': c.nombre.replace(' ', '').upper()})
     
     for p in prods:
         prov_real = detectar_proveedor_exacto(p.nombre, str(p.empresa or ''))
