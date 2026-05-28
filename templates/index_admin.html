@@ -30,7 +30,6 @@
         
         .table-container { border-radius: 6px; overflow: hidden; background: var(--white-pure); box-shadow: 0 4px 10px rgba(0,0,0,0.02); border: 1px solid #e5e7eb; width: 100%; }
         
-        /* 🔥 ESTILOS DE TABLA CON BARRA ANCLADA 🔥 */
         .scroll-wrapper { width: 100%; max-height: 70vh; overflow-y: auto; overflow-x: auto; }
         .table-pro { table-layout: auto; min-width: 1500px; width: 100%; font-size: 0.72rem; margin-bottom: 0; border-collapse: separate; border-spacing: 0;}
         .table-pro thead th { position: sticky; top: 0; background-color: #f1f3f5; z-index: 10; border-bottom: 1px solid #e5e7eb; color: var(--text-dark); font-size: 0.65rem; text-transform: uppercase; padding: 0.8rem 0.2rem; font-weight: 600; text-align: center;}
@@ -169,8 +168,8 @@
                         <th>Merma</th>
                         <th>C. Total</th>
                         <th>Coyuntural</th>
-                        <th> % Pv </th>
-                        <th> % Dist. </th>
+                        <th>% Pv</th>
+                        <th>% Dist. </th>
                         <th>Margen</th>
                         <th class="text-end">Precio Lima</th>
                         <th class="text-end pe-4">Precio AQP / TRU</th>
@@ -345,7 +344,7 @@
             input.type = 'text'; input.removeAttribute('maxlength'); input.placeholder = "Escribe...";
         } else if (tipo === 'dscto' || tipo === 'dscto-dist') {
             document.getElementById('modalEdicionTitulo').innerText = tipo === 'dscto' ? "P.V. Autorizado" : "Dist. Exclusivo";
-            document.getElementById('modalEdicionLabel').innerText = "Texto libre (Ej: CONSULTAR, 15%)";
+            document.getElementById('modalEdicionLabel').innerText = "Texto libre (Ej: CONSULTAR, 15%) - Max 10 caracteres";
             input.type = 'text'; input.maxLength = 10; input.placeholder = "Máx 10";
         } else {
             document.getElementById('modalEdicionTitulo').innerText = "Editar Valor";
