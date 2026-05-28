@@ -171,11 +171,13 @@ def es_excepcion_soles(nombre, prov):
     if prov == "JM LUDAFA" or "LUDAFA" in n_upper: return True
     return False
 
+# 🔥 AQUÍ RESTAURAMOS LOS VIEJOS PORCENTAJES (ej: 15%, 0%) 🔥
 def format_discount(str_val, num_val_man, num_val_ex):
+    # Si hay texto manual (ej: "CONSULTAR"), muestra eso.
     if str_val and str(str_val).strip():
         return str(str_val).strip()
+    # Si no hay texto, busca el número antiguo y ponle % (ej: 0.15 -> 15%)
     num = get_val(num_val_man, num_val_ex, 0.0) * 100
-    if num == 0: return ""
     num_rounded = round(num, 2)
     return f"{int(num_rounded)}%" if num_rounded.is_integer() else f"{num_rounded}%"
 
@@ -353,19 +355,19 @@ def subir_maestro():
         p.margen_ex = parse_percentage(get_col_val(row, ['margen', 'margen %', 'margen (%)']), 0.20)
         p.merma_pct_man = parse_percentage(get_col_val(row, ['margen de merma', 'merma', 'merma (%)']), 0.0)
         
+        # Recuperamos los porcentajes al subir el excel
+        p.dscto_pv_ex = parse_percentage(get_col_val(row, ['pv autorizado', 'dscto pv', 'descuento pv']), 0.0)
+        p.dscto_dist_ex = parse_percentage(get_col_val(row, ['dist exclusivo', 'dscto dist', 'descuento dist']), 0.0)
+        
         p.costo_base_man = None
         p.costo_fab_man = None
         p.coyuntural_man = None
         p.margen_man = None
+        p.dscto_pv_man = None
+        p.dscto_dist_man = None
         
-        pv_val = str(get_col_val(row, ['pv autorizado', 'dscto pv', 'descuento pv'], '')).strip()
-        dist_val = str(get_col_val(row, ['dist exclusivo', 'dscto dist', 'descuento dist'], '')).strip()
-        
-        if pv_val.lower() == 'nan': pv_val = ''
-        if dist_val.lower() == 'nan': dist_val = ''
-        
-        p.pv_str = pv_val[:10]
-        p.dist_str = dist_val[:10]
+        p.pv_str = ''
+        p.dist_str = ''
         
         p.nota = str(get_col_val(row, ['nota', 'notas'], p.nota)).strip()
         if p.nota.lower() == 'nan': p.nota = ''
@@ -598,22 +600,20 @@ def buscar():
                 "precio_provincia": float(p_prov_usd * factor),
                 "moneda_simbolo": str(p.moneda_simbolo), 
                 "moneda_texto": str(p.moneda_texto), 
+                
+                # 🔥 AQUI CONECTAMOS LOS PORCENTAJES RESTAURADOS A LA PANTALLA 🔥
                 "pv_str": str(format_discount(p.pv_str, p.dscto_pv_man, p.dscto_pv_ex)), 
                 "dist_str": str(format_discount(p.dist_str, p.dscto_dist_man, p.dscto_dist_ex)),
+                
                 "nota": str(p.nota) if hasattr(p, 'nota') and p.nota else "",
                 "visible_ventas": visible, "editable_costo": editable_costo,
-                
-                # 🔥 VARIABLES DE DÓLARES NATIVAS PARA ADMIN 🔥
                 "costo_base_usd": float(c_base_usd), "costo_fab_usd": float(c_fab_usd), 
-                "merma_monto_usd": float(merma_monto_usd), "costo_actual_usd": float(ct_usd),
-                "costo_coyuntural_usd": float(coyun_usd), "precio_lima_usd": float(p_lima_usd),
-                "precio_provincia_usd": float(p_prov_usd), "es_pen_exception": es_excepcion_soles(p.nombre, prov_real)
+                "costo_coyuntural_usd": float(coyun_usd), "es_pen_exception": es_excepcion_soles(p.nombre, prov_real)
             })
         
         try: db.session.commit()
         except: db.session.rollback()
         
-        # 🔥 ORDENAMIENTO POR FAMILIA Y LUEGO DE MAYOR A MENOR KILAJE 🔥
         res.sort(key=lambda x: (get_core_name(x['nombre']), -get_quantity_normalized(x['nombre']), x['nombre']))
         
         return jsonify({"productos": res, "tc_actual": tc, "alertas": [{"producto": a.producto, "msg": a.msg} for a in Alerta.query.filter_by(tipo="ACTIVA").all()]})
