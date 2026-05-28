@@ -156,21 +156,9 @@ def es_excepcion_soles(nombre, prov):
     if prov == "JM LUDAFA" or "LUDAFA" in n_upper: return True
     return False
 
-def get_core_name(name):
-    core = re.sub(r'\bX?\s*\d+(?:[\.,]\d+)?\s*(?:KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', '', name, flags=re.IGNORECASE)
-    core = re.sub(r'[^a-zA-Z0-9\s]', '', core)
-    return re.sub(r'\s+', ' ', core).strip()
-
-def get_quantity_normalized(name):
-    match = re.search(r'\bX?\s*(\d+(?:[\.,]\d+)?)\s*(KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', name, flags=re.IGNORECASE)
-    if match:
-        try: 
-            val = float(match.group(1).replace(',', '.'))
-            unit = match.group(2).upper()
-            if unit in ['G', 'GR', 'GRS', 'ML']: val /= 1000.0
-            return val
-        except: pass
-    return 0.0
+def get_val(val, default):
+    if val is not None: return float(val)
+    return default
 
 def robust_numeric(val):
     if val is None or pd.isna(val): return 0.0
@@ -194,6 +182,22 @@ def get_col_val(row, poss_names, def_val=0):
     for n in poss_names:
         if n in row: return row[n]
     return def_val
+
+def get_core_name(name):
+    core = re.sub(r'\bX?\s*\d+(?:[\.,]\d+)?\s*(?:KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', '', name, flags=re.IGNORECASE)
+    core = re.sub(r'[^a-zA-Z0-9\s]', '', core)
+    return re.sub(r'\s+', ' ', core).strip()
+
+def get_quantity_normalized(name):
+    match = re.search(r'\bX?\s*(\d+(?:[\.,]\d+)?)\s*(KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', name, flags=re.IGNORECASE)
+    if match:
+        try: 
+            val = float(match.group(1).replace(',', '.'))
+            unit = match.group(2).upper()
+            if unit in ['G', 'GR', 'GRS', 'ML']: val /= 1000.0
+            return val
+        except: pass
+    return 0.0
 
 def es_excepcion_herencia(nombre):
     n_clean = re.sub(r'\s+', '', nombre).upper()
@@ -307,6 +311,7 @@ def subir_maestro():
         prov = detectar_proveedor_exacto(nombre, emp)
         sim, txt = get_currency_info(nombre, prov)
         
+        # Si el Excel sube Soles y NO es Sacco, divide para guardar en USD nativo
         if txt == 'PEN' and prov != "SACCO":
             c_base /= 4.0; c_fab /= 4.0
             if coyun > 0: coyun /= 4.0
@@ -490,14 +495,17 @@ def buscar():
         prods = Producto.query.all()
         res = []
         
+        # Diccionario seguro de productos comprados para herencia
         data_comprados = []
         for c in prods:
             if c.tipo_origen == 'COMPRADO' and not c.oculto:
                 core_val = get_core_name(c.nombre)
-                data_comprados.append({'nombre': c.nombre,'costo_usd': get_val(c.costo_base_man, c.costo_base_ex, 0.0),'core': core_val,'clean': c.nombre.replace(' ', '').upper()})
+                val_usd = get_val(c.costo_base_man, 0.0)
+                data_comprados.append({'nombre': c.nombre,'costo_usd': val_usd,'core': core_val,'clean': c.nombre.replace(' ', '').upper()})
 
         for p in prods:
             if p.oculto: continue
+            
             if "CUAJO IL CASARO SACHETS CAGLIFICIO CLERICI" in p.nombre.upper(): p.visible_ventas = True
             visible = p.visible_ventas if p.visible_ventas is not None else True
             if es_vendedor and not visible: continue
@@ -506,7 +514,8 @@ def buscar():
             prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
             p.moneda_simbolo, p.moneda_texto = get_currency_info(p.nombre, prov_real)
             
-            c_base_usd = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
+            # BLINDAJE MATEMÁTICO: get_val para evitar "None"
+            c_base_usd = get_val(p.costo_base_man, 0.0)
             editable_costo = True 
             
             if p.tipo_origen == 'FABRICADO':
@@ -524,10 +533,10 @@ def buscar():
                         else:
                             c_base_usd = c_heredado_usd; editable_costo = False 
 
-            c_fab_usd = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
-            coyun_usd = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
-            mg = get_val(p.margen_man, p.margen_ex, 0.20)
-            merma_pct = p.merma_pct_man or 0.0
+            c_fab_usd = get_val(p.costo_fab_man, 0.0)
+            coyun_usd = get_val(p.coyuntural_man, 0.0)
+            mg = get_val(p.margen_man, 0.20)
+            merma_pct = get_val(p.merma_pct_man, 0.0)
             
             merma_monto_usd = c_base_usd * merma_pct
             ct_usd = c_base_usd + c_fab_usd + merma_monto_usd
@@ -577,6 +586,7 @@ def buscar():
         try: db.session.commit()
         except: db.session.rollback()
         
+        # 🔥 ORDENAMIENTO POR KILAJE Y FAMILIA 🔥
         res.sort(key=lambda x: (get_core_name(x['nombre']), -get_quantity_normalized(x['nombre']), x['nombre']))
         
         return jsonify({"productos": res, "tc_actual": tc, "alertas": [{"producto": a.producto, "msg": a.msg} for a in Alerta.query.filter_by(tipo="ACTIVA").all()]})
@@ -596,13 +606,13 @@ def exportar_excel():
     for c in Producto.query.all():
         if c.tipo_origen == 'COMPRADO' and not c.oculto:
             core_val = get_core_name(c.nombre)
-            data_comprados.append({'nombre': c.nombre, 'costo_usd': get_val(c.costo_base_man, c.costo_base_ex, 0.0), 'core': core_val, 'w_core': set(core_val.split()), 'clean': c.nombre.replace(' ', '').upper()})
+            data_comprados.append({'nombre': c.nombre, 'costo_usd': get_val(c.costo_base_man, 0.0), 'core': core_val, 'w_core': set(core_val.split()), 'clean': c.nombre.replace(' ', '').upper()})
     
     for p in prods:
         prov_real = detectar_proveedor_exacto(p.nombre, p.empresa)
         sim_real, txt_real = get_currency_info(p.nombre, prov_real)
         
-        c_base_usd = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
+        c_base_usd = get_val(p.costo_base_man, 0.0)
         
         if p.tipo_origen == 'FABRICADO' and not es_excepcion_herencia(p.nombre):
             core_fab = get_core_name(p.nombre)
@@ -627,10 +637,10 @@ def exportar_excel():
                 if p.costo_base_man is not None and p.costo_base_man > 0: c_base_usd = p.costo_base_man
                 else: c_base_usd = c_heredado_usd
 
-        c_fab_usd = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
-        coyun_usd = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
-        mg = get_val(p.margen_man, p.margen_ex, 0.20)
-        merma_pct = p.merma_pct_man or 0.0
+        c_fab_usd = get_val(p.costo_fab_man, 0.0)
+        coyun_usd = get_val(p.coyuntural_man, 0.0)
+        mg = get_val(p.margen_man, 0.20)
+        merma_pct = get_val(p.merma_pct_man, 0.0)
         
         ct_usd = c_base_usd + c_fab_usd + (c_base_usd * merma_pct)
         c_ref_usd = coyun_usd if (coyun_usd > 0 and ct_usd <= coyun_usd) else ct_usd
@@ -641,14 +651,18 @@ def exportar_excel():
             
         p_lima_usd = c_ref_usd * (1 + mg); p_prov_usd = p_lima_usd + flete_usd
         
-        factor = 4.0 if (txt_real == 'PEN' and prov_real != "SACCO") else 1.0
+        is_pen_exception = es_excepcion_soles(p.nombre, prov_real)
+        if is_pen_exception:
+            pl_final = p_lima_usd * 4.0; pp_final = p_prov_usd * 4.0; txt_final = 'PEN'
+        else:
+            pl_final = p_lima_usd; pp_final = p_prov_usd; txt_final = 'USD'
             
         data.append({
-            "Producto": p.nombre, "Kilaje": get_quantity(p.nombre), "Código": p.codigo, "Empresa": p.empresa, "Categoría": p.categoria, "Origen": p.tipo_origen, "Moneda": txt_real,
+            "Producto": p.nombre, "Kilaje": get_quantity(p.nombre), "Código": p.codigo, "Empresa": p.empresa, "Categoría": p.categoria, "Origen": p.tipo_origen, "Moneda": txt_final,
             "Costo Real (USD)": round(c_base_usd, 2), "Costo Fab (USD)": round(c_fab_usd, 2), "Merma (%)": round(merma_pct*100, 2), "Costo Total (USD)": round(ct_usd, 2),
             "Coyuntural (USD)": round(coyun_usd, 2), "Margen (%)": round(mg*100, 2), 
             "PV Autorizado": str(p.pv_str or ''), "Dist Exclusivo": str(p.dist_str or ''),
-            "Precio LIMA": round(p_lima_usd * factor, 2), "Precio PROVINCIA": round(p_prov_usd * factor, 2), 
+            "Precio LIMA": round(pl_final, 2), "Precio PROVINCIA": round(pp_final, 2), 
             "Visible Ventas": "SÍ" if (p.visible_ventas if p.visible_ventas is not None else True) else "NO", "Nota": p.nota
         })
     df = pd.DataFrame(data); output = io.BytesIO()
