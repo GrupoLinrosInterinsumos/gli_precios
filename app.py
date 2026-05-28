@@ -50,6 +50,8 @@ class Producto(db.Model):
     proveedor = db.Column(db.String(100), default='')
     moneda_simbolo = db.Column(db.String(10), default='$')
     moneda_texto = db.Column(db.String(10), default='USD')
+    
+    # Columnas originales del Excel
     costo_base_ex = db.Column(db.Float, default=0.0)
     costo_fab_ex = db.Column(db.Float, default=0.0)
     coyuntural_ex = db.Column(db.Float, default=0.0)
@@ -57,6 +59,7 @@ class Producto(db.Model):
     dscto_pv_ex = db.Column(db.Float, default=0.0)
     dscto_dist_ex = db.Column(db.Float, default=0.0)
     
+    # Columnas Manuales (Sobrescriben)
     costo_base_man = db.Column(db.Float, nullable=True)
     costo_fab_man = db.Column(db.Float, nullable=True)
     coyuntural_man = db.Column(db.Float, nullable=True)
@@ -65,6 +68,7 @@ class Producto(db.Model):
     dscto_pv_man = db.Column(db.Float, nullable=True)
     dscto_dist_man = db.Column(db.Float, nullable=True)
     
+    # Texto libre para descuentos (Max 10 letras)
     pv_str = db.Column(db.String(10), default='')
     dist_str = db.Column(db.String(10), default='')
     
@@ -167,19 +171,18 @@ def es_excepcion_soles(nombre, prov):
     if prov == "JM LUDAFA" or "LUDAFA" in n_upper: return True
     return False
 
-def get_val(man, ex, default):
-    if man is not None: return float(man)
-    if ex is not None: return float(ex)
-    return default
-
-# 🔥 RECUPERACIÓN INTELIGENTE DE DESCUENTOS ANTIGUOS 🔥
 def format_discount(str_val, num_val_man, num_val_ex):
     if str_val and str(str_val).strip():
         return str(str_val).strip()
     num = get_val(num_val_man, num_val_ex, 0.0) * 100
-    if num == 0: return "0%"
+    if num == 0: return ""
     num_rounded = round(num, 2)
     return f"{int(num_rounded)}%" if num_rounded.is_integer() else f"{num_rounded}%"
+
+def get_val(man, ex, default):
+    if man is not None: return float(man)
+    if ex is not None: return float(ex)
+    return default
 
 def robust_numeric(val):
     if val is None or pd.isna(val): return 0.0
@@ -595,20 +598,22 @@ def buscar():
                 "precio_provincia": float(p_prov_usd * factor),
                 "moneda_simbolo": str(p.moneda_simbolo), 
                 "moneda_texto": str(p.moneda_texto), 
-                
-                # 🔥 COMBINAMOS EL TEXTO CON EL NÚMERO ANTIGUO PARA NO PERDER TUS PORCENTAJES 🔥
                 "pv_str": str(format_discount(p.pv_str, p.dscto_pv_man, p.dscto_pv_ex)), 
                 "dist_str": str(format_discount(p.dist_str, p.dscto_dist_man, p.dscto_dist_ex)),
-                
                 "nota": str(p.nota) if hasattr(p, 'nota') and p.nota else "",
                 "visible_ventas": visible, "editable_costo": editable_costo,
+                
+                # 🔥 VARIABLES DE DÓLARES NATIVAS PARA ADMIN 🔥
                 "costo_base_usd": float(c_base_usd), "costo_fab_usd": float(c_fab_usd), 
-                "costo_coyuntural_usd": float(coyun_usd), "es_pen_exception": es_excepcion_soles(p.nombre, prov_real)
+                "merma_monto_usd": float(merma_monto_usd), "costo_actual_usd": float(ct_usd),
+                "costo_coyuntural_usd": float(coyun_usd), "precio_lima_usd": float(p_lima_usd),
+                "precio_provincia_usd": float(p_prov_usd), "es_pen_exception": es_excepcion_soles(p.nombre, prov_real)
             })
         
         try: db.session.commit()
         except: db.session.rollback()
         
+        # 🔥 ORDENAMIENTO POR FAMILIA Y LUEGO DE MAYOR A MENOR KILAJE 🔥
         res.sort(key=lambda x: (get_core_name(x['nombre']), -get_quantity_normalized(x['nombre']), x['nombre']))
         
         return jsonify({"productos": res, "tc_actual": tc, "alertas": [{"producto": a.producto, "msg": a.msg} for a in Alerta.query.filter_by(tipo="ACTIVA").all()]})
