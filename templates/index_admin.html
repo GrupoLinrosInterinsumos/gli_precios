@@ -410,7 +410,7 @@
 
             let htmlContent = '';
             allProductsData.forEach((p) => {
-                let sim = '$', txt = 'USD';
+                let sim = p.moneda_simbolo, txt = p.moneda_texto;
                 let vb = p.costo_base_usd, vf = p.costo_fab_usd, vmer = p.merma_monto_usd, vt = p.costo_actual_usd, vcy = p.costo_coyuntural_usd;
                 let vl = p.precio_lima_usd, vp = p.precio_provincia_usd;
 
@@ -422,12 +422,20 @@
                 else if (modoMoneda === 'PEN') { 
                     if (p.es_pen_exception) {
                         vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; sim='S/'; txt='PEN';
+                    } else if (p.moneda_texto === 'PEN') {
+                        // Sacco, Agitador (Símbolo Nativo)
                     } else {
                         vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN';
                     }
                 } 
                 else if (modoMoneda === 'USD') { 
-                    sim='$'; txt='USD'; 
+                    if (p.es_pen_exception) {
+                        sim='$'; txt='USD';
+                    } else if (p.moneda_texto === 'PEN') {
+                        vb/=tcGlobal; vf/=tcGlobal; vmer/=tcGlobal; vt/=tcGlobal; vcy/=tcGlobal; vl/=tcGlobal; vp/=tcGlobal; sim='$'; txt='USD';
+                    } else {
+                        sim='$'; txt='USD'; 
+                    }
                 }
 
                 let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' ? `<span class="badge-custom"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
