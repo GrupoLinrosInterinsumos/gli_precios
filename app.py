@@ -98,10 +98,11 @@ with app.app_context():
 def load_user(user_id): return User.query.get(int(user_id))
 
 # =========================================================
-# 🛠️ FUNCIONES Y EXCEPCIONES LÓGICAS
+# 🛠️ FUNCIONES Y EXCEPCIONES LOGICAS
 # =========================================================
 FLETE_ESTANDAR = 0.11 
 
+# CLÁSICOS (Base y Fab se dividen/multiplican x 4)
 EXCEPCIONES_SOLES = [
     "COLAGENO HIDROLIZADO GELNEX X 1KG", "COLAGENO HIDROLIZADO GELNEX X 400G",
     "FOSFATO PARA JAMONES BUDENHEIM X 1KG", "FOSFATO PARA JAMONES BUDENHEIM X 5KG",
@@ -112,6 +113,7 @@ EXCEPCIONES_SOLES = [
     "AMILASA MALTOGENICA MTG1500"
 ]
 
+# NATIVOS (Símbolo en Soles pero Costos Intactos)
 EXCEPCIONES_NATIVAS = [
     "AGITADOR DE LECHE",
     "ALCOHOLIMETRO",
@@ -138,11 +140,10 @@ def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
     if "LUDAFA" in n_up: return "JM LUDAFA"
     return str(empresa_col).strip().upper()
 
+# DEFINICIÓN DE FAMILIAS
 def es_nativo_soles(nombre):
     n_up = nombre.upper()
-    for exc in EXCEPCIONES_NATIVAS:
-        if exc in n_up: return True
-    return False
+    return any(exc in n_up for exc in EXCEPCIONES_NATIVAS)
 
 def es_proveedor_soles_mixto(nombre, prov):
     n_upper = nombre.upper()
@@ -152,23 +153,20 @@ def es_proveedor_soles_mixto(nombre, prov):
         return True
     return False
 
-def es_excepcion_soles(nombre, prov):
-    if es_nativo_soles(nombre): return True
-    if es_proveedor_soles_mixto(nombre, prov): return True
-    
+def es_excepcion_soles_clasica(nombre):
     n_clean = re.sub(r'\s+', '', nombre.upper()).replace('Á', 'A').replace('Ó', 'O')
-    for exc in EXCEPCIONES_SOLES:
-        if exc.replace(" ", "").upper() in n_clean: return True
-    if "COLAGENO" in n_clean:
-        if "1KG" in n_clean or "400G" in n_clean: return True
+    if any(exc.replace(" ", "") in n_clean for exc in EXCEPCIONES_SOLES): return True
+    if "COLAGENO" in n_clean and ("1KG" in n_clean or "400G" in n_clean): return True
     return False
 
 def get_currency_info(nombre, proveedor):
-    if es_excepcion_soles(nombre, proveedor): return "S/", "PEN"
+    if es_nativo_soles(nombre): return "S/", "PEN"
+    if es_proveedor_soles_mixto(nombre, proveedor): return "S/", "PEN"
+    if es_excepcion_soles_clasica(nombre): return "S/", "PEN"
+    
     if proveedor == "SACCO" or "SACCO" in nombre.upper():
         n_clean = re.sub(r'\s+', '', nombre.upper()).replace('Á', 'A').replace('Ó', 'O')
-        for exc in EXCEPCIONES_SACCO_USD:
-            if exc.replace(" ", "") in n_clean: return "$", "USD"
+        if any(exc.replace(" ", "") in n_clean for exc in EXCEPCIONES_SACCO_USD): return "$", "USD"
         return "S/", "PEN"
     return "$", "USD"
 
@@ -344,22 +342,19 @@ def subir_maestro():
         if "NATAMICINA" in n_clean_check or "NISINA" in n_clean_check: emp = "INTERINSUMOS"
             
         prov = detectar_proveedor_exacto(nombre, emp)
-        sim, txt = get_currency_info(nombre, prov)
         
+        # Filtros de familia para subida
         is_mixto = es_proveedor_soles_mixto(nombre, prov)
         is_nativo = es_nativo_soles(nombre)
-        is_pen = es_excepcion_soles(nombre, prov)
+        is_clasica = es_excepcion_soles_clasica(nombre)
 
-        # LÓGICA DE CARGA SEGÚN FAMILIA
-        if is_pen:
-            if is_nativo:
-                pass # Nativos: No se toca nada, entran puros en Soles
-            elif is_mixto:
-                c_fab /= 4.0 # Mixtos: Base es Soles puro, Fab se divide.
-            else:
-                # Clásicos: Todo se divide para ser almacenado en USD base
-                c_base /= 4.0; c_fab /= 4.0
-                if coyun > 0: coyun /= 4.0
+        if is_nativo:
+            pass # Nativos se quedan puros
+        elif is_mixto:
+            c_fab /= 4.0 # Mixtos solo dividen el FAB
+        elif is_clasica:
+            c_base /= 4.0; c_fab /= 4.0
+            if coyun > 0: coyun /= 4.0
 
         p = Producto.query.filter_by(nombre=nombre).first()
         if not p: p = Producto(nombre=nombre, oculto=False, usd_converted=True); db.session.add(p)
@@ -447,23 +442,21 @@ def crear_producto():
     tipo_origen_val = str(d.get('origen', 'COMPRADO')).upper().strip()
     
     prov = detectar_proveedor_exacto(nombre, empresa_val)
-    sim, txt = get_currency_info(nombre, prov)
     
     c_base = robust_numeric(d.get('costo_base'))
     c_fab = robust_numeric(d.get('costo_fab'))
     coyun = robust_numeric(d.get('coyuntural'))
 
-    is_mixto = es_proveedor_soles_mixto(nombre, prov)
-    is_nativo = es_nativo_soles(nombre)
-    is_pen = es_excepcion_soles(nombre, prov)
-
     if not nombre_original: 
-        if is_pen:
-            if is_nativo: pass
-            elif is_mixto: c_fab /= 4.0
-            else:
-                c_base /= 4.0; c_fab /= 4.0
-                if coyun > 0: coyun /= 4.0
+        is_mixto = es_proveedor_soles_mixto(nombre, prov)
+        is_nativo = es_nativo_soles(nombre)
+        is_clasica = es_excepcion_soles_clasica(nombre)
+
+        if is_nativo: pass
+        elif is_mixto: c_fab /= 4.0
+        elif is_clasica:
+            c_base /= 4.0; c_fab /= 4.0
+            if coyun > 0: coyun /= 4.0
 
     merma = (robust_numeric(str(d.get('merma', '')).strip()) / 100.0) if str(d.get('merma', '')).strip() else 0.0
     margen_val = str(d.get('margen', '')).strip()
@@ -597,46 +590,71 @@ def buscar():
             mg = get_val(p.margen_man, p.margen_ex, 0.20)
             merma_pct = p.merma_pct_man or 0.0
             
-            is_mixto = es_proveedor_soles_mixto(p.nombre, prov_real)
             is_nativo = es_nativo_soles(p.nombre)
-            is_pen = es_excepcion_soles(p.nombre, prov_real)
+            is_mixto = es_proveedor_soles_mixto(p.nombre, prov_real)
+            is_clasica = es_excepcion_soles_clasica(p.nombre)
             is_frag = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
-            
-            # 🔥 LÓGICA DE FAMILIAS PARA EL CÁLCULO FINAL 🔥
-            if is_nativo or is_mixto:
+
+            # 🔥 CÁLCULO SEPARADO POR FAMILIAS 🔥
+            if is_nativo:
                 base_pen = c_base_db
-                fab_pen = c_fab_db if is_nativo else (c_fab_db * 4.0)
+                fab_pen = c_fab_db
                 coyun_pen = coyun_db
-                
                 merma_pen = base_pen * merma_pct
                 ct_pen = base_pen + fab_pen + merma_pen
                 c_ref_pen = coyun_pen if (coyun_pen > 0 and ct_pen <= coyun_pen) else ct_pen
                 p_lima_pen = c_ref_pen * (1 + mg)
+                p_prov_pen = p_lima_pen + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR * 4.0)
                 
-                # Flete a soles
-                flete_usd = 0.0 if (prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag) else FLETE_ESTANDAR
-                p_prov_pen = p_lima_pen + (flete_usd * 4.0)
-                
-                # Dividimos por 4.0 para el puente al frontend (el UI lo multiplicará x4 y dará el PEN perfecto)
                 c_base_usd_send = base_pen / 4.0
                 c_fab_usd_send = fab_pen / 4.0
+                coyun_usd_send = coyun_pen / 4.0
                 merma_monto_usd_send = merma_pen / 4.0
                 ct_usd_send = ct_pen / 4.0
-                coyun_usd_send = coyun_pen / 4.0
                 p_lima_usd_send = p_lima_pen / 4.0
                 p_prov_usd_send = p_prov_pen / 4.0
+                factor_display = 4.0
+
+            elif is_mixto:
+                base_pen = c_base_db
+                fab_pen = c_fab_db * 4.0
+                coyun_pen = coyun_db
+                merma_pen = base_pen * merma_pct
+                ct_pen = base_pen + fab_pen + merma_pen
+                c_ref_pen = coyun_pen if (coyun_pen > 0 and ct_pen <= coyun_pen) else ct_pen
+                p_lima_pen = c_ref_pen * (1 + mg)
+                p_prov_pen = p_lima_pen + 0.0 # Ludafa y Clerici son flete cero
                 
+                c_base_usd_send = base_pen / 4.0
+                c_fab_usd_send = c_fab_db
+                coyun_usd_send = coyun_pen / 4.0
+                merma_monto_usd_send = merma_pen / 4.0
+                ct_usd_send = ct_pen / 4.0
+                p_lima_usd_send = p_lima_pen / 4.0
+                p_prov_usd_send = p_prov_pen / 4.0
+                factor_display = 4.0
+
+            elif is_clasica:
+                c_base_usd_send = c_base_db
+                c_fab_usd_send = c_fab_db
+                coyun_usd_send = coyun_db
+                merma_monto_usd_send = c_base_usd_send * merma_pct
+                ct_usd_send = c_base_usd_send + c_fab_usd_send + merma_monto_usd_send
+                c_ref_usd = coyun_usd_send if (coyun_usd_send > 0 and ct_usd_send <= coyun_usd_send) else ct_usd_send
+                p_lima_usd_send = c_ref_usd * (1 + mg)
+                p_prov_usd_send = p_lima_usd_send + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR)
+                factor_display = 4.0
+
             else:
                 c_base_usd_send = c_base_db
                 c_fab_usd_send = c_fab_db
+                coyun_usd_send = coyun_db
                 merma_monto_usd_send = c_base_usd_send * merma_pct
                 ct_usd_send = c_base_usd_send + c_fab_usd_send + merma_monto_usd_send
-                coyun_usd_send = coyun_db
                 c_ref_usd = coyun_usd_send if (coyun_usd_send > 0 and ct_usd_send <= coyun_usd_send) else ct_usd_send
-                
                 p_lima_usd_send = c_ref_usd * (1 + mg)
-                flete_usd = 0.0 if (prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag) else FLETE_ESTANDAR
-                p_prov_usd_send = p_lima_usd_send + flete_usd
+                p_prov_usd_send = p_lima_usd_send + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag else FLETE_ESTANDAR)
+                factor_display = 1.0
 
             if coyun_db > 0 and ct_usd_send > coyun_usd_send:
                 try: db.session.add(Alerta(fecha="ACTIVA", msg="Superó Costo Coyuntural", producto=p.nombre, tipo="ACTIVA"))
@@ -646,22 +664,22 @@ def buscar():
                 "nombre": str(p.nombre), "codigo": str(p.codigo), "empresa": str(p.empresa or ''), 
                 "categoria": str(p.categoria or ''), "tipo_origen": str(p.tipo_origen or ''),
                 
-                # Para la visualización frontend
-                "costo_base": float(c_base_usd_send * 4.0 if is_pen else c_base_usd_send), 
-                "costo_fab": float(c_fab_usd_send * 4.0 if is_pen else c_fab_usd_send), 
+                "costo_base": float(c_base_usd_send * factor_display), 
+                "costo_fab": float(c_fab_usd_send * factor_display), 
                 "merma_porcentaje": round(merma_pct * 100, 2), 
-                "merma_monto": float(merma_monto_usd_send * 4.0 if is_pen else merma_monto_usd_send), 
-                "costo_actual": float(ct_usd_send * 4.0 if is_pen else ct_usd_send), 
-                "costo_coyuntural": float(coyun_usd_send * 4.0 if is_pen else coyun_usd_send),
+                "merma_monto": float(merma_monto_usd_send * factor_display), 
+                "costo_actual": float(ct_usd_send * factor_display), 
+                "costo_coyuntural": float(coyun_usd_send * factor_display),
                 "margen": round(mg * 100, 2), 
-                "precio_lima": float(p_lima_usd_send * 4.0 if is_pen else p_lima_usd_send), 
-                "precio_provincia": float(p_prov_usd_send * 4.0 if is_pen else p_prov_usd_send),
+                "precio_lima": float(p_lima_usd_send * factor_display), 
+                "precio_provincia": float(p_prov_usd_send * factor_display),
                 
-                # Variables Nativas USD para el Admin Bridge
                 "costo_base_usd": float(c_base_usd_send), "costo_fab_usd": float(c_fab_usd_send), 
                 "merma_monto_usd": float(merma_monto_usd_send), "costo_actual_usd": float(ct_usd_send),
                 "costo_coyuntural_usd": float(coyun_usd_send), "precio_lima_usd": float(p_lima_usd_send),
-                "precio_provincia_usd": float(p_prov_usd_send), "es_pen_exception": is_pen,
+                "precio_provincia_usd": float(p_prov_usd_send), 
+                "es_pen_exception": (is_nativo or is_mixto or is_clasica),
+                
                 "moneda_simbolo": str(p.moneda_simbolo), "moneda_texto": str(p.moneda_texto), 
                 
                 "pv_str": str(format_discount(p.pv_str, p.dscto_pv_man, p.dscto_pv_ex)), 
@@ -716,21 +734,21 @@ def exportar_excel():
         mg = get_val(p.margen_man, p.margen_ex, 0.20)
         merma_pct = p.merma_pct_man or 0.0
         
-        is_mixto = es_proveedor_soles_mixto(p.nombre, prov_real)
         is_nativo = es_nativo_soles(p.nombre)
-        is_pen = es_excepcion_soles(p.nombre, prov_real)
+        is_mixto = es_proveedor_soles_mixto(p.nombre, prov_real)
+        is_clasica = es_excepcion_soles_clasica(p.nombre)
         is_frag = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
         flete_usd = 0.0 if (prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag) else FLETE_ESTANDAR
 
         if is_nativo or is_mixto:
             base_final = c_base_db
-            fab_final = c_fab_db if is_nativo else c_fab_db * 4.0
+            fab_final = (c_fab_db * 4.0) if is_mixto else c_fab_db
             coyun_final = coyun_db
             merma_final = base_final * merma_pct
             ct_final = base_final + fab_final + merma_final
             c_ref_final = coyun_final if (coyun_final > 0 and ct_final <= coyun_final) else ct_final
             p_lima_final = c_ref_final * (1 + mg)
-            p_prov_final = p_lima_final + (0.0 if is_mixto else flete_usd * 4.0)
+            p_prov_final = p_lima_final + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else flete_usd * 4.0)
             txt_final = 'PEN'
         else:
             base_usd = c_base_db
@@ -742,7 +760,7 @@ def exportar_excel():
             p_lima_usd = c_ref_usd * (1 + mg)
             p_prov_usd = p_lima_usd + flete_usd
             
-            if is_pen:
+            if is_clasica:
                 base_final = base_usd * 4.0
                 fab_final = fab_usd * 4.0
                 coyun_final = coyun_usd * 4.0
@@ -759,7 +777,7 @@ def exportar_excel():
                 ct_final = ct_usd
                 p_lima_final = p_lima_usd
                 p_prov_final = p_prov_usd
-                txt_final = 'USD'
+                txt_final = txt_real
             
         data.append({
             "Producto": p.nombre, "Kilaje": get_quantity(p.nombre), "Código": p.codigo, "Empresa": p.empresa, "Categoría": p.categoria, "Origen": p.tipo_origen, "Moneda": txt_final,
