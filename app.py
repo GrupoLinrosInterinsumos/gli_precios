@@ -140,7 +140,6 @@ def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
     if "LUDAFA" in n_up: return "JM LUDAFA"
     return str(empresa_col).strip().upper()
 
-# DEFINICIÓN DE FAMILIAS
 def es_nativo_soles(nombre):
     n_up = nombre.upper()
     return any(exc in n_up for exc in EXCEPCIONES_NATIVAS)
@@ -231,6 +230,14 @@ def get_quantity_normalized(name):
             return val
         except: pass
     return 0.0
+
+# 🔥 FUNCIÓN RESTAURADA PARA LA EXPORTACIÓN DEL EXCEL 🔥
+def get_quantity(name):
+    match = re.search(r'\bX?\s*(\d+(?:[\.,]\d+)?)\s*(?:KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', name, flags=re.IGNORECASE)
+    if match:
+        try: return float(match.group(1).replace(',', '.'))
+        except: pass
+    return ""
 
 def es_excepcion_herencia(nombre):
     n_clean = re.sub(r'\s+', '', nombre).upper()
@@ -343,15 +350,14 @@ def subir_maestro():
             
         prov = detectar_proveedor_exacto(nombre, emp)
         
-        # Filtros de familia para subida
         is_mixto = es_proveedor_soles_mixto(nombre, prov)
         is_nativo = es_nativo_soles(nombre)
         is_clasica = es_excepcion_soles_clasica(nombre)
 
         if is_nativo:
-            pass # Nativos se quedan puros
+            pass 
         elif is_mixto:
-            c_fab /= 4.0 # Mixtos solo dividen el FAB
+            c_fab /= 4.0 
         elif is_clasica:
             c_base /= 4.0; c_fab /= 4.0
             if coyun > 0: coyun /= 4.0
@@ -595,7 +601,6 @@ def buscar():
             is_clasica = es_excepcion_soles_clasica(p.nombre)
             is_frag = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
 
-            # 🔥 CÁLCULO SEPARADO POR FAMILIAS 🔥
             if is_nativo:
                 base_pen = c_base_db
                 fab_pen = c_fab_db
@@ -623,7 +628,7 @@ def buscar():
                 ct_pen = base_pen + fab_pen + merma_pen
                 c_ref_pen = coyun_pen if (coyun_pen > 0 and ct_pen <= coyun_pen) else ct_pen
                 p_lima_pen = c_ref_pen * (1 + mg)
-                p_prov_pen = p_lima_pen + 0.0 # Ludafa y Clerici son flete cero
+                p_prov_pen = p_lima_pen + 0.0 
                 
                 c_base_usd_send = base_pen / 4.0
                 c_fab_usd_send = c_fab_db
@@ -716,6 +721,7 @@ def exportar_excel():
         prov_real = detectar_proveedor_exacto(p.nombre, str(p.empresa or ''))
         sim_real, txt_real = get_currency_info(p.nombre, prov_real)
         
+        # 🔥 LA REPARACIÓN PRINCIPAL ESTÁ AQUÍ 🔥
         c_base_db = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
         
         if p.tipo_origen == 'FABRICADO' and not es_excepcion_herencia(p.nombre):
