@@ -206,7 +206,8 @@
                 vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN'; 
             } 
             else if (modoMoneda === 'USD' && txt === 'PEN') { 
-                vl/=4.0; vp/=4.0; sim='$'; txt='USD'; 
+                let divisor = p.es_pen_exception ? 4.0 : tcGlobal;
+                vl/=divisor; vp/=divisor; sim='$'; txt='USD'; 
             }
 
             let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' ? `<span class="badge-custom mt-1"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
