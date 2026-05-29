@@ -102,6 +102,7 @@ def load_user(user_id): return User.query.get(int(user_id))
 # =========================================================
 FLETE_ESTANDAR = 0.11 
 
+# Lista Clásica (Sí se dividen y multiplican por 4.0)
 EXCEPCIONES_SOLES = [
     "COLAGENO HIDROLIZADO GELNEX X 1KG", "COLAGENO HIDROLIZADO GELNEX X 400G",
     "FOSFATO PARA JAMONES BUDENHEIM X 1KG", "FOSFATO PARA JAMONES BUDENHEIM X 5KG",
@@ -110,6 +111,14 @@ EXCEPCIONES_SOLES = [
     "PREPARADO VITAMINA C LINROS X 500G",
     "SAL DE CURA CONCENTRADA TECNAS X 1KG", "SAL DE CURA CONCENTRADA TECNAS X 25KG", "SAL DE CURA CONCENTRADA TECNAS X 5KG",
     "AMILASA MALTOGENICA MTG1500"
+]
+
+# 🔥 NUEVA LISTA: Solo Símbolo (Soles nativos, No sufren matemática de 4.0) 🔥
+EXCEPCIONES_SOLES_SIMBOLO_NATIVO = [
+    "AGITADOR DE LECHE",
+    "ALCOHOLIMETRO",
+    "CARBONATO DE CALCIO",
+    "MOLDERA ACERO INOX"
 ]
 
 EXCEPCIONES_SACCO_USD = ["LYOTO M 536 R", "LYOTO M 536 S", "LYOFAST AB 1", "LYOFAST Y 438 A", "LYOFAST Y 470 E"]
@@ -134,8 +143,15 @@ def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
 def get_currency_info(nombre, proveedor):
     n_upper = nombre.upper()
     n_clean = re.sub(r'\s+', '', n_upper).replace('Á', 'A').replace('Ó', 'O')
+    
+    # Check excepciones clásicas
     for exc in EXCEPCIONES_SOLES:
         if exc.replace(" ", "").upper() in n_clean: return "S/", "PEN"
+        
+    # Check lista nueva de solo símbolo
+    for exc in EXCEPCIONES_SOLES_SIMBOLO_NATIVO:
+        if exc.replace(" ", "").upper() in n_clean: return "S/", "PEN"
+        
     if "COLAGENO" in n_clean:
         if "1KG" in n_clean or "400G" in n_clean: return "S/", "PEN"
         return "$", "USD"
@@ -151,8 +167,14 @@ def get_currency_info(nombre, proveedor):
     return "$", "USD"
 
 def es_excepcion_soles(nombre, prov):
+    # Esta función ahora define ESTRICTAMENTE a quiénes se les aplica el factor matemático de 4.0
     n_upper = nombre.upper()
     n_clean = re.sub(r'\s+', '', n_upper).replace('Á', 'A').replace('Ó', 'O')
+    
+    # Si están en la lista VIP de solo símbolo, el factor 4.0 es FALSO
+    for exc in EXCEPCIONES_SOLES_SIMBOLO_NATIVO:
+        if exc.replace(" ", "").upper() in n_clean: return False
+        
     for exc in EXCEPCIONES_SOLES:
         if exc.replace(" ", "").upper() in n_clean: return True
     if "COLAGENO" in n_clean:
@@ -168,27 +190,19 @@ def es_excepcion_soles(nombre, prov):
     if prov == "JM LUDAFA" or "LUDAFA" in n_upper: return True
     return False
 
-# 🔥 PUENTE INTELIGENTE: RESCATA NÚMEROS ANTIGUOS Y PROCESA TEXTO NUEVO 🔥
 def format_discount(str_val, num_val_man, num_val_ex):
-    # 1. Evaluamos la celda de texto nuevo
     if str_val and str(str_val).strip() and str(str_val).strip().lower() != 'nan':
         s = str(str_val).strip()
-        # Si es un 0 absoluto, lo ignoramos para buscar en el historial viejo
         if s not in ["0", "0.0", "0.00"]:
             try:
-                # Intentamos ver si es un número (Ej: 0.15 de Excel, o 15 tipeado)
                 f = float(s)
-                if 0.0 < f <= 1.0: # Viene de Excel como 0.15
+                if 0.0 < f <= 1.0: 
                     num_rounded = round(f * 100, 2)
                     return f"{int(num_rounded)}%" if num_rounded.is_integer() else f"{num_rounded}%"
-                else: # Viene de un tipeo directo como "15"
+                else: 
                     num_rounded = round(f, 2)
                     return f"{int(num_rounded)}%" if num_rounded.is_integer() else f"{num_rounded}%"
-            except ValueError:
-                # Si falló al convertir a float, es texto puro (Ej: "CONSULTAR")
-                return s
-
-    # 2. Si el texto está vacío, Rescatamos de la Base de Datos Antigua
+            except ValueError: return s
     num = get_val(num_val_man, num_val_ex, 0.0) * 100
     num_rounded = round(num, 2)
     return f"{int(num_rounded)}%" if num_rounded.is_integer() else f"{num_rounded}%"
@@ -349,7 +363,8 @@ def subir_maestro():
         prov = detectar_proveedor_exacto(nombre, emp)
         sim, txt = get_currency_info(nombre, prov)
         
-        if txt == 'PEN' and prov != "SACCO":
+        # Ojo aquí: Solo se divide entre 4 a los que dan True en es_excepcion_soles
+        if es_excepcion_soles(nombre, prov):
             c_base /= 4.0; c_fab /= 4.0
             if coyun > 0: coyun /= 4.0
 
@@ -376,15 +391,8 @@ def subir_maestro():
         p.margen_man = None
         p.dscto_pv_man = None
         p.dscto_dist_man = None
-        
-        pv_val = str(get_col_val(row, ['pv autorizado', 'dscto pv', 'descuento pv'], '')).strip()
-        dist_val = str(get_col_val(row, ['dist exclusivo', 'dscto dist', 'descuento dist'], '')).strip()
-        
-        if pv_val.lower() == 'nan': pv_val = ''
-        if dist_val.lower() == 'nan': dist_val = ''
-        
-        p.pv_str = pv_val[:10]
-        p.dist_str = dist_val[:10]
+        p.pv_str = ''
+        p.dist_str = ''
         
         p.nota = str(get_col_val(row, ['nota', 'notas'], p.nota)).strip()
         if p.nota.lower() == 'nan': p.nota = ''
@@ -446,7 +454,7 @@ def crear_producto():
     coyun = robust_numeric(d.get('coyuntural'))
 
     if not nombre_original: 
-        if txt == 'PEN' and prov != "SACCO":
+        if es_excepcion_soles(nombre, prov):
             c_base /= 4.0; c_fab /= 4.0
             if coyun > 0: coyun /= 4.0
 
@@ -597,7 +605,8 @@ def buscar():
             p_lima_usd = c_ref_usd * (1 + mg)
             p_prov_usd = p_lima_usd + flete_usd
 
-            factor = 4.0 if (p.moneda_texto == 'PEN' and prov_real != "SACCO") else 1.0
+            es_pen_exc = es_excepcion_soles(p.nombre, prov_real)
+            factor = 4.0 if es_pen_exc else 1.0
 
             res.append({
                 "nombre": str(p.nombre), "codigo": str(p.codigo), "empresa": str(p.empresa or ''), 
@@ -611,7 +620,7 @@ def buscar():
                 "costo_base_usd": float(c_base_usd), "costo_fab_usd": float(c_fab_usd), 
                 "merma_monto_usd": float(merma_monto_usd), "costo_actual_usd": float(ct_usd),
                 "costo_coyuntural_usd": float(coyun_usd), "precio_lima_usd": float(p_lima_usd),
-                "precio_provincia_usd": float(p_prov_usd), "es_pen_exception": es_excepcion_soles(p.nombre, prov_real),
+                "precio_provincia_usd": float(p_prov_usd), "es_pen_exception": es_pen_exc,
                 "moneda_simbolo": str(p.moneda_simbolo), "moneda_texto": str(p.moneda_texto), 
                 
                 "pv_str": str(format_discount(p.pv_str, p.dscto_pv_man, p.dscto_pv_ex)), 
@@ -672,7 +681,7 @@ def exportar_excel():
         flete_usd = 0.0 if (prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag) else FLETE_ESTANDAR
             
         p_lima_usd = c_ref_usd * (1 + mg); p_prov_usd = p_lima_usd + flete_usd
-        factor = 4.0 if (txt_real == 'PEN' and prov_real != "SACCO") else 1.0
+        factor = 4.0 if es_excepcion_soles(p.nombre, prov_real) else 1.0
             
         data.append({
             "Producto": p.nombre, "Kilaje": get_quantity(p.nombre), "Código": p.codigo, "Empresa": p.empresa, "Categoría": p.categoria, "Origen": p.tipo_origen, "Moneda": txt_real,
@@ -680,7 +689,7 @@ def exportar_excel():
             "Coyuntural (USD)": round(coyun_usd, 2), "Margen (%)": round(mg*100, 2), 
             "PV Autorizado": str(format_discount(p.pv_str, p.dscto_pv_man, p.dscto_pv_ex)), 
             "Dist Exclusivo": str(format_discount(p.dist_str, p.dscto_dist_man, p.dscto_dist_ex)),
-            "Precio LIMA": round(pl_final, 2), "Precio PROVINCIA": round(pp_final, 2), 
+            "Precio LIMA": round(p_lima_usd * factor, 2), "Precio PROVINCIA": round(p_prov_usd * factor, 2), 
             "Visible Ventas": "SÍ" if (p.visible_ventas if p.visible_ventas is not None else True) else "NO", "Nota": p.nota
         })
     df = pd.DataFrame(data); output = io.BytesIO()
