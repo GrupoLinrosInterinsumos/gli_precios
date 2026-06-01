@@ -140,14 +140,17 @@ def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
     if "LUDAFA" in n_up: return "JM LUDAFA"
     return str(empresa_col).strip().upper()
 
+# DEFINICIÓN DE FAMILIAS
 def es_nativo_soles(nombre):
     n_up = nombre.upper()
     return any(exc in n_up for exc in EXCEPCIONES_NATIVAS)
 
 def es_proveedor_soles_mixto(nombre, prov):
     n_upper = nombre.upper()
+    n_clean = re.sub(r'\s+', '', n_upper)
     if prov == "CAGLIFICIO CLERICI" or "CLERICI" in n_upper or "CAGLIFICIO" in n_upper:
-        return not any(e in n_upper.replace(" ", "") for e in EXCEPCIONES_CLERICI_USD)
+        # 🔥 AQUÍ ESTÁ LA CORRECCIÓN: Compara limpiando los espacios de la lista también 🔥
+        return not any(e.replace(" ", "") in n_clean for e in EXCEPCIONES_CLERICI_USD)
     if prov == "JM LUDAFA" or "LUDAFA" in n_upper:
         return True
     return False
@@ -231,7 +234,6 @@ def get_quantity_normalized(name):
         except: pass
     return 0.0
 
-# 🔥 FUNCIÓN RESTAURADA PARA LA EXPORTACIÓN DEL EXCEL 🔥
 def get_quantity(name):
     match = re.search(r'\bX?\s*(\d+(?:[\.,]\d+)?)\s*(?:KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', name, flags=re.IGNORECASE)
     if match:
@@ -721,7 +723,6 @@ def exportar_excel():
         prov_real = detectar_proveedor_exacto(p.nombre, str(p.empresa or ''))
         sim_real, txt_real = get_currency_info(p.nombre, prov_real)
         
-        # 🔥 LA REPARACIÓN PRINCIPAL ESTÁ AQUÍ 🔥
         c_base_db = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
         
         if p.tipo_origen == 'FABRICADO' and not es_excepcion_herencia(p.nombre):
@@ -746,15 +747,25 @@ def exportar_excel():
         is_frag = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
         flete_usd = 0.0 if (prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag) else FLETE_ESTANDAR
 
-        if is_nativo or is_mixto:
+        if is_nativo:
             base_final = c_base_db
-            fab_final = (c_fab_db * 4.0) if is_mixto else c_fab_db
+            fab_final = c_fab_db
             coyun_final = coyun_db
             merma_final = base_final * merma_pct
             ct_final = base_final + fab_final + merma_final
             c_ref_final = coyun_final if (coyun_final > 0 and ct_final <= coyun_final) else ct_final
             p_lima_final = c_ref_final * (1 + mg)
             p_prov_final = p_lima_final + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else flete_usd * 4.0)
+            txt_final = 'PEN'
+        elif is_mixto:
+            base_final = c_base_db
+            fab_final = c_fab_db * 4.0
+            coyun_final = coyun_db
+            merma_final = base_final * merma_pct
+            ct_final = base_final + fab_final + merma_final
+            c_ref_final = coyun_final if (coyun_final > 0 and ct_final <= coyun_final) else ct_final
+            p_lima_final = c_ref_final * (1 + mg)
+            p_prov_final = p_lima_final + 0.0
             txt_final = 'PEN'
         else:
             base_usd = c_base_db
