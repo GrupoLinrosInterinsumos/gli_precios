@@ -103,6 +103,7 @@ def load_user(user_id): return User.query.get(int(user_id))
 # =========================================================
 FLETE_ESTANDAR = 0.11 
 
+# CLÁSICOS (Base y Fab se dividen/multiplican x 4)
 EXCEPCIONES_SOLES = [
     "COLAGENO HIDROLIZADO GELNEX X 1KG", "COLAGENO HIDROLIZADO GELNEX X 400G",
     "FOSFATO PARA JAMONES BUDENHEIM X 1KG", "FOSFATO PARA JAMONES BUDENHEIM X 5KG",
@@ -113,8 +114,12 @@ EXCEPCIONES_SOLES = [
     "AMILASA MALTOGENICA MTG1500"
 ]
 
+# NATIVOS (Símbolo en Soles pero Costos Intactos)
 EXCEPCIONES_NATIVAS = [
-    "AGITADOR DE LECHE", "ALCOHOLIMETRO", "CARBONATO DE CALCIO", "MOLDERA ACERO INOX"
+    "AGITADOR DE LECHE",
+    "ALCOHOLIMETRO",
+    "CARBONATO DE CALCIO",
+    "MOLDERA ACERO INOX"
 ]
 
 EXCEPCIONES_SACCO_USD = ["LYOTO M 536 R", "LYOTO M 536 S", "LYOFAST AB 1", "LYOFAST Y 438 A", "LYOFAST Y 470 E"]
@@ -160,6 +165,7 @@ def get_currency_info(nombre, proveedor):
     if es_nativo_soles(nombre): return "S/", "PEN"
     if es_proveedor_soles_mixto(nombre, proveedor): return "S/", "PEN"
     if es_excepcion_soles_clasica(nombre): return "S/", "PEN"
+    
     if proveedor == "SACCO" or "SACCO" in str(nombre).upper():
         n_clean = re.sub(r'\s+', '', str(nombre).upper()).replace('Á', 'A').replace('Ó', 'O')
         if any(exc.replace(" ", "") in n_clean for exc in EXCEPCIONES_SACCO_USD): return "$", "USD"
@@ -280,6 +286,33 @@ def gestion_usuarios():
 
 def is_admin_api(): return current_user.is_authenticated and current_user.role in ['Admin', 'SuperAdmin']
 
+@app.route('/api/crear-usuario', methods=['POST'])
+def crear_usuario():
+    if current_user.role != 'SuperAdmin': return jsonify({"error": "No"}), 403
+    d = request.json
+    if User.query.filter_by(email=d['email']).first(): return jsonify({"error": "Existe"}), 400
+    db.session.add(User(email=d['email'], password=generate_password_hash(d['password']), role=d['role']))
+    db.session.commit(); return jsonify({"success": True})
+
+@app.route('/api/editar-usuario', methods=['POST'])
+@login_required
+def editar_usuario():
+    if current_user.role != 'SuperAdmin': return jsonify({"error": "No"}), 403
+    d = request.json; u = User.query.get(d['id'])
+    if u:
+        u.role = d['role']
+        if d.get('password'): u.password = generate_password_hash(d['password'])
+        db.session.commit()
+    return jsonify({"success": True})
+
+@app.route('/api/eliminar-usuario/<int:id>', methods=['POST'])
+@login_required
+def eliminar_usuario(id):
+    if current_user.role != 'SuperAdmin': return jsonify({"error": "No"}), 403
+    u = User.query.get(id)
+    if u and u.id != current_user.id: db.session.delete(u); db.session.commit()
+    return jsonify({"success": True})
+
 @app.route('/api/update-tc', methods=['POST'])
 @login_required
 def update_tc():
@@ -360,6 +393,34 @@ def subir_maestro():
     except Exception as e:
         print(f"Error en subir maestro: {e}")
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/subir-relaciones', methods=['POST'])
+@login_required
+def subir_relaciones():
+    if not is_admin_api(): return jsonify({"error": "No"}), 403
+    f = request.files.get('archivo')
+    if not f: return jsonify({"error": "No hay archivo"}), 400
+    try:
+        df = pd.read_excel(f)
+        df.columns = [str(c).strip().lower() for c in df.columns]
+        for _, row in df.iterrows():
+            nombre = str(row.get('nombre', '')).strip().upper()
+            if not nombre: continue
+            
+            nombre_clean = re.sub(r'\s+', ' ', nombre)
+            p = Producto.query.filter_by(nombre=nombre).first()
+            if not p:
+                for prod in Producto.query.all():
+                    if re.sub(r'\s+', ' ', prod.nombre.upper()) == nombre_clean:
+                        p = prod; break
+
+            if p:
+                p.categoria = str(row.get('categoria', '')).strip().upper()
+                p.codigo = str(row.get('referencia interna', p.codigo)).strip()
+                p.tipo_origen = str(row.get('columna1', 'COMPRADO')).strip().upper()
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e: return jsonify({"error": str(e)}), 500
 
 @app.route('/api/crear-producto', methods=['POST'])
 @login_required
@@ -482,7 +543,6 @@ def buscar():
         prods = Producto.query.all()
         res = []
         
-        # 🔥 CREAMOS EL DICCIONARIO CON COYUNTURAL PARA HERENCIA 🔥
         data_comprados = []
         for c in prods:
             if c.tipo_origen == 'COMPRADO' and not c.oculto:
@@ -508,7 +568,6 @@ def buscar():
             coyun_db = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
             editable_costo = True 
             
-            # 🔥 HERENCIA INTELIGENTE (Base y Coyuntural) 🔥
             if p.tipo_origen == 'FABRICADO' and not es_excepcion_herencia(p.nombre):
                 core_fab = get_core_name(p.nombre)
                 c_heredado_usd = 0.0
@@ -527,14 +586,12 @@ def buscar():
                         c_heredado_usd = p_padres[0]['costo_usd']
                         coyun_heredado_usd = p_padres[0]['coyun_usd']
                 
-                # Heredar Base
                 if c_heredado_usd > 0:
                     if p.costo_base_man is not None and p.costo_base_man > 0:
                         c_base_db = p.costo_base_man; editable_costo = True 
                     else:
                         c_base_db = c_heredado_usd; editable_costo = False 
                 
-                # Heredar Coyuntural
                 if coyun_heredado_usd > 0:
                     if p.coyuntural_man is None or p.coyuntural_man <= 0:
                         coyun_db = coyun_heredado_usd
@@ -548,12 +605,10 @@ def buscar():
             is_clasica = es_excepcion_soles_clasica(p.nombre)
             is_frag = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
 
-            # 🔥 ALERTA DE MARGEN 🔥
             if mg <= 0:
                 try: db.session.add(Alerta(fecha="ACTIVA", msg=f"Margen Crítico ({round(mg*100,2)}%)", producto=p.nombre, tipo="ACTIVA"))
                 except: pass
 
-            # 🔥 CÁLCULO SEPARADO POR FAMILIAS CON CÁLCULO COYUNTURAL DE FABRICADOS 🔥
             if is_nativo:
                 base_pen = c_base_db; fab_pen = c_fab_db; coyun_pen = coyun_db
                 merma_pen = base_pen * merma_pct
@@ -618,8 +673,9 @@ def buscar():
                 p_prov_usd_send = p_lima_usd_send + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag else FLETE_ESTANDAR)
                 factor_display = 1.0
 
-            if coyun_db > 0 and c_base_db > coyun_db:
-                try: db.session.add(Alerta(fecha="ACTIVA", msg="Costo Real superó Coyuntural", producto=p.nombre, tipo="ACTIVA"))
+            # 🔥 ALERTA COYUNTURAL RESTAURADA 🔥
+            if coyun_usd_send > 0 and ct_usd_send > coyun_usd_send:
+                try: db.session.add(Alerta(fecha="ACTIVA", msg="Costo Total superó Coyuntural", producto=p.nombre, tipo="ACTIVA"))
                 except: pass
 
             res.append({
