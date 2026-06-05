@@ -168,11 +168,11 @@
                         <th>Merma</th>
                         <th>C. Total</th>
                         <th>Coyuntural</th>
-                        <th>% PV </th>
-                        <th>% Dist.</th>
+                        <th>PV/Autorizado</th>
+                        <th>Dist. Exclusivo</th>
                         <th>Margen</th>
                         <th class="text-end">Precio Lima</th>
-                        <th class="text-end pe-4">Precio AQP / TRU</th>
+                        <th class="text-end pe-4">Provincia</th>
                     </tr>
                 </thead>
                 <tbody id="tablaResultados"></tbody>
@@ -348,7 +348,7 @@
             input.type = 'text'; input.maxLength = 10; input.placeholder = "Máx 10";
         } else {
             document.getElementById('modalEdicionTitulo').innerText = "Editar Valor";
-            document.getElementById('modalEdicionLabel').innerText = "Valor numérico";
+            document.getElementById('modalEdicionLabel').innerText = "Valor numérico (USD)";
             input.type = 'number'; input.removeAttribute('maxlength'); input.placeholder = "0.00";
         }
         
@@ -381,6 +381,12 @@
 
     async function toggleVisibilidad(nombre) {
         let res = await fetch('/api/toggle-visibilidad', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre})});
+        if(res.ok) ejecutarBusqueda();
+    }
+    
+    // 🔥 FUNCIÓN PARA ALTERNAR PRIVACIDAD DE NOTA 🔥
+    async function toggleNotaVisibilidad(nombre) {
+        let res = await fetch('/api/toggle-nota', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre})});
         if(res.ok) ejecutarBusqueda();
     }
 
@@ -423,7 +429,7 @@
                     if (p.es_pen_exception) {
                         vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; sim='S/'; txt='PEN';
                     } else if (p.moneda_texto === 'PEN') {
-                        // Sacco u otros nativos
+                        // Nativos puros no se alteran
                     } else {
                         vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN';
                     }
@@ -463,8 +469,12 @@
                 
                 let escapedNota = (p.nota || "").replace(/"/g, '&quot;').replace(/'/g, "\\'");
                 
-                // 🔥 NOTAS VISUALMENTE MEJORADAS 🔥
-                let htmlNota = p.nota ? `<div class="mt-2 p-1 px-2 rounded bg-warning-subtle border border-warning text-dark fw-bold" style="font-size:0.7rem; cursor:pointer;" onclick="editarCelda('nota', '${safeName}', '${escapedNota}')" title="Clic para editar"><i class="bi bi-sticky-fill text-warning-emphasis"></i> ${p.nota}</div>` : `<button class="btn btn-sm text-primary py-0 px-0 border-0 mt-1" onclick="editarCelda('nota', '${safeName}', '')" style="font-size:0.65rem; background:transparent;"><i class="bi bi-pencil-square"></i> + Añadir nota</button>`;
+                // 🔥 RENDERIZADO DEL CANDADO DE NOTA PRIVADA 🔥
+                let notaIcon = p.nota_visible ? 'bi-eye-fill text-success' : 'bi-eye-slash-fill text-danger';
+                let notaTitle = p.nota_visible ? 'Visible para el vendedor' : 'Oculto para el vendedor (Privado)';
+                let btnVisNota = p.nota ? `<button class="btn btn-sm py-0 px-1 border-0 ms-2" onclick="toggleNotaVisibilidad('${safeName}')" title="${notaTitle}"><i class="bi ${notaIcon} fs-6"></i></button>` : '';
+                
+                let htmlNota = p.nota ? `<div class="mt-2 p-1 px-2 rounded bg-warning-subtle border border-warning text-dark fw-bold d-inline-flex align-items-center" style="font-size:0.7rem;"><span style="cursor:pointer;" onclick="editarCelda('nota', '${safeName}', '${escapedNota}')" title="Clic para editar"><i class="bi bi-sticky-fill text-warning-emphasis"></i> ${p.nota}</span> ${btnVisNota}</div>` : `<button class="btn btn-sm text-primary py-0 px-0 border-0 mt-1" onclick="editarCelda('nota', '${safeName}', '')" style="font-size:0.65rem; background:transparent;"><i class="bi bi-pencil-square"></i> + Añadir nota</button>`;
 
                 let isVisible = p.visible_ventas !== false;
                 let btnVisClass = isVisible ? 'text-success border-success-subtle' : 'text-danger border-danger-subtle bg-danger-subtle';
@@ -474,7 +484,6 @@
                 let txt_pv = p.pv_str || '-';
                 let txt_dist = p.dist_str || '-';
                 
-                // 🔥 ALERTA VISUAL DE MARGEN CRÍTICO 🔥
                 let isMargenAlert = p.margen <= 0;
                 let btnMargenClass = isMargenAlert ? 'btn-edit-margen m-0 text-danger bg-danger-subtle border-danger' : 'btn-edit-margen m-0';
 
