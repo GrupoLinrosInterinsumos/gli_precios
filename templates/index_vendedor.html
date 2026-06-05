@@ -100,10 +100,10 @@
                     <tr>
                         <th style="min-width: 350px; padding-left: 1.5rem; text-align: left;">Producto Detallado</th>
                         <th class="text-center" style="width: 12%;"><i class="bi bi-calculator-fill"></i> % Dscto (Simulador)</th>
-                        <th class="text-center" style="width: 10%;">% P.V. </th>
-                        <th class="text-center" style="width: 13%;">% Dist.</th>
-                        <th class="text-end" style="width: 15%;">Precio Lima</th>
-                        <th class="text-end" style="width: 15%; padding-right: 1.5rem;">Precio AQP / TRU</th>
+                        <th class="text-center" style="width: 10%;">P.V. Autorizado</th>
+                        <th class="text-center" style="width: 13%;">Dist. Exclusivo</th>
+                        <th class="text-end" style="width: 15%;">Precio Final Lima</th>
+                        <th class="text-end" style="width: 15%; padding-right: 1.5rem;">Provincia</th>
                     </tr>
                 </thead>
                 <tbody id="tablaResultados"></tbody>
@@ -212,13 +212,15 @@
 
             let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' ? `<span class="badge-custom mt-1"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
             
-            // 🔥 NOTAS SÚPER VISIBLES PARA EL VENDEDOR TAMBIÉN 🔥
-            let isCuajo = p.nombre.toUpperCase().includes("CUAJO IL CASARO");
+            // 🔥 CONTROL DE PRIVACIDAD EN EL LADO DEL VENDEDOR 🔥
             let htmlNota = '';
-            if (isCuajo) {
-                htmlNota = `<div class="nota-cuajo mt-2"><i class="bi bi-exclamation-triangle-fill"></i> ${p.nota}</div>`;
-            } else if (p.nota) {
-                htmlNota = `<div class="mt-2 p-1 px-2 rounded bg-warning-subtle border border-warning text-dark fw-bold d-inline-block" style="font-size:0.7rem;"><i class="bi bi-sticky-fill text-warning-emphasis"></i> ${p.nota}</div>`;
+            if (p.nota && p.nota_visible) {
+                let isCuajo = p.nombre.toUpperCase().includes("CUAJO IL CASARO");
+                if (isCuajo) {
+                    htmlNota = `<div class="nota-cuajo mt-2"><i class="bi bi-exclamation-triangle-fill"></i> ${p.nota}</div>`;
+                } else {
+                    htmlNota = `<div class="mt-2 p-1 px-2 rounded bg-warning-subtle border border-warning text-dark fw-bold d-inline-block" style="font-size:0.7rem;"><i class="bi bi-sticky-fill text-warning-emphasis"></i> ${p.nota}</div>`;
+                }
             }
             
             let rowId = `row_${index}`;
