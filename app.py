@@ -396,6 +396,34 @@ def subir_maestro():
         print(f"Error en subir maestro: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/subir-relaciones', methods=['POST'])
+@login_required
+def subir_relaciones():
+    if not is_admin_api(): return jsonify({"error": "No"}), 403
+    f = request.files.get('archivo')
+    if not f: return jsonify({"error": "No hay archivo"}), 400
+    try:
+        df = pd.read_excel(f)
+        df.columns = [str(c).strip().lower() for c in df.columns]
+        for _, row in df.iterrows():
+            nombre = str(row.get('nombre', '')).strip().upper()
+            if not nombre: continue
+            
+            nombre_clean = re.sub(r'\s+', ' ', nombre)
+            p = Producto.query.filter_by(nombre=nombre).first()
+            if not p:
+                for prod in Producto.query.all():
+                    if re.sub(r'\s+', ' ', prod.nombre.upper()) == nombre_clean:
+                        p = prod; break
+
+            if p:
+                p.categoria = str(row.get('categoria', '')).strip().upper()
+                p.codigo = str(row.get('referencia interna', p.codigo)).strip()
+                p.tipo_origen = str(row.get('columna1', 'COMPRADO')).strip().upper()
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e: return jsonify({"error": str(e)}), 500
+
 @app.route('/api/crear-producto', methods=['POST'])
 @login_required
 def crear_producto():
@@ -595,7 +623,6 @@ def buscar():
                 try: db.session.add(Alerta(fecha="ACTIVA", msg=f"Margen Crítico ({round(mg*100,2)}%)", producto=p.nombre, tipo="ACTIVA"))
                 except: pass
 
-            # 🔥 REESTRUCTURACIÓN DE LOGICAS PARA SUMA TOTAL COYUNTURAL VISUAL 🔥
             if is_nativo:
                 base_pen = c_base_db; fab_pen = c_fab_db; coyun_pen = coyun_db
                 merma_pen = base_pen * merma_pct
@@ -612,7 +639,7 @@ def buscar():
                 p_prov_pen = p_lima_pen + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR * 4.0)
                 
                 c_base_usd_send = base_pen / 4.0; c_fab_usd_send = fab_pen / 4.0
-                coyun_usd_send = coyun_total_pen / 4.0 # Enviamos total sumado si es fabricado
+                coyun_usd_send = coyun_total_pen / 4.0
                 merma_monto_usd_send = merma_pen / 4.0; ct_usd_send = ct_pen / 4.0
                 p_lima_usd_send = p_lima_pen / 4.0; p_prov_usd_send = p_prov_pen / 4.0
                 factor_display = 4.0
@@ -633,7 +660,7 @@ def buscar():
                 p_prov_pen = p_lima_pen + 0.0 
                 
                 c_base_usd_send = base_pen / 4.0; c_fab_usd_send = c_fab_db
-                coyun_usd_send = coyun_total_pen / 4.0 # Enviamos total sumado si es fabricado
+                coyun_usd_send = coyun_total_pen / 4.0
                 merma_monto_usd_send = merma_pen / 4.0; ct_usd_send = ct_pen / 4.0
                 p_lima_usd_send = p_lima_pen / 4.0; p_prov_usd_send = p_prov_pen / 4.0
                 factor_display = 4.0
@@ -670,8 +697,8 @@ def buscar():
                 p_prov_usd_send = p_lima_usd_send + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag else FLETE_ESTANDAR)
                 factor_display = 1.0
 
-            # Alerta original del costo total contra el coyuntural
-            if coyun_db > 0 and ct_usd_send > get_val(p.coyuntural_man, p.coyuntural_ex, 0.0):
+            # 🔥 REGLA CORREGIDA: Compara el Costo Total contra el Costo Coyuntural CALCULADO FINAL 🔥
+            if coyun_db > 0 and ct_usd_send > coyun_usd_send:
                 try: db.session.add(Alerta(fecha="ACTIVA", msg="Costo Total superó Coyuntural", producto=p.nombre, tipo="ACTIVA"))
                 except: pass
 
