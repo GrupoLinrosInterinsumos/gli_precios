@@ -95,15 +95,12 @@ with app.app_context():
         db.session.execute(text("ALTER TABLE producto ADD COLUMN pv_str VARCHAR(10) DEFAULT ''"))
         db.session.execute(text("ALTER TABLE producto ADD COLUMN dist_str VARCHAR(10) DEFAULT ''"))
         db.session.commit()
-    except: 
-        db.session.rollback()
+    except: db.session.rollback()
     
-    # 🔥 CORRECCIÓN PARA POSTGRESQL (DEFAULT FALSE en lugar de 0) 🔥
     try:
         db.session.execute(text("ALTER TABLE producto ADD COLUMN nota_visible BOOLEAN DEFAULT FALSE"))
         db.session.commit()
-    except: 
-        db.session.rollback()
+    except: db.session.rollback()
 
 @login_manager.user_loader
 def load_user(user_id): return User.query.get(int(user_id))
@@ -113,7 +110,6 @@ def load_user(user_id): return User.query.get(int(user_id))
 # =========================================================
 FLETE_ESTANDAR = 0.11 
 
-# CLÁSICOS (Base y Fab se dividen/multiplican x 4)
 EXCEPCIONES_SOLES = [
     "COLAGENO HIDROLIZADO GELNEX X 1KG", "COLAGENO HIDROLIZADO GELNEX X 400G",
     "FOSFATO PARA JAMONES BUDENHEIM X 1KG", "FOSFATO PARA JAMONES BUDENHEIM X 5KG",
@@ -124,12 +120,8 @@ EXCEPCIONES_SOLES = [
     "AMILASA MALTOGENICA MTG1500"
 ]
 
-# NATIVOS (Símbolo en Soles pero Costos Intactos)
 EXCEPCIONES_NATIVAS = [
-    "AGITADOR DE LECHE",
-    "ALCOHOLIMETRO",
-    "CARBONATO DE CALCIO",
-    "MOLDERA ACERO INOX"
+    "AGITADOR DE LECHE", "ALCOHOLIMETRO", "CARBONATO DE CALCIO", "MOLDERA ACERO INOX"
 ]
 
 EXCEPCIONES_SACCO_USD = ["LYOTO M 536 R", "LYOTO M 536 S", "LYOFAST AB 1", "LYOFAST Y 438 A", "LYOFAST Y 470 E"]
@@ -175,7 +167,6 @@ def get_currency_info(nombre, proveedor):
     if es_nativo_soles(nombre): return "S/", "PEN"
     if es_proveedor_soles_mixto(nombre, proveedor): return "S/", "PEN"
     if es_excepcion_soles_clasica(nombre): return "S/", "PEN"
-    
     if proveedor == "SACCO" or "SACCO" in str(nombre).upper():
         n_clean = re.sub(r'\s+', '', str(nombre).upper()).replace('Á', 'A').replace('Ó', 'O')
         if any(exc.replace(" ", "") in n_clean for exc in EXCEPCIONES_SACCO_USD): return "$", "USD"
@@ -397,7 +388,6 @@ def subir_maestro():
             
             p.nota = str(get_col_val(row, ['nota', 'notas'], p.nota)).strip()
             if p.nota.lower() == 'nan': p.nota = ''
-            
             p.fecha_act = datetime.utcnow()
 
         db.session.commit()
@@ -405,34 +395,6 @@ def subir_maestro():
     except Exception as e:
         print(f"Error en subir maestro: {e}")
         return jsonify({"error": str(e)}), 500
-
-@app.route('/api/subir-relaciones', methods=['POST'])
-@login_required
-def subir_relaciones():
-    if not is_admin_api(): return jsonify({"error": "No"}), 403
-    f = request.files.get('archivo')
-    if not f: return jsonify({"error": "No hay archivo"}), 400
-    try:
-        df = pd.read_excel(f)
-        df.columns = [str(c).strip().lower() for c in df.columns]
-        for _, row in df.iterrows():
-            nombre = str(row.get('nombre', '')).strip().upper()
-            if not nombre: continue
-            
-            nombre_clean = re.sub(r'\s+', ' ', nombre)
-            p = Producto.query.filter_by(nombre=nombre).first()
-            if not p:
-                for prod in Producto.query.all():
-                    if re.sub(r'\s+', ' ', prod.nombre.upper()) == nombre_clean:
-                        p = prod; break
-
-            if p:
-                p.categoria = str(row.get('categoria', '')).strip().upper()
-                p.codigo = str(row.get('referencia interna', p.codigo)).strip()
-                p.tipo_origen = str(row.get('columna1', 'COMPRADO')).strip().upper()
-        db.session.commit()
-        return jsonify({"success": True})
-    except Exception as e: return jsonify({"error": str(e)}), 500
 
 @app.route('/api/crear-producto', methods=['POST'])
 @login_required
@@ -633,20 +595,24 @@ def buscar():
                 try: db.session.add(Alerta(fecha="ACTIVA", msg=f"Margen Crítico ({round(mg*100,2)}%)", producto=p.nombre, tipo="ACTIVA"))
                 except: pass
 
+            # 🔥 REESTRUCTURACIÓN DE LOGICAS PARA SUMA TOTAL COYUNTURAL VISUAL 🔥
             if is_nativo:
                 base_pen = c_base_db; fab_pen = c_fab_db; coyun_pen = coyun_db
                 merma_pen = base_pen * merma_pct
                 ct_pen = base_pen + fab_pen + merma_pen
                 
                 if p.tipo_origen == 'FABRICADO' and coyun_pen > 0:
-                    c_ref_pen = coyun_pen + fab_pen + (coyun_pen * merma_pct)
+                    coyun_total_pen = coyun_pen + fab_pen + (coyun_pen * merma_pct)
+                    c_ref_pen = coyun_total_pen
                 else:
+                    coyun_total_pen = coyun_pen
                     c_ref_pen = coyun_pen if coyun_pen > 0 else ct_pen
                     
                 p_lima_pen = c_ref_pen * (1 + mg)
                 p_prov_pen = p_lima_pen + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR * 4.0)
                 
-                c_base_usd_send = base_pen / 4.0; c_fab_usd_send = fab_pen / 4.0; coyun_usd_send = coyun_pen / 4.0
+                c_base_usd_send = base_pen / 4.0; c_fab_usd_send = fab_pen / 4.0
+                coyun_usd_send = coyun_total_pen / 4.0 # Enviamos total sumado si es fabricado
                 merma_monto_usd_send = merma_pen / 4.0; ct_usd_send = ct_pen / 4.0
                 p_lima_usd_send = p_lima_pen / 4.0; p_prov_usd_send = p_prov_pen / 4.0
                 factor_display = 4.0
@@ -657,26 +623,31 @@ def buscar():
                 ct_pen = base_pen + fab_pen + merma_pen
                 
                 if p.tipo_origen == 'FABRICADO' and coyun_pen > 0:
-                    c_ref_pen = coyun_pen + fab_pen + (coyun_pen * merma_pct)
+                    coyun_total_pen = coyun_pen + fab_pen + (coyun_pen * merma_pct)
+                    c_ref_pen = coyun_total_pen
                 else:
+                    coyun_total_pen = coyun_pen
                     c_ref_pen = coyun_pen if coyun_pen > 0 else ct_pen
                     
                 p_lima_pen = c_ref_pen * (1 + mg)
                 p_prov_pen = p_lima_pen + 0.0 
                 
-                c_base_usd_send = base_pen / 4.0; c_fab_usd_send = c_fab_db; coyun_usd_send = coyun_pen / 4.0
+                c_base_usd_send = base_pen / 4.0; c_fab_usd_send = c_fab_db
+                coyun_usd_send = coyun_total_pen / 4.0 # Enviamos total sumado si es fabricado
                 merma_monto_usd_send = merma_pen / 4.0; ct_usd_send = ct_pen / 4.0
                 p_lima_usd_send = p_lima_pen / 4.0; p_prov_usd_send = p_prov_pen / 4.0
                 factor_display = 4.0
 
             elif is_clasica:
-                c_base_usd_send = c_base_db; c_fab_usd_send = c_fab_db; coyun_usd_send = coyun_db
+                c_base_usd_send = c_base_db; c_fab_usd_send = c_fab_db; coyun_base_usd = coyun_db
                 merma_monto_usd_send = c_base_usd_send * merma_pct
                 ct_usd_send = c_base_usd_send + c_fab_usd_send + merma_monto_usd_send
                 
-                if p.tipo_origen == 'FABRICADO' and coyun_usd_send > 0:
-                    c_ref_usd = coyun_usd_send + c_fab_usd_send + (coyun_usd_send * merma_pct)
+                if p.tipo_origen == 'FABRICADO' and coyun_base_usd > 0:
+                    coyun_usd_send = coyun_base_usd + c_fab_usd_send + (coyun_base_usd * merma_pct)
+                    c_ref_usd = coyun_usd_send
                 else:
+                    coyun_usd_send = coyun_base_usd
                     c_ref_usd = coyun_usd_send if coyun_usd_send > 0 else ct_usd_send
                     
                 p_lima_usd_send = c_ref_usd * (1 + mg)
@@ -684,21 +655,23 @@ def buscar():
                 factor_display = 4.0
 
             else:
-                c_base_usd_send = c_base_db; c_fab_usd_send = c_fab_db; coyun_usd_send = coyun_db
+                c_base_usd_send = c_base_db; c_fab_usd_send = c_fab_db; coyun_base_usd = coyun_db
                 merma_monto_usd_send = c_base_usd_send * merma_pct
                 ct_usd_send = c_base_usd_send + c_fab_usd_send + merma_monto_usd_send
                 
-                if p.tipo_origen == 'FABRICADO' and coyun_usd_send > 0:
-                    c_ref_usd = coyun_usd_send + c_fab_usd_send + (coyun_usd_send * merma_pct)
+                if p.tipo_origen == 'FABRICADO' and coyun_base_usd > 0:
+                    coyun_usd_send = coyun_base_usd + c_fab_usd_send + (coyun_base_usd * merma_pct)
+                    c_ref_usd = coyun_usd_send
                 else:
+                    coyun_usd_send = coyun_base_usd
                     c_ref_usd = coyun_usd_send if coyun_usd_send > 0 else ct_usd_send
                     
                 p_lima_usd_send = c_ref_usd * (1 + mg)
                 p_prov_usd_send = p_lima_usd_send + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag else FLETE_ESTANDAR)
                 factor_display = 1.0
 
-            # 🔥 ALERTA COYUNTURAL ORIGINAL RESTAURADA 🔥
-            if coyun_usd_send > 0 and ct_usd_send > coyun_usd_send:
+            # Alerta original del costo total contra el coyuntural
+            if coyun_db > 0 and ct_usd_send > get_val(p.coyuntural_man, p.coyuntural_ex, 0.0):
                 try: db.session.add(Alerta(fecha="ACTIVA", msg="Costo Total superó Coyuntural", producto=p.nombre, tipo="ACTIVA"))
                 except: pass
 
@@ -745,7 +718,7 @@ def buscar():
 @login_required
 def exportar_excel():
     try:
-        if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
+        if not is_admin_api(): return jsonify({"error": "No authorized"}), 403
         nombres = request.json.get('productos', [])
         prods = Producto.query.filter(Producto.nombre.in_(nombres)).all()
         data = []
@@ -801,53 +774,55 @@ def exportar_excel():
             flete_usd = 0.0 if (prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag) else FLETE_ESTANDAR
 
             if is_nativo:
-                base_final = c_base_db; fab_final = c_fab_db; coyun_final = coyun_db
+                base_final = c_base_db; fab_final = c_fab_db; coyun_base = coyun_db
                 merma_final = base_final * merma_pct
                 ct_final = base_final + fab_final + merma_final
                 
-                if p.tipo_origen == 'FABRICADO' and coyun_final > 0:
-                    c_ref_final = coyun_final + fab_final + (coyun_final * merma_pct)
+                if p.tipo_origen == 'FABRICADO' and coyun_base > 0:
+                    coyun_final = coyun_base + fab_final + (coyun_base * merma_pct)
                 else:
-                    c_ref_final = coyun_final if coyun_final > 0 else ct_final
+                    coyun_final = coyun_base
                     
-                p_lima_final = c_ref_final * (1 + mg)
+                p_lima_final = (coyun_final if coyun_base > 0 else ct_final) * (1 + mg)
                 p_prov_final = p_lima_final + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else flete_usd * 4.0)
                 txt_final = 'PEN'
                 
             elif is_mixto:
-                base_final = c_base_db; fab_final = c_fab_db * 4.0; coyun_final = coyun_db
+                base_final = c_base_db; fab_final = c_fab_db * 4.0; coyun_base = coyun_db
                 merma_final = base_final * merma_pct
                 ct_final = base_final + fab_final + merma_final
                 
-                if p.tipo_origen == 'FABRICADO' and coyun_final > 0:
-                    c_ref_final = coyun_final + fab_final + (coyun_final * merma_pct)
+                if p.tipo_origen == 'FABRICADO' and coyun_base > 0:
+                    coyun_final = coyun_base + fab_final + (coyun_base * merma_pct)
                 else:
-                    c_ref_final = coyun_final if coyun_final > 0 else ct_final
+                    coyun_final = coyun_base
                     
-                p_lima_final = c_ref_final * (1 + mg)
+                p_lima_final = (coyun_final if coyun_base > 0 else ct_final) * (1 + mg)
                 p_prov_final = p_lima_final + 0.0
                 txt_final = 'PEN'
                 
             else:
-                base_usd = c_base_db; fab_usd = c_fab_db; coyun_usd = coyun_db
+                base_usd = c_base_db; fab_usd = c_fab_db; coyun_base = coyun_db
                 merma_usd = base_usd * merma_pct
                 ct_usd = base_usd + fab_usd + merma_usd
                 
-                if p.tipo_origen == 'FABRICADO' and coyun_usd > 0:
-                    c_ref_usd = coyun_usd + fab_usd + (coyun_usd * merma_pct)
+                if p.tipo_origen == 'FABRICADO' and coyun_base > 0:
+                    coyun_usd_total = coyun_base + fab_usd + (coyun_base * merma_pct)
                 else:
-                    c_ref_usd = coyun_usd if coyun_usd > 0 else ct_usd
+                    coyun_usd_total = coyun_base
                     
-                p_lima_usd = c_ref_usd * (1 + mg)
+                p_lima_usd = (coyun_usd_total if coyun_base > 0 else ct_usd) * (1 + mg)
                 p_prov_usd = p_lima_usd + flete_usd
                 
                 if is_clasica:
-                    base_final = base_usd * 4.0; fab_final = fab_usd * 4.0; coyun_final = coyun_usd * 4.0
+                    base_final = base_usd * 4.0; fab_final = fab_usd * 4.0
+                    coyun_final = coyun_usd_total * 4.0
                     merma_final = merma_usd * 4.0; ct_final = ct_usd * 4.0
                     p_lima_final = p_lima_usd * 4.0; p_prov_final = p_prov_usd * 4.0
                     txt_final = 'PEN'
                 else:
-                    base_final = base_usd; fab_final = fab_usd; coyun_final = coyun_usd
+                    base_final = base_usd; fab_final = fab_usd
+                    coyun_final = coyun_usd_total
                     merma_final = merma_usd; ct_final = ct_usd
                     p_lima_final = p_lima_usd; p_prov_final = p_prov_usd
                     txt_final = txt_real
