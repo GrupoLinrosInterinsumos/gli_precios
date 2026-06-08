@@ -74,7 +74,7 @@ class Producto(db.Model):
     oculto = db.Column(db.Boolean, default=False)
     
     nota = db.Column(db.String(250), default='') 
-    nota_visible = db.Column(db.Boolean, default=False) # 🔥 NUEVO CONTROL DE PRIVACIDAD 🔥
+    nota_visible = db.Column(db.Boolean, default=False)
     
     categoria = db.Column(db.String(100), default='')
     tipo_origen = db.Column(db.String(20), default='COMPRADO')
@@ -95,11 +95,15 @@ with app.app_context():
         db.session.execute(text("ALTER TABLE producto ADD COLUMN pv_str VARCHAR(10) DEFAULT ''"))
         db.session.execute(text("ALTER TABLE producto ADD COLUMN dist_str VARCHAR(10) DEFAULT ''"))
         db.session.commit()
-    except: db.session.rollback()
+    except: 
+        db.session.rollback()
+    
+    # 🔥 CORRECCIÓN PARA POSTGRESQL (DEFAULT FALSE en lugar de 0) 🔥
     try:
-        db.session.execute(text("ALTER TABLE producto ADD COLUMN nota_visible BOOLEAN DEFAULT 0"))
+        db.session.execute(text("ALTER TABLE producto ADD COLUMN nota_visible BOOLEAN DEFAULT FALSE"))
         db.session.commit()
-    except: db.session.rollback()
+    except: 
+        db.session.rollback()
 
 @login_manager.user_loader
 def load_user(user_id): return User.query.get(int(user_id))
@@ -515,7 +519,6 @@ def toggle_visibilidad():
         return jsonify({"success": True})
     except Exception as e: return jsonify({"error": str(e)}), 500
 
-# 🔥 RUTA NUEVA: ALTERNAR PRIVACIDAD DE NOTAS 🔥
 @app.route('/api/toggle-nota', methods=['POST'])
 @login_required
 def toggle_nota_visibilidad():
@@ -694,7 +697,8 @@ def buscar():
                 p_prov_usd_send = p_lima_usd_send + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag else FLETE_ESTANDAR)
                 factor_display = 1.0
 
-            if coyun_db > 0 and ct_usd_send > coyun_usd_send:
+            # 🔥 ALERTA COYUNTURAL ORIGINAL RESTAURADA 🔥
+            if coyun_usd_send > 0 and ct_usd_send > coyun_usd_send:
                 try: db.session.add(Alerta(fecha="ACTIVA", msg="Costo Total superó Coyuntural", producto=p.nombre, tipo="ACTIVA"))
                 except: pass
 
@@ -723,7 +727,7 @@ def buscar():
                 "dist_str": str(format_discount(p.dist_str, p.dscto_dist_man, p.dscto_dist_ex)),
                 
                 "nota": str(p.nota) if hasattr(p, 'nota') and p.nota else "",
-                "nota_visible": bool(p.nota_visible), # 🔥 MANDA ESTADO DE PRIVACIDAD AL FRONTEND 🔥
+                "nota_visible": bool(p.nota_visible),
                 "visible_ventas": visible, "editable_costo": editable_costo
             })
         
