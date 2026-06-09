@@ -120,11 +120,14 @@ EXCEPCIONES_SOLES = [
     "AMILASA MALTOGENICA MTG1500"
 ]
 
+# 🔥 LYOFAST Y 470 E AGREGADO A LA LISTA DE NATIVOS PARA QUE NO SE DIVIDA X 4 🔥
 EXCEPCIONES_NATIVAS = [
-    "AGITADOR DE LECHE", "ALCOHOLIMETRO", "CARBONATO DE CALCIO", "MOLDERA ACERO INOX"
+    "AGITADOR DE LECHE", "ALCOHOLIMETRO", "CARBONATO DE CALCIO", "MOLDERA ACERO INOX",
+    "LYOFAST Y 470 E"
 ]
 
-EXCEPCIONES_SACCO_USD = ["LYOTO M 536 R", "LYOTO M 536 S", "LYOFAST AB 1", "LYOFAST Y 438 A", "LYOFAST Y 470 E"]
+# 🔥 LYOFAST Y 470 E RETIRADO DE LA LISTA ESTRICTA DE DÓLARES 🔥
+EXCEPCIONES_SACCO_USD = ["LYOTO M 536 R", "LYOTO M 536 S", "LYOFAST AB 1", "LYOFAST Y 438 A"]
 EXCEPCIONES_CLERICI_USD = ["TRANSGLUTAMINASA CAGLIFICIO CLERICI"]
 
 def get_tc_actual():
@@ -167,6 +170,7 @@ def get_currency_info(nombre, proveedor):
     if es_nativo_soles(nombre): return "S/", "PEN"
     if es_proveedor_soles_mixto(nombre, proveedor): return "S/", "PEN"
     if es_excepcion_soles_clasica(nombre): return "S/", "PEN"
+    
     if proveedor == "SACCO" or "SACCO" in str(nombre).upper():
         n_clean = re.sub(r'\s+', '', str(nombre).upper()).replace('Á', 'A').replace('Ó', 'O')
         if any(exc.replace(" ", "") in n_clean for exc in EXCEPCIONES_SACCO_USD): return "$", "USD"
@@ -697,7 +701,6 @@ def buscar():
                 p_prov_usd_send = p_lima_usd_send + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag else FLETE_ESTANDAR)
                 factor_display = 1.0
 
-            # 🔥 REGLA CORREGIDA: Compara el Costo Total contra el Costo Coyuntural CALCULADO FINAL 🔥
             if coyun_db > 0 and ct_usd_send > coyun_usd_send:
                 try: db.session.add(Alerta(fecha="ACTIVA", msg="Costo Total superó Coyuntural", producto=p.nombre, tipo="ACTIVA"))
                 except: pass
