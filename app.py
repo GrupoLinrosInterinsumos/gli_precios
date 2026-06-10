@@ -120,14 +120,14 @@ EXCEPCIONES_SOLES = [
     "AMILASA MALTOGENICA MTG1500"
 ]
 
-# 🔥 LYOFAST Y 470 E AGREGADO A LA LISTA DE NATIVOS PARA QUE NO SE DIVIDA X 4 🔥
+# 🔥 LYOFAST Y 438 A AGREGADO A LA LISTA DE NATIVOS 🔥
 EXCEPCIONES_NATIVAS = [
     "AGITADOR DE LECHE", "ALCOHOLIMETRO", "CARBONATO DE CALCIO", "MOLDERA ACERO INOX",
-    "LYOFAST Y 470 E"
+    "LYOFAST Y 470 E", "LYOFAST Y 438 A"
 ]
 
-# 🔥 LYOFAST Y 470 E RETIRADO DE LA LISTA ESTRICTA DE DÓLARES 🔥
-EXCEPCIONES_SACCO_USD = ["LYOTO M 536 R", "LYOTO M 536 S", "LYOFAST AB 1", "LYOFAST Y 438 A"]
+# 🔥 LYOFAST Y 438 A RETIRADO DE LA LISTA ESTRICTA DE DÓLARES 🔥
+EXCEPCIONES_SACCO_USD = ["LYOTO M 536 R", "LYOTO M 536 S", "LYOFAST AB 1"]
 EXCEPCIONES_CLERICI_USD = ["TRANSGLUTAMINASA CAGLIFICIO CLERICI"]
 
 def get_tc_actual():
@@ -642,8 +642,7 @@ def buscar():
                 p_lima_pen = c_ref_pen * (1 + mg)
                 p_prov_pen = p_lima_pen + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR * 4.0)
                 
-                c_base_usd_send = base_pen / 4.0; c_fab_usd_send = fab_pen / 4.0
-                coyun_usd_send = coyun_total_pen / 4.0
+                c_base_usd_send = base_pen / 4.0; c_fab_usd_send = fab_pen / 4.0; coyun_usd_send = coyun_total_pen / 4.0
                 merma_monto_usd_send = merma_pen / 4.0; ct_usd_send = ct_pen / 4.0
                 p_lima_usd_send = p_lima_pen / 4.0; p_prov_usd_send = p_prov_pen / 4.0
                 factor_display = 4.0
@@ -663,8 +662,7 @@ def buscar():
                 p_lima_pen = c_ref_pen * (1 + mg)
                 p_prov_pen = p_lima_pen + 0.0 
                 
-                c_base_usd_send = base_pen / 4.0; c_fab_usd_send = c_fab_db
-                coyun_usd_send = coyun_total_pen / 4.0
+                c_base_usd_send = base_pen / 4.0; c_fab_usd_send = c_fab_db; coyun_usd_send = coyun_total_pen / 4.0
                 merma_monto_usd_send = merma_pen / 4.0; ct_usd_send = ct_pen / 4.0
                 p_lima_usd_send = p_lima_pen / 4.0; p_prov_usd_send = p_prov_pen / 4.0
                 factor_display = 4.0
@@ -701,7 +699,8 @@ def buscar():
                 p_prov_usd_send = p_lima_usd_send + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag else FLETE_ESTANDAR)
                 factor_display = 1.0
 
-            if coyun_db > 0 and ct_usd_send > coyun_usd_send:
+            # 🔥 REGLA CORREGIDA 🔥 (Ahora usa coyun_usd_send en vez de coyun_db para comparar bien en fabricados)
+            if coyun_usd_send > 0 and ct_usd_send > coyun_usd_send:
                 try: db.session.add(Alerta(fecha="ACTIVA", msg="Costo Total superó Coyuntural", producto=p.nombre, tipo="ACTIVA"))
                 except: pass
 
