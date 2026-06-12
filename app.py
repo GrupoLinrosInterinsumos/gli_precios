@@ -78,7 +78,7 @@ class Producto(db.Model):
     
     categoria = db.Column(db.String(100), default='')
     tipo_origen = db.Column(db.String(20), default='COMPRADO')
-    en_odoo = db.Column(db.String(10), default='NO') # 🔥 NUEVA COLUMNA ODOO 🔥
+    en_odoo = db.Column(db.String(10), default='NO') 
     
     visible_ventas = db.Column(db.Boolean, default=True)
     usd_converted = db.Column(db.Boolean, default=False)
@@ -408,11 +408,10 @@ def subir_maestro():
 @app.route('/api/subir-relaciones', methods=['POST'])
 @login_required
 def subir_relaciones():
-    if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
+    if not is_admin_api(): return jsonify({"error": "No"}), 403
     f = request.files.get('archivo')
     if not f: return jsonify({"error": "No hay archivo"}), 400
     try:
-        # 🔥 SOPORTA EXCEL Y CSV PARA QUE PUEDAS SUBIR EL ODOO 🔥
         if f.filename.endswith('.csv'):
             df = pd.read_csv(f)
         else:
@@ -438,7 +437,6 @@ def subir_relaciones():
                 if 'referencia interna' in df.columns and pd.notna(row['referencia interna']): p.codigo = str(row['referencia interna']).strip()
                 if 'codigo' in df.columns and pd.notna(row['codigo']): p.codigo = str(row['codigo']).strip()
                 if 'columna1' in df.columns and pd.notna(row['columna1']): p.tipo_origen = str(row['columna1']).strip().upper()
-                # 🔥 LECTURA DEL ODOO DEL EXCEL 🔥
                 if 'odoo' in df.columns and pd.notna(row['odoo']): p.en_odoo = str(row['odoo']).strip().upper()
                 
         db.session.commit()
@@ -610,11 +608,13 @@ def buscar():
                 p_padres = [d for d in data_comprados if d['core'] == core_fab]
                 if p_padres:
                     if 'ESENCIA' in str(p.categoria).upper():
-                        p_5 = [d for d in p_padres if '5K' in d['clean'] or '5L' in d['clean']]
-                        if p_5:
-                            c_heredado_usd = p_5[0]['costo_usd']
-                            coyun_heredado_usd = p_5[0]['coyun_usd']
+                        # 🔥 PRIORIDAD 1: Busca el de 1K o 1L 🔥
+                        p_1 = [d for d in p_padres if '1K' in d['clean'] or '1L' in d['clean']]
+                        if p_1:
+                            c_heredado_usd = p_1[0]['costo_usd']
+                            coyun_heredado_usd = p_1[0]['coyun_usd']
                         else:
+                            # Prioridad 2: El que haya
                             c_heredado_usd = p_padres[0]['costo_usd']
                             coyun_heredado_usd = p_padres[0]['coyun_usd']
                     else: 
@@ -794,11 +794,13 @@ def exportar_excel():
                 posibles_padres = [d for d in data_comprados if d['core'] == core_fab]
                 if posibles_padres:
                     if 'ESENCIA' in str(p.categoria).upper():
-                        p_5 = [d for d in posibles_padres if '5K' in d['clean'] or '5L' in d['clean']]
-                        if p_5:
-                            c_heredado_usd = p_5[0]['costo_usd']
-                            coyun_heredado_usd = p_5[0]['coyun_usd']
+                        # 🔥 PRIORIDAD 1: Busca el de 1K o 1L 🔥
+                        p_1 = [d for d in posibles_padres if '1K' in d['clean'] or '1L' in d['clean']]
+                        if p_1:
+                            c_heredado_usd = p_1[0]['costo_usd']
+                            coyun_heredado_usd = p_1[0]['coyun_usd']
                         else: 
+                            # Prioridad 2: El que haya
                             c_heredado_usd = posibles_padres[0]['costo_usd']
                             coyun_heredado_usd = posibles_padres[0]['coyun_usd']
                     else: 
@@ -874,7 +876,6 @@ def exportar_excel():
                     p_lima_final = p_lima_usd; p_prov_final = p_prov_usd
                     txt_final = txt_real
             
-            # 🔥 AQUÍ SE INCLUYE LA NUEVA COLUMNA ODOO EN EL EXCEL 🔥
             data.append({
                 "Producto": str(p.nombre), "Kilaje": str(get_quantity(p.nombre)), "Código": str(p.codigo), 
                 "Empresa": str(p.empresa), "Categoría": str(p.categoria), "Origen": str(p.tipo_origen), 
