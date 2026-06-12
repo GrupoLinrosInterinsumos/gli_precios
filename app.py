@@ -78,6 +78,8 @@ class Producto(db.Model):
     
     categoria = db.Column(db.String(100), default='')
     tipo_origen = db.Column(db.String(20), default='COMPRADO')
+    en_odoo = db.Column(db.String(10), default='NO') # 🔥 NUEVA COLUMNA ODOO 🔥
+    
     visible_ventas = db.Column(db.Boolean, default=True)
     usd_converted = db.Column(db.Boolean, default=False)
     fecha_act = db.Column(db.DateTime, default=datetime.utcnow)
@@ -101,6 +103,11 @@ with app.app_context():
         db.session.execute(text("ALTER TABLE producto ADD COLUMN nota_visible BOOLEAN DEFAULT FALSE"))
         db.session.commit()
     except: db.session.rollback()
+    
+    try:
+        db.session.execute(text("ALTER TABLE producto ADD COLUMN en_odoo VARCHAR(10) DEFAULT 'NO'"))
+        db.session.commit()
+    except: db.session.rollback()
 
 @login_manager.user_loader
 def load_user(user_id): return User.query.get(int(user_id))
@@ -120,13 +127,11 @@ EXCEPCIONES_SOLES = [
     "AMILASA MALTOGENICA MTG1500"
 ]
 
-# 🔥 LYOFAST Y 438 A AGREGADO A LA LISTA DE NATIVOS 🔥
 EXCEPCIONES_NATIVAS = [
     "AGITADOR DE LECHE", "ALCOHOLIMETRO", "CARBONATO DE CALCIO", "MOLDERA ACERO INOX",
     "LYOFAST Y 470 E", "LYOFAST Y 438 A"
 ]
 
-# 🔥 LYOFAST Y 438 A RETIRADO DE LA LISTA ESTRICTA DE DÓLARES 🔥
 EXCEPCIONES_SACCO_USD = ["LYOTO M 536 R", "LYOTO M 536 S", "LYOFAST AB 1"]
 EXCEPCIONES_CLERICI_USD = ["TRANSGLUTAMINASA CAGLIFICIO CLERICI"]
 
@@ -403,15 +408,23 @@ def subir_maestro():
 @app.route('/api/subir-relaciones', methods=['POST'])
 @login_required
 def subir_relaciones():
-    if not is_admin_api(): return jsonify({"error": "No"}), 403
+    if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
     f = request.files.get('archivo')
     if not f: return jsonify({"error": "No hay archivo"}), 400
     try:
-        df = pd.read_excel(f)
+        # 🔥 SOPORTA EXCEL Y CSV PARA QUE PUEDAS SUBIR EL ODOO 🔥
+        if f.filename.endswith('.csv'):
+            df = pd.read_csv(f)
+        else:
+            df = pd.read_excel(f)
+            
         df.columns = [str(c).strip().lower() for c in df.columns]
         for _, row in df.iterrows():
-            nombre = str(row.get('nombre', '')).strip().upper()
-            if not nombre: continue
+            nombre = ''
+            if 'producto' in df.columns and pd.notna(row['producto']): nombre = str(row['producto']).strip().upper()
+            elif 'nombre' in df.columns and pd.notna(row['nombre']): nombre = str(row['nombre']).strip().upper()
+            
+            if not nombre or nombre == 'NAN': continue
             
             nombre_clean = re.sub(r'\s+', ' ', nombre)
             p = Producto.query.filter_by(nombre=nombre).first()
@@ -421,9 +434,13 @@ def subir_relaciones():
                         p = prod; break
 
             if p:
-                p.categoria = str(row.get('categoria', '')).strip().upper()
-                p.codigo = str(row.get('referencia interna', p.codigo)).strip()
-                p.tipo_origen = str(row.get('columna1', 'COMPRADO')).strip().upper()
+                if 'categoria' in df.columns and pd.notna(row['categoria']): p.categoria = str(row['categoria']).strip().upper()
+                if 'referencia interna' in df.columns and pd.notna(row['referencia interna']): p.codigo = str(row['referencia interna']).strip()
+                if 'codigo' in df.columns and pd.notna(row['codigo']): p.codigo = str(row['codigo']).strip()
+                if 'columna1' in df.columns and pd.notna(row['columna1']): p.tipo_origen = str(row['columna1']).strip().upper()
+                # 🔥 LECTURA DEL ODOO DEL EXCEL 🔥
+                if 'odoo' in df.columns and pd.notna(row['odoo']): p.en_odoo = str(row['odoo']).strip().upper()
+                
         db.session.commit()
         return jsonify({"success": True})
     except Exception as e: return jsonify({"error": str(e)}), 500
@@ -642,7 +659,8 @@ def buscar():
                 p_lima_pen = c_ref_pen * (1 + mg)
                 p_prov_pen = p_lima_pen + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR * 4.0)
                 
-                c_base_usd_send = base_pen / 4.0; c_fab_usd_send = fab_pen / 4.0; coyun_usd_send = coyun_total_pen / 4.0
+                c_base_usd_send = base_pen / 4.0; c_fab_usd_send = fab_pen / 4.0
+                coyun_usd_send = coyun_total_pen / 4.0
                 merma_monto_usd_send = merma_pen / 4.0; ct_usd_send = ct_pen / 4.0
                 p_lima_usd_send = p_lima_pen / 4.0; p_prov_usd_send = p_prov_pen / 4.0
                 factor_display = 4.0
@@ -662,7 +680,8 @@ def buscar():
                 p_lima_pen = c_ref_pen * (1 + mg)
                 p_prov_pen = p_lima_pen + 0.0 
                 
-                c_base_usd_send = base_pen / 4.0; c_fab_usd_send = c_fab_db; coyun_usd_send = coyun_total_pen / 4.0
+                c_base_usd_send = base_pen / 4.0; c_fab_usd_send = c_fab_db
+                coyun_usd_send = coyun_total_pen / 4.0
                 merma_monto_usd_send = merma_pen / 4.0; ct_usd_send = ct_pen / 4.0
                 p_lima_usd_send = p_lima_pen / 4.0; p_prov_usd_send = p_prov_pen / 4.0
                 factor_display = 4.0
@@ -699,7 +718,6 @@ def buscar():
                 p_prov_usd_send = p_lima_usd_send + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag else FLETE_ESTANDAR)
                 factor_display = 1.0
 
-            # 🔥 REGLA CORREGIDA 🔥 (Ahora usa coyun_usd_send en vez de coyun_db para comparar bien en fabricados)
             if coyun_usd_send > 0 and ct_usd_send > coyun_usd_send:
                 try: db.session.add(Alerta(fecha="ACTIVA", msg="Costo Total superó Coyuntural", producto=p.nombre, tipo="ACTIVA"))
                 except: pass
@@ -855,10 +873,12 @@ def exportar_excel():
                     merma_final = merma_usd; ct_final = ct_usd
                     p_lima_final = p_lima_usd; p_prov_final = p_prov_usd
                     txt_final = txt_real
-                
+            
+            # 🔥 AQUÍ SE INCLUYE LA NUEVA COLUMNA ODOO EN EL EXCEL 🔥
             data.append({
                 "Producto": str(p.nombre), "Kilaje": str(get_quantity(p.nombre)), "Código": str(p.codigo), 
-                "Empresa": str(p.empresa), "Categoría": str(p.categoria), "Origen": str(p.tipo_origen), "Moneda": txt_final,
+                "Empresa": str(p.empresa), "Categoría": str(p.categoria), "Origen": str(p.tipo_origen), 
+                "Odoo": str(p.en_odoo) if p.en_odoo else "NO", "Moneda": txt_final,
                 "Costo Real": round(float(base_final), 2), "Costo Fab": round(float(fab_final), 2), "Merma (%)": round(float(merma_pct)*100, 2), 
                 "Costo Total": round(float(ct_final), 2), "Coyuntural": round(float(coyun_final), 2), "Margen (%)": round(float(mg)*100, 2), 
                 "PV Autorizado": str(format_discount(p.pv_str, p.dscto_pv_man, p.dscto_pv_ex)), 
