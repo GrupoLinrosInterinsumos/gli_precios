@@ -127,7 +127,7 @@
                 <div class="col-12 col-md-3">
                     <div class="upload-box" onclick="document.getElementById('fileRelaciones').click()">
                         <div class="mb-1 text-success"><i class="bi bi-diagram-3-fill fs-3"></i></div>
-                        <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.8rem;">Lista Categorías/Origen</h6>
+                        <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.8rem;">Subir Atributos (Odoo, Cat.)</h6>
                         <input type="file" id="fileRelaciones" class="d-none" accept=".xlsx, .csv" onchange="subirRelaciones()">
                     </div>
                 </div>
@@ -433,7 +433,7 @@
                     if (p.es_pen_exception) {
                         vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; sim='S/'; txt='PEN';
                     } else if (p.moneda_texto === 'PEN') {
-                        // Nativos puros no se alteran
+                        
                     } else {
                         vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN';
                     }
@@ -544,7 +544,7 @@
         let fd = new FormData(); fd.append('archivo', input.files[0]);
         document.getElementById('status').innerText = "Vinculando origen...";
         let res = await fetch('/api/subir-relaciones', {method:'POST', body:fd});
-        if(res.ok) { document.getElementById('status').innerText = "✅ Relaciones OK"; ejecutarBusqueda(); } 
+        if(res.ok) { document.getElementById('status').innerText = "✅ Datos OK"; ejecutarBusqueda(); } 
         else document.getElementById('status').innerText = "❌ Error";
     }
 
@@ -630,7 +630,6 @@
         new bootstrap.Modal(document.getElementById('modalExportar')).show();
     }
     
-    // 🔥 FUNCIÓN DE FILTRADO PARA LA EXPORTACIÓN 🔥
     function filtrarExportar() {
         let filtro = document.getElementById('txtBuscarExportar').value.toUpperCase();
         let items = document.querySelectorAll('.item-exportar');
@@ -644,7 +643,6 @@
         });
     }
     
-    // 🔥 MARCAR TODOS INTELIGENTE (Solo marca los visibles) 🔥
     function marcarTodosExportar(estado) { 
         let items = document.querySelectorAll('.item-exportar');
         items.forEach(item => {
