@@ -607,14 +607,14 @@ def buscar():
                 coyun_heredado_usd = 0.0
                 p_padres = [d for d in data_comprados if d['core'] == core_fab]
                 if p_padres:
-                    if 'ESENCIA' in str(p.categoria).upper():
-                        # 🔥 PRIORIDAD 1: Busca el de 1K o 1L 🔥
-                        p_1 = [d for d in p_padres if '1K' in d['clean'] or '1L' in d['clean']]
+                    # 🔥 INTELIGENCIA MEJORADA: Busca ESENCIA en nombre O en categoría 🔥
+                    if 'ESENCIA' in str(p.categoria).upper() or 'ESENCIA' in p.nombre.upper():
+                        # Prioridad 1: Buscar exactamente el envase de 1KG / 1L matemáticamente
+                        p_1 = [d for d in p_padres if get_quantity_normalized(d['nombre']) == 1.0]
                         if p_1:
                             c_heredado_usd = p_1[0]['costo_usd']
                             coyun_heredado_usd = p_1[0]['coyun_usd']
                         else:
-                            # Prioridad 2: El que haya
                             c_heredado_usd = p_padres[0]['costo_usd']
                             coyun_heredado_usd = p_padres[0]['coyun_usd']
                     else: 
@@ -793,14 +793,13 @@ def exportar_excel():
                 coyun_heredado_usd = 0.0
                 posibles_padres = [d for d in data_comprados if d['core'] == core_fab]
                 if posibles_padres:
-                    if 'ESENCIA' in str(p.categoria).upper():
-                        # 🔥 PRIORIDAD 1: Busca el de 1K o 1L 🔥
-                        p_1 = [d for d in posibles_padres if '1K' in d['clean'] or '1L' in d['clean']]
+                    if 'ESENCIA' in str(p.categoria).upper() or 'ESENCIA' in p.nombre.upper():
+                        # 🔥 PRIORIDAD 1: Busca el de 1K o 1L matemáticamente 🔥
+                        p_1 = [d for d in posibles_padres if get_quantity_normalized(d['nombre']) == 1.0]
                         if p_1:
                             c_heredado_usd = p_1[0]['costo_usd']
                             coyun_heredado_usd = p_1[0]['coyun_usd']
                         else: 
-                            # Prioridad 2: El que haya
                             c_heredado_usd = posibles_padres[0]['costo_usd']
                             coyun_heredado_usd = posibles_padres[0]['coyun_usd']
                     else: 
