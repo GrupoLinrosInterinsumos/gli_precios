@@ -169,7 +169,7 @@
                         <th>C. Total</th>
                         <th>Coyuntural</th>
                         <th>% PV</th>
-                        <th>% Dist.</th>
+                        <th>% Dist. </th>
                         <th>Margen</th>
                         <th class="text-end">Valor venta Lima</th>
                         <th class="text-end pe-4">Valor venta AQP / TRU</th>
@@ -291,9 +291,14 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body bg-light p-4">
+          <div class="mb-3 position-relative">
+              <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+              <input type="text" id="txtBuscarExportar" class="form-control rounded ps-5 py-2 border-secondary-subtle" placeholder="Buscar producto para exportar..." onkeyup="filtrarExportar()">
+          </div>
+          
           <div class="d-flex justify-content-between mb-3">
-              <button class="btn btn-sm btn-outline-secondary rounded fw-bold bg-white" onclick="marcarTodosExportar(true)">Marcar Todos</button>
-              <button class="btn btn-sm btn-outline-secondary rounded fw-bold bg-white" onclick="marcarTodosExportar(false)">Desmarcar Todos</button>
+              <button class="btn btn-sm btn-outline-secondary rounded fw-bold bg-white shadow-sm" onclick="marcarTodosExportar(true)">Marcar Visibles</button>
+              <button class="btn btn-sm btn-outline-secondary rounded fw-bold bg-white shadow-sm" onclick="marcarTodosExportar(false)">Desmarcar Visibles</button>
           </div>
           <div id="listaProductosExportar" class="border rounded p-3 bg-white" style="max-height: 350px; overflow-y: auto; border-color:#e5e7eb;"></div>
         </div>
@@ -384,7 +389,6 @@
         if(res.ok) ejecutarBusqueda();
     }
     
-    // 🔥 FUNCIÓN PARA ALTERNAR PRIVACIDAD DE NOTA 🔥
     async function toggleNotaVisibilidad(nombre) {
         let res = await fetch('/api/toggle-nota', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre})});
         if(res.ok) ejecutarBusqueda();
@@ -469,7 +473,6 @@
                 
                 let escapedNota = (p.nota || "").replace(/"/g, '&quot;').replace(/'/g, "\\'");
                 
-                // 🔥 RENDERIZADO DEL CANDADO DE NOTA PRIVADA 🔥
                 let notaIcon = p.nota_visible ? 'bi-eye-fill text-success' : 'bi-eye-slash-fill text-danger';
                 let notaTitle = p.nota_visible ? 'Visible para el vendedor' : 'Oculto para el vendedor (Privado)';
                 let btnVisNota = p.nota ? `<button class="btn btn-sm py-0 px-1 border-0 ms-2" onclick="toggleNotaVisibilidad('${safeName}')" title="${notaTitle}"><i class="bi ${notaIcon} fs-6"></i></button>` : '';
@@ -618,12 +621,38 @@
     }
 
     function abrirModalExportar() {
-        let divLista = document.getElementById('listaProductosExportar'); divLista.innerHTML = '';
-        allProductsData.forEach(p => { divLista.innerHTML += `<div class="form-check mb-1 border-bottom border-light"><input class="form-check-input chk-exportar" type="checkbox" value="${p.nombre.replace(/"/g, '&quot;')}" checked> <label class="form-check-label text-dark fw-bold" style="font-size:0.85rem;">${p.nombre}</label></div>`; });
+        document.getElementById('txtBuscarExportar').value = '';
+        let divLista = document.getElementById('listaProductosExportar'); 
+        divLista.innerHTML = '';
+        allProductsData.forEach(p => { 
+            divLista.innerHTML += `<div class="form-check mb-1 border-bottom border-light item-exportar"><input class="form-check-input chk-exportar" type="checkbox" value="${p.nombre.replace(/"/g, '&quot;')}" checked> <label class="form-check-label text-dark fw-bold" style="font-size:0.85rem;">${p.nombre}</label></div>`; 
+        });
         new bootstrap.Modal(document.getElementById('modalExportar')).show();
     }
     
-    function marcarTodosExportar(estado) { document.querySelectorAll('.chk-exportar').forEach(chk => chk.checked = estado); }
+    // 🔥 FUNCIÓN DE FILTRADO PARA LA EXPORTACIÓN 🔥
+    function filtrarExportar() {
+        let filtro = document.getElementById('txtBuscarExportar').value.toUpperCase();
+        let items = document.querySelectorAll('.item-exportar');
+        items.forEach(item => {
+            let texto = item.innerText.toUpperCase();
+            if (texto.includes(filtro)) {
+                item.style.display = "";
+            } else {
+                item.style.display = "none";
+            }
+        });
+    }
+    
+    // 🔥 MARCAR TODOS INTELIGENTE (Solo marca los visibles) 🔥
+    function marcarTodosExportar(estado) { 
+        let items = document.querySelectorAll('.item-exportar');
+        items.forEach(item => {
+            if (item.style.display !== "none") {
+                item.querySelector('.chk-exportar').checked = estado;
+            }
+        });
+    }
     
     async function procesarDescarga() {
         let seleccionados = Array.from(document.querySelectorAll('.chk-exportar:checked')).map(c => c.value);
