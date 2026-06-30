@@ -427,12 +427,12 @@
 
                 if (modoMoneda === 'ORIGINAL') {
                     if (p.es_pen_exception) {
-                        vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; sim='S/'; txt='PEN';
+                        vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN';
                     }
                 } 
                 else if (modoMoneda === 'PEN') { 
                     if (p.es_pen_exception) {
-                        vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; sim='S/'; txt='PEN';
+                        vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN';
                     } else if (p.moneda_texto === 'PEN') {
                         
                     } else {
