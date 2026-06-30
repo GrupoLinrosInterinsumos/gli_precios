@@ -648,59 +648,59 @@ def buscar():
                 base_pen = c_base_db; fab_pen = c_fab_db; coyun_pen = coyun_db
                 merma_pen = base_pen * merma_pct
                 ct_pen = base_pen + fab_pen + merma_pen
-                
+
                 if p.tipo_origen == 'FABRICADO' and coyun_pen > 0:
                     coyun_total_pen = coyun_pen + fab_pen + (coyun_pen * merma_pct)
                     c_ref_pen = coyun_total_pen
                 else:
                     coyun_total_pen = coyun_pen
                     c_ref_pen = coyun_pen if coyun_pen > 0 else ct_pen
-                    
+
                 p_lima_pen = c_ref_pen * (1 + mg)
-                p_prov_pen = p_lima_pen + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR * 4.0)
-                
-                c_base_usd_send = base_pen / 4.0; c_fab_usd_send = fab_pen / 4.0
-                coyun_usd_send = coyun_total_pen / 4.0
-                merma_monto_usd_send = merma_pen / 4.0; ct_usd_send = ct_pen / 4.0
-                p_lima_usd_send = p_lima_pen / 4.0; p_prov_usd_send = p_prov_pen / 4.0
-                factor_display = 4.0
+                p_prov_pen = p_lima_pen + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR * tc)
+
+                c_base_usd_send = base_pen / tc; c_fab_usd_send = fab_pen / tc
+                coyun_usd_send = coyun_total_pen / tc
+                merma_monto_usd_send = merma_pen / tc; ct_usd_send = ct_pen / tc
+                p_lima_usd_send = p_lima_pen / tc; p_prov_usd_send = p_prov_pen / tc
+                factor_display = tc
 
             elif is_mixto:
                 base_pen = c_base_db; fab_pen = c_fab_db * 4.0; coyun_pen = coyun_db
                 merma_pen = base_pen * merma_pct
                 ct_pen = base_pen + fab_pen + merma_pen
-                
+
                 if p.tipo_origen == 'FABRICADO' and coyun_pen > 0:
                     coyun_total_pen = coyun_pen + fab_pen + (coyun_pen * merma_pct)
                     c_ref_pen = coyun_total_pen
                 else:
                     coyun_total_pen = coyun_pen
                     c_ref_pen = coyun_pen if coyun_pen > 0 else ct_pen
-                    
+
                 p_lima_pen = c_ref_pen * (1 + mg)
-                p_prov_pen = p_lima_pen + 0.0 
-                
-                c_base_usd_send = base_pen / 4.0; c_fab_usd_send = c_fab_db
-                coyun_usd_send = coyun_total_pen / 4.0
-                merma_monto_usd_send = merma_pen / 4.0; ct_usd_send = ct_pen / 4.0
-                p_lima_usd_send = p_lima_pen / 4.0; p_prov_usd_send = p_prov_pen / 4.0
-                factor_display = 4.0
+                p_prov_pen = p_lima_pen + 0.0
+
+                c_base_usd_send = base_pen / tc; c_fab_usd_send = fab_pen / tc
+                coyun_usd_send = coyun_total_pen / tc
+                merma_monto_usd_send = merma_pen / tc; ct_usd_send = ct_pen / tc
+                p_lima_usd_send = p_lima_pen / tc; p_prov_usd_send = p_prov_pen / tc
+                factor_display = tc
 
             elif is_clasica:
-                c_base_usd_send = c_base_db; c_fab_usd_send = c_fab_db; coyun_base_usd = coyun_db
+                c_base_usd_send = c_base_db * 4.0 / tc; c_fab_usd_send = c_fab_db * 4.0 / tc; coyun_base_usd = coyun_db * 4.0 / tc
                 merma_monto_usd_send = c_base_usd_send * merma_pct
                 ct_usd_send = c_base_usd_send + c_fab_usd_send + merma_monto_usd_send
-                
+
                 if p.tipo_origen == 'FABRICADO' and coyun_base_usd > 0:
                     coyun_usd_send = coyun_base_usd + c_fab_usd_send + (coyun_base_usd * merma_pct)
                     c_ref_usd = coyun_usd_send
                 else:
                     coyun_usd_send = coyun_base_usd
                     c_ref_usd = coyun_usd_send if coyun_usd_send > 0 else ct_usd_send
-                    
+
                 p_lima_usd_send = c_ref_usd * (1 + mg)
                 p_prov_usd_send = p_lima_usd_send + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR)
-                factor_display = 4.0
+                factor_display = tc
 
             else:
                 c_base_usd_send = c_base_db; c_fab_usd_send = c_fab_db; coyun_base_usd = coyun_db
@@ -821,47 +821,49 @@ def exportar_excel():
             is_frag = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
             flete_usd = 0.0 if (prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag) else FLETE_ESTANDAR
 
+            tc_exp = get_tc_actual()
+
             if is_nativo:
                 base_final = c_base_db; fab_final = c_fab_db; coyun_base = coyun_db
                 merma_final = base_final * merma_pct
                 ct_final = base_final + fab_final + merma_final
-                
+
                 if p.tipo_origen == 'FABRICADO' and coyun_base > 0:
                     coyun_final = coyun_base + fab_final + (coyun_base * merma_pct)
                 else:
                     coyun_final = coyun_base
-                    
+
                 p_lima_final = (coyun_final if coyun_base > 0 else ct_final) * (1 + mg)
-                p_prov_final = p_lima_final + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else flete_usd * 4.0)
+                p_prov_final = p_lima_final + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else flete_usd * tc_exp)
                 txt_final = 'PEN'
-                
+
             elif is_mixto:
                 base_final = c_base_db; fab_final = c_fab_db * 4.0; coyun_base = coyun_db
                 merma_final = base_final * merma_pct
                 ct_final = base_final + fab_final + merma_final
-                
+
                 if p.tipo_origen == 'FABRICADO' and coyun_base > 0:
                     coyun_final = coyun_base + fab_final + (coyun_base * merma_pct)
                 else:
                     coyun_final = coyun_base
-                    
+
                 p_lima_final = (coyun_final if coyun_base > 0 else ct_final) * (1 + mg)
                 p_prov_final = p_lima_final + 0.0
                 txt_final = 'PEN'
-                
+
             else:
                 base_usd = c_base_db; fab_usd = c_fab_db; coyun_base = coyun_db
                 merma_usd = base_usd * merma_pct
                 ct_usd = base_usd + fab_usd + merma_usd
-                
+
                 if p.tipo_origen == 'FABRICADO' and coyun_base > 0:
                     coyun_usd_total = coyun_base + fab_usd + (coyun_base * merma_pct)
                 else:
                     coyun_usd_total = coyun_base
-                    
+
                 p_lima_usd = (coyun_usd_total if coyun_base > 0 else ct_usd) * (1 + mg)
                 p_prov_usd = p_lima_usd + flete_usd
-                
+
                 if is_clasica:
                     base_final = base_usd * 4.0; fab_final = fab_usd * 4.0
                     coyun_final = coyun_usd_total * 4.0
