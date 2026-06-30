@@ -206,7 +206,7 @@
                 vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN'; 
             } 
             else if (modoMoneda === 'USD' && txt === 'PEN') { 
-                let divisor = p.es_pen_exception ? 4.0 : tcGlobal;
+                let divisor = tcGlobal;
                 vl/=divisor; vp/=divisor; sim='$'; txt='USD'; 
             }
 
