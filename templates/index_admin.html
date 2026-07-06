@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GLI | Panel de Administrador</title>
-    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -169,11 +168,11 @@
                         <th>Merma</th>
                         <th>C. Total</th>
                         <th>Coyuntural</th>
-                        <th>% PV</th>
+                        <th>% PV </th>
                         <th>% Dist. </th>
                         <th>Margen</th>
                         <th class="text-end">Valor venta Lima</th>
-                        <th class="text-end pe-4">Valor venta AQP / TRU</th>
+                        <th class="text-end pe-4">Valor venta AQP/TRU </th>
                     </tr>
                 </thead>
                 <tbody id="tablaResultados"></tbody>
@@ -187,7 +186,7 @@
 </main>
 
 <footer class="footer-copyright">
-    &copy; 2026 GLI - Grupo Linros Interinsumos. Todos los derechos reservados.
+    &copy; 2026 Grupo Linros Interinsumos (GLI). Todos los derechos reservados.
 </footer>
 
 <div class="modal fade" id="modalEdicionUniversal" tabindex="-1">
@@ -341,20 +340,26 @@
         modalEdicion.show();
     }
 
-    function editarCelda(tipo, nombre, valorActual) {
+    // 🔥 FUNCIÓN EDITAR ACTUALIZADA (Inteligente con la Moneda y el Porcentaje) 🔥
+    function editarCelda(tipo, nombre, valorActual, monedaOriginal = 'USD') {
         editContext = { tipo: tipo, nombre: nombre };
         let input = document.getElementById('inputEdicionUniversal');
 
         if(tipo === 'nota') {
             document.getElementById('modalEdicionTitulo').innerText = "Editar Nota";
+            document.getElementById('modalEdicionLabel').innerText = "Nuevo texto";
             input.type = 'text'; input.removeAttribute('maxlength'); input.placeholder = "Escribe...";
         } else if (tipo === 'dscto' || tipo === 'dscto-dist') {
             document.getElementById('modalEdicionTitulo').innerText = tipo === 'dscto' ? "P.V. Autorizado" : "Dist. Exclusivo";
             document.getElementById('modalEdicionLabel').innerText = "Texto libre (Ej: CONSULTAR, 15%) - Max 10 letras";
             input.type = 'text'; input.maxLength = 10; input.placeholder = "Máx 10";
+        } else if (tipo === 'margen' || tipo === 'merma') {
+            document.getElementById('modalEdicionTitulo').innerText = tipo === 'margen' ? "Editar Margen" : "Editar Merma";
+            document.getElementById('modalEdicionLabel').innerText = "Porcentaje (%)";
+            input.type = 'number'; input.removeAttribute('maxlength'); input.placeholder = "0.00";
         } else {
-            document.getElementById('modalEdicionTitulo').innerText = "Editar Valor";
-            document.getElementById('modalEdicionLabel').innerText = "Valor numérico (USD)";
+            document.getElementById('modalEdicionTitulo').innerText = "Editar Costo";
+            document.getElementById('modalEdicionLabel').innerText = `Valor numérico (${monedaOriginal})`;
             input.type = 'number'; input.removeAttribute('maxlength'); input.placeholder = "0.00";
         }
         
@@ -427,12 +432,12 @@
 
                 if (modoMoneda === 'ORIGINAL') {
                     if (p.es_pen_exception) {
-                        vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN';
+                        vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; sim='S/'; txt='PEN';
                     }
                 } 
                 else if (modoMoneda === 'PEN') { 
                     if (p.es_pen_exception) {
-                        vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN';
+                        vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; sim='S/'; txt='PEN';
                     } else if (p.moneda_texto === 'PEN') {
                         
                     } else {
@@ -441,6 +446,13 @@
                 } 
                 else if (modoMoneda === 'USD') { 
                     if (p.es_pen_exception) {
+                        vb = (vb * 4.0) / tcGlobal;
+                        vf = (vf * 4.0) / tcGlobal;
+                        vmer = (vmer * 4.0) / tcGlobal;
+                        vt = (vt * 4.0) / tcGlobal;
+                        vcy = (vcy * 4.0) / tcGlobal;
+                        vl = (vl * 4.0) / tcGlobal;
+                        vp = (vp * 4.0) / tcGlobal;
                         sim='$'; txt='USD';
                     } else if (p.moneda_texto === 'PEN') {
                         vb/=tcGlobal; vf/=tcGlobal; vmer/=tcGlobal; vt/=tcGlobal; vcy/=tcGlobal; vl/=tcGlobal; vp/=tcGlobal; sim='$'; txt='USD';
@@ -456,14 +468,17 @@
                 let btnCostoReal = '';
                 let safeName = p.nombre.replace(/'/g, "\\'");
                 
+                // 🔥 ENVIANDO LA MONEDA CORRECTA A LOS BOTONES DE EDICIÓN 🔥
+                let monedaEdicion = p.moneda_texto; 
+
                 if (p.tipo_origen === 'FABRICADO' && !p.editable_costo) {
                     badgeOrigen = `<span class="badge-custom bg-light border-success text-success"><i class="bi bi-diagram-2"></i> Fabricado</span>`;
-                    btnCostoReal = `<button class="btn-accion text-success fw-bold" style="border-color:#198754; background:#f8fff9;" onclick="editarCelda('costo-real', '${safeName}', ${p.costo_base_usd})">${vb > 0 ? sim + vb.toFixed(3) : '-'}</button>`;
+                    btnCostoReal = `<button class="btn-accion text-success fw-bold" style="border-color:#198754; background:#f8fff9;" onclick="editarCelda('costo-real', '${safeName}', ${p.costo_base_usd}, '${monedaEdicion}')">${vb > 0 ? sim + vb.toFixed(3) : '-'}</button>`;
                 } else {
                     if (p.tipo_origen === 'FABRICADO') {
                         badgeOrigen = `<span class="badge-custom bg-light border-warning text-warning"><i class="bi bi-diagram-2"></i> Fab. (Manual)</span>`;
                     }
-                    btnCostoReal = `<button class="btn-accion" onclick="editarCelda('costo-real', '${safeName}', ${p.costo_base_usd})">${vb > 0 ? sim + vb.toFixed(3) : '-'}</button>`;
+                    btnCostoReal = `<button class="btn-accion" onclick="editarCelda('costo-real', '${safeName}', ${p.costo_base_usd}, '${monedaEdicion}')">${vb > 0 ? sim + vb.toFixed(3) : '-'}</button>`;
                 }
 
                 let hasCoyuntural = vcy > 0;
@@ -508,10 +523,10 @@
                         ${htmlNota}
                     </td>
                     <td>${btnCostoReal}</td>
-                    <td><button class="btn-accion" onclick="editarCelda('costo-fab', '${safeName}', ${p.costo_fab_usd})">${vf > 0 ? sim + vf.toFixed(3) : '-'}</button></td>
+                    <td><button class="btn-accion" onclick="editarCelda('costo-fab', '${safeName}', ${p.costo_fab_usd}, '${monedaEdicion}')">${vf > 0 ? sim + vf.toFixed(3) : '-'}</button></td>
                     <td><button class="btn-accion" onclick="editarCelda('merma', '${safeName}', ${p.merma_porcentaje})">${p.merma_porcentaje}%</button></td>
                     <td class="fw-bold text-dark">${sim}${vt.toFixed(3)}</td>
-                    <td><button class="${btnCoyunturalClass}" onclick="editarCelda('costo-coyuntural', '${safeName}', ${p.costo_coyuntural_usd})">${textCoyuntural}</button></td>
+                    <td><button class="${btnCoyunturalClass}" onclick="editarCelda('costo-coyuntural', '${safeName}', ${p.costo_coyuntural_usd}, '${monedaEdicion}')">${textCoyuntural}</button></td>
                     
                     <td><button class="btn-accion text-primary fw-bold" onclick="editarCelda('dscto', '${safeName}', '${txt_pv}')">${txt_pv}</button></td>
                     <td><button class="btn-accion text-primary fw-bold" onclick="editarCelda('dscto-dist', '${safeName}', '${txt_dist}')">${txt_dist}</button></td>
