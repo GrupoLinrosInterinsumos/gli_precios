@@ -559,7 +559,31 @@ def editar_celdas(tipo):
             elif tipo == 'merma': p.merma_pct_man = val / 100.0
             elif tipo == 'costo-real': p.costo_base_man = val if val >= 0 else None
             elif tipo == 'costo-fab': p.costo_fab_man = val if val >= 0 else None
-            elif tipo == 'costo-coyuntural': p.coyuntural_man = val if val > 0 else -1.0
+            elif tipo == 'costo-coyuntural':
+                p.coyuntural_man = val if val > 0 else -1.0
+                # 🔥 Cascada: si el producto editado es el ORIGINAL (COMPRADO de menor
+                # kilaje) de su familia, propaga este mismo coyuntural a los hermanos de
+                # mayor kilaje (sean COMPRADO o FABRICADO), sobreescribiendo lo que tuvieran.
+                # Si el producto editado NO es el original, no hay cascada.
+                if val > 0 and p.tipo_origen == 'COMPRADO' and not es_excepcion_herencia(p.nombre):
+                    core_self = get_core_name(p.nombre)
+                    qty_self = get_quantity_normalized(p.nombre)
+                    if qty_self > 0:
+                        comprados_familia = Producto.query.filter_by(tipo_origen='COMPRADO').all()
+                        es_original = not any(
+                            get_core_name(h.nombre) == core_self and 0 < get_quantity_normalized(h.nombre) < qty_self
+                            for h in comprados_familia if h.nombre != p.nombre
+                        )
+                        if es_original:
+                            hermanos_mayores = [
+                                h for h in Producto.query.all()
+                                if h.nombre != p.nombre
+                                and not es_excepcion_herencia(h.nombre)
+                                and get_core_name(h.nombre) == core_self
+                                and get_quantity_normalized(h.nombre) > qty_self
+                            ]
+                            for h in hermanos_mayores:
+                                h.coyuntural_man = val
             
         db.session.commit(); return jsonify({"success": True})
     except Exception as e: return jsonify({"error": str(e)}), 500
@@ -582,10 +606,9 @@ def buscar():
                 parent_core = get_core_name(c.nombre)
                 p_coyun = get_val(c.coyuntural_man, c.coyuntural_ex, 0.0)
                 p_base = get_val(c.costo_base_man, c.costo_base_ex, 0.0)
-                p_qty = get_quantity_normalized(c.nombre)
                 data_comprados.append({
                     'nombre': c.nombre, 'costo_usd': p_base, 'coyun_usd': p_coyun, 
-                    'core': parent_core, 'clean': c.nombre.replace(' ', '').upper(), 'qty': p_qty
+                    'core': parent_core, 'clean': c.nombre.replace(' ', '').upper()
                 })
 
         for p in prods:
@@ -631,18 +654,6 @@ def buscar():
                 if coyun_heredado_usd > 0:
                     if p.coyuntural_man is None or p.coyuntural_man <= 0:
                         coyun_db = coyun_heredado_usd
-
-            elif p.tipo_origen == 'COMPRADO' and not es_excepcion_herencia(p.nombre):
-                # 🔥 Herencia de Coyuntural entre presentaciones COMPRADO 🔥
-                # La presentación más chica (ej. 25KG) es el "original" de la familia.
-                # Las presentaciones más grandes (100KG, 200KG, etc.) heredan su coyuntural,
-                # sobreescribiendo siempre cualquier valor manual propio.
-                core_self = get_core_name(p.nombre)
-                familia = [d for d in data_comprados if d['core'] == core_self and d['qty'] > 0]
-                if len(familia) > 1:
-                    original = min(familia, key=lambda d: d['qty'])
-                    if original['nombre'] != p.nombre and original['coyun_usd'] > 0:
-                        coyun_db = original['coyun_usd']
 
             c_fab_db = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
             mg = get_val(p.margen_man, p.margen_ex, 0.20)
