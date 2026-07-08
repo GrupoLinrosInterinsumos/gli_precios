@@ -582,9 +582,10 @@ def buscar():
                 parent_core = get_core_name(c.nombre)
                 p_coyun = get_val(c.coyuntural_man, c.coyuntural_ex, 0.0)
                 p_base = get_val(c.costo_base_man, c.costo_base_ex, 0.0)
+                p_qty = get_quantity_normalized(c.nombre)
                 data_comprados.append({
                     'nombre': c.nombre, 'costo_usd': p_base, 'coyun_usd': p_coyun, 
-                    'core': parent_core, 'clean': c.nombre.replace(' ', '').upper()
+                    'core': parent_core, 'clean': c.nombre.replace(' ', '').upper(), 'qty': p_qty
                 })
 
         for p in prods:
@@ -630,6 +631,18 @@ def buscar():
                 if coyun_heredado_usd > 0:
                     if p.coyuntural_man is None or p.coyuntural_man <= 0:
                         coyun_db = coyun_heredado_usd
+
+            elif p.tipo_origen == 'COMPRADO' and not es_excepcion_herencia(p.nombre):
+                # 🔥 Herencia de Coyuntural entre presentaciones COMPRADO 🔥
+                # La presentación más chica (ej. 25KG) es el "original" de la familia.
+                # Las presentaciones más grandes (100KG, 200KG, etc.) heredan su coyuntural,
+                # sobreescribiendo siempre cualquier valor manual propio.
+                core_self = get_core_name(p.nombre)
+                familia = [d for d in data_comprados if d['core'] == core_self and d['qty'] > 0]
+                if len(familia) > 1:
+                    original = min(familia, key=lambda d: d['qty'])
+                    if original['nombre'] != p.nombre and original['coyun_usd'] > 0:
+                        coyun_db = original['coyun_usd']
 
             c_fab_db = get_val(p.costo_fab_man, p.costo_fab_ex, 0.0)
             mg = get_val(p.margen_man, p.margen_ex, 0.20)
