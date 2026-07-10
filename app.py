@@ -119,11 +119,7 @@ FLETE_ESTANDAR = 0.11
 
 EXCEPCIONES_SOLES = [
     "COLAGENO HIDROLIZADO GELNEX X 1KG", "COLAGENO HIDROLIZADO GELNEX X 400G",
-    "FOSFATO PARA JAMONES BUDENHEIM X 1KG", "FOSFATO PARA JAMONES BUDENHEIM X 5KG",
-    "FOSFATO PARA MASAS BUDENHEIM X 1KG", "FOSFATO PARA MASAS BUDENHEIM X 5KG",
-    "POLVO DE HORNEAR LEVAMAX TOP P40 LINROS X 25KG", "POLVO DE HORNEAR LEVAMAX TOP P40 LINROS X 5KG",
     "PREPARADO VITAMINA C LINROS X 500G",
-    "SAL DE CURA CONCENTRADA TECNAS X 1KG", "SAL DE CURA CONCENTRADA TECNAS X 25KG", "SAL DE CURA CONCENTRADA TECNAS X 5KG",
     "AMILASA MALTOGENICA MTG1500"
 ]
 
@@ -135,6 +131,15 @@ EXCEPCIONES_NATIVAS = [
 EXCEPCIONES_SACCO_USD = ["LYOTO M 536 R", "LYOTO M 536 S", "LYOFAST AB 1"]
 EXCEPCIONES_CLERICI_USD = ["TRANSGLUTAMINASA CAGLIFICIO CLERICI"]
 
+def limpiar_texto(txt):
+    try:
+        if txt is None: return ""
+        if isinstance(txt, float) and pd.isna(txt): return ""
+        t = str(txt).replace('\xa0', ' ').strip().upper()
+        if t == 'NAN': return ""
+        return re.sub(r'\s+', ' ', t).strip()
+    except: return ""
+
 def get_tc_actual():
     try:
         c = Config.query.filter_by(clave='tipo_cambio').first()
@@ -144,31 +149,35 @@ def get_tc_actual():
     except: return 3.80
 
 def detectar_proveedor_exacto(nombre_odoo, empresa_col=""):
-    n_up = str(nombre_odoo).upper()
-    n_clean = re.sub(r'\s+', '', n_up)
+    n_up = limpiar_texto(nombre_odoo)
+    n_clean = n_up.replace(' ', '')
     if "NATAMICINA" in n_clean or "NISINA" in n_clean: return "INTERINSUMOS"
     if "CRAMER" in n_up: return "CRAMER"
     if "SACCO" in n_up: return "SACCO"
     if "CLERICI" in n_up or "CAGLIFICIO" in n_up: return "CAGLIFICIO CLERICI"
     if "LUDAFA" in n_up: return "JM LUDAFA"
-    return str(empresa_col).strip().upper()
+    return limpiar_texto(empresa_col)
 
 def es_nativo_soles(nombre):
-    n_up = str(nombre).upper()
+    n_up = limpiar_texto(nombre)
     return any(exc in n_up for exc in EXCEPCIONES_NATIVAS)
 
 def es_proveedor_soles_mixto(nombre, prov):
-    n_upper = str(nombre).upper()
-    n_clean = re.sub(r'\s+', '', n_upper)
+    n_upper = limpiar_texto(nombre)
+    n_clean = n_upper.replace(' ', '')
     if prov == "CAGLIFICIO CLERICI" or "CLERICI" in n_upper or "CAGLIFICIO" in n_upper:
         return not any(e.replace(" ", "") in n_clean for e in EXCEPCIONES_CLERICI_USD)
     if prov == "JM LUDAFA" or "LUDAFA" in n_upper: return True
     return False
 
 def es_excepcion_soles_clasica(nombre):
-    n_clean = re.sub(r'\s+', '', str(nombre).upper()).replace('Á', 'A').replace('Ó', 'O')
+    n_clean = limpiar_texto(nombre).replace(' ', '').replace('Á', 'A').replace('Ó', 'O')
     if any(exc.replace(" ", "") in n_clean for exc in EXCEPCIONES_SOLES): return True
     if "COLAGENO" in n_clean and ("1KG" in n_clean or "400G" in n_clean): return True
+    if "FOSFATOPARAJAMONES" in n_clean: return True
+    if "FOSFATOPARAMASAS" in n_clean: return True
+    if "SALDECURACONCENTRADA" in n_clean: return True
+    if "POLVODEHORNEARLEVAMAX" in n_clean: return True
     return False
 
 def get_currency_info(nombre, proveedor):
@@ -176,8 +185,9 @@ def get_currency_info(nombre, proveedor):
     if es_proveedor_soles_mixto(nombre, proveedor): return "S/", "PEN"
     if es_excepcion_soles_clasica(nombre): return "S/", "PEN"
     
-    if proveedor == "SACCO" or "SACCO" in str(nombre).upper():
-        n_clean = re.sub(r'\s+', '', str(nombre).upper()).replace('Á', 'A').replace('Ó', 'O')
+    n_upper = limpiar_texto(nombre)
+    if proveedor == "SACCO" or "SACCO" in n_upper:
+        n_clean = n_upper.replace(' ', '').replace('Á', 'A').replace('Ó', 'O')
         if any(exc.replace(" ", "") in n_clean for exc in EXCEPCIONES_SACCO_USD): return "$", "USD"
         return "S/", "PEN"
     return "$", "USD"
@@ -231,12 +241,12 @@ def get_col_val(row, poss_names, def_val=0):
     return def_val
 
 def get_core_name(name):
-    core = re.sub(r'\bX?\s*\d+(?:[\.,]\d+)?\s*(?:KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', '', str(name), flags=re.IGNORECASE)
+    core = re.sub(r'\bX?\s*\d+(?:[\.,]\d+)?\s*(?:KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', '', limpiar_texto(name), flags=re.IGNORECASE)
     core = re.sub(r'[^a-zA-Z0-9\s]', '', core)
     return re.sub(r'\s+', ' ', core).strip()
 
 def get_quantity_normalized(name):
-    match = re.search(r'\bX?\s*(\d+(?:[\.,]\d+)?)\s*(KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', str(name), flags=re.IGNORECASE)
+    match = re.search(r'\bX?\s*(\d+(?:[\.,]\d+)?)\s*(KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', limpiar_texto(name), flags=re.IGNORECASE)
     if match:
         try: 
             val = float(match.group(1).replace(',', '.'))
@@ -247,14 +257,14 @@ def get_quantity_normalized(name):
     return 0.0
 
 def get_quantity(name):
-    match = re.search(r'\bX?\s*(\d+(?:[\.,]\d+)?)\s*(?:KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', str(name), flags=re.IGNORECASE)
+    match = re.search(r'\bX?\s*(\d+(?:[\.,]\d+)?)\s*(?:KG|KGS|KILO|KILOS|G|GR|GRS|L|LT|LTS|LITRO|LITROS|ML|LB|LBS|GAL|GALON|GALONES)\b', limpiar_texto(name), flags=re.IGNORECASE)
     if match:
         try: return float(match.group(1).replace(',', '.'))
         except: pass
     return ""
 
 def es_excepcion_herencia(nombre):
-    n_clean = re.sub(r'\s+', '', str(nombre)).upper()
+    n_clean = limpiar_texto(nombre).replace(' ', '')
     excs = ["COLAGENOHIDROLIZADOGELNEXX1KG", "COLAGENOHIDROLIZADOGELNEXX400G", "FOSFATOPARAJAMONES", "FOSFATOPARAMASAS", "AMILASAMALTOGENICAMTG1500"]
     return any(e in n_clean for e in excs)
 
@@ -339,7 +349,7 @@ def update_tc():
 @login_required
 def subir_maestro():
     try:
-        if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
+        if not is_admin_api(): return jsonify({"error": "No authorized"}), 403
         f = request.files.get('archivo')
         if not f: return jsonify({"error": "Sin archivo"}), 400
         
@@ -353,16 +363,15 @@ def subir_maestro():
         df.columns = [str(c).strip().lower().replace('.', '').replace('ó', 'o').replace('í', 'i') for c in df.columns]
         
         for _, row in df.iterrows():
-            nombre = str(get_col_val(row, ['nombre', 'producto'], '')).strip().upper()
+            nombre = limpiar_texto(get_col_val(row, ['nombre', 'producto'], ''))
             if not nombre or nombre == 'NAN': continue
             
             c_base = robust_numeric(get_col_val(row, ['costo real', 'costo base', 'costo real (usd)']))
             c_fab = robust_numeric(get_col_val(row, ['costo de fabricacion', 'costo fab', 'costo fab (usd)']))
             coyun = robust_numeric(get_col_val(row, ['costo coyuntural', 'coyuntural', 'coyuntural (usd)']))
             
-            emp = str(get_col_val(row, ['empresa', 'marca'], '')).strip().upper()
-            n_clean_check = re.sub(r'\s+', '', nombre)
-            if "NATAMICINA" in n_clean_check or "NISINA" in n_clean_check: emp = "INTERINSUMOS"
+            emp = limpiar_texto(get_col_val(row, ['empresa', 'marca'], ''))
+            if "NATAMICINA" in nombre.replace(' ', '') or "NISINA" in nombre.replace(' ', ''): emp = "INTERINSUMOS"
                 
             prov = detectar_proveedor_exacto(nombre, emp)
             
@@ -412,16 +421,14 @@ def subir_relaciones():
     f = request.files.get('archivo')
     if not f: return jsonify({"error": "No hay archivo"}), 400
     try:
-        if f.filename.endswith('.csv'):
-            df = pd.read_csv(f)
-        else:
-            df = pd.read_excel(f)
+        if f.filename.endswith('.csv'): df = pd.read_csv(f)
+        else: df = pd.read_excel(f)
             
         df.columns = [str(c).strip().lower() for c in df.columns]
         for _, row in df.iterrows():
             nombre = ''
-            if 'producto' in df.columns and pd.notna(row['producto']): nombre = str(row['producto']).strip().upper()
-            elif 'nombre' in df.columns and pd.notna(row['nombre']): nombre = str(row['nombre']).strip().upper()
+            if 'producto' in df.columns and pd.notna(row['producto']): nombre = limpiar_texto(row['producto'])
+            elif 'nombre' in df.columns and pd.notna(row['nombre']): nombre = limpiar_texto(row['nombre'])
             
             if not nombre or nombre == 'NAN': continue
             
@@ -433,11 +440,11 @@ def subir_relaciones():
                         p = prod; break
 
             if p:
-                if 'categoria' in df.columns and pd.notna(row['categoria']): p.categoria = str(row['categoria']).strip().upper()
+                if 'categoria' in df.columns and pd.notna(row['categoria']): p.categoria = limpiar_texto(row['categoria'])
                 if 'referencia interna' in df.columns and pd.notna(row['referencia interna']): p.codigo = str(row['referencia interna']).strip()
                 if 'codigo' in df.columns and pd.notna(row['codigo']): p.codigo = str(row['codigo']).strip()
-                if 'columna1' in df.columns and pd.notna(row['columna1']): p.tipo_origen = str(row['columna1']).strip().upper()
-                if 'odoo' in df.columns and pd.notna(row['odoo']): p.en_odoo = str(row['odoo']).strip().upper()
+                if 'columna1' in df.columns and pd.notna(row['columna1']): p.tipo_origen = limpiar_texto(row['columna1'])
+                if 'odoo' in df.columns and pd.notna(row['odoo']): p.en_odoo = limpiar_texto(row['odoo'])
                 
         db.session.commit()
         return jsonify({"success": True})
@@ -451,14 +458,13 @@ def crear_producto():
         d = request.json
         
         nombre_original = d.get('nombre_original')
-        nombre = str(d.get('nombre', '')).upper().strip()
+        nombre = limpiar_texto(d.get('nombre', ''))
         if not nombre: return jsonify({"error": "El producto debe tener un nombre."}), 400
         
         codigo_val = str(d.get('codigo', '')).upper().strip() or 'S/C'
-        empresa_val = str(d.get('empresa', '')).upper().strip()
-        n_clean_check = re.sub(r'\s+', '', nombre)
-        if "NATAMICINA" in n_clean_check or "NISINA" in n_clean_check: empresa_val = "INTERINSUMOS"
-        tipo_origen_val = str(d.get('origen', 'COMPRADO')).upper().strip()
+        empresa_val = limpiar_texto(d.get('empresa', ''))
+        if "NATAMICINA" in nombre.replace(' ', '') or "NISINA" in nombre.replace(' ', ''): empresa_val = "INTERINSUMOS"
+        tipo_origen_val = limpiar_texto(d.get('origen', 'COMPRADO'))
         
         prov = detectar_proveedor_exacto(nombre, empresa_val)
         
@@ -480,7 +486,7 @@ def crear_producto():
         pv_str_val = str(d.get('dscto_pv', '')).strip()[:10]
         dist_str_val = str(d.get('dscto_dist', '')).strip()[:10]
 
-        p = Producto.query.filter_by(nombre=nombre_original).first() if nombre_original else Producto.query.filter_by(nombre=nombre).first()
+        p = Producto.query.filter_by(nombre=limpiar_texto(nombre_original)).first() if nombre_original else Producto.query.filter_by(nombre=nombre).first()
         
         if p:
             p.nombre = nombre; p.codigo = codigo_val; p.empresa = empresa_val
@@ -507,7 +513,7 @@ def crear_producto():
 def eliminar_producto():
     try:
         if not is_admin_api(): return jsonify({"error": "No"}), 403
-        p = Producto.query.filter_by(nombre=request.json['nombre']).first()
+        p = Producto.query.filter_by(nombre=limpiar_texto(request.json['nombre'])).first()
         if p:
             if p.es_manual: db.session.delete(p)
             else: p.oculto = True
@@ -520,7 +526,7 @@ def eliminar_producto():
 def toggle_visibilidad():
     try:
         if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
-        p = Producto.query.filter_by(nombre=request.json['nombre']).first()
+        p = Producto.query.filter_by(nombre=limpiar_texto(request.json['nombre'])).first()
         if p:
             estado_actual = p.visible_ventas if p.visible_ventas is not None else True
             p.visible_ventas = not estado_actual
@@ -533,7 +539,7 @@ def toggle_visibilidad():
 def toggle_nota_visibilidad():
     try:
         if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
-        p = Producto.query.filter_by(nombre=request.json['nombre']).first()
+        p = Producto.query.filter_by(nombre=limpiar_texto(request.json['nombre'])).first()
         if p:
             p.nota_visible = not p.nota_visible
             db.session.commit()
@@ -545,7 +551,7 @@ def toggle_nota_visibilidad():
 def editar_celdas(tipo):
     try:
         if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
-        p = Producto.query.filter_by(nombre=request.json['nombre']).first()
+        p = Producto.query.filter_by(nombre=limpiar_texto(request.json['nombre'])).first()
         if not p: return jsonify({"error": "No existe"}), 404
         
         val_str = str(request.json.get('valor', '')).strip()
@@ -559,31 +565,7 @@ def editar_celdas(tipo):
             elif tipo == 'merma': p.merma_pct_man = val / 100.0
             elif tipo == 'costo-real': p.costo_base_man = val if val >= 0 else None
             elif tipo == 'costo-fab': p.costo_fab_man = val if val >= 0 else None
-            elif tipo == 'costo-coyuntural':
-                p.coyuntural_man = val if val > 0 else -1.0
-                # 🔥 Cascada: si el producto editado es el ORIGINAL (COMPRADO de menor
-                # kilaje) de su familia, propaga este mismo coyuntural a los hermanos de
-                # mayor kilaje (sean COMPRADO o FABRICADO), sobreescribiendo lo que tuvieran.
-                # Si el producto editado NO es el original, no hay cascada.
-                if val > 0 and p.tipo_origen == 'COMPRADO' and not es_excepcion_herencia(p.nombre):
-                    core_self = get_core_name(p.nombre)
-                    qty_self = get_quantity_normalized(p.nombre)
-                    if qty_self > 0:
-                        comprados_familia = Producto.query.filter_by(tipo_origen='COMPRADO').all()
-                        es_original = not any(
-                            get_core_name(h.nombre) == core_self and 0 < get_quantity_normalized(h.nombre) < qty_self
-                            for h in comprados_familia if h.nombre != p.nombre
-                        )
-                        if es_original:
-                            hermanos_mayores = [
-                                h for h in Producto.query.all()
-                                if h.nombre != p.nombre
-                                and not es_excepcion_herencia(h.nombre)
-                                and get_core_name(h.nombre) == core_self
-                                and get_quantity_normalized(h.nombre) > qty_self
-                            ]
-                            for h in hermanos_mayores:
-                                h.coyuntural_man = val
+            elif tipo == 'costo-coyuntural': p.coyuntural_man = val if val > 0 else -1.0
             
         db.session.commit(); return jsonify({"success": True})
     except Exception as e: return jsonify({"error": str(e)}), 500
@@ -592,7 +574,7 @@ def editar_celdas(tipo):
 @login_required
 def buscar():
     try:
-        q = request.args.get('q', '').upper()
+        q = limpiar_texto(request.args.get('q', ''))
         tc = get_tc_actual()
         Alerta.query.filter_by(tipo="ACTIVA").delete()
         es_vendedor = current_user.role in ['Vendedor', 'TC']
@@ -631,9 +613,7 @@ def buscar():
                 coyun_heredado_usd = 0.0
                 p_padres = [d for d in data_comprados if d['core'] == core_fab]
                 if p_padres:
-                    # 🔥 INTELIGENCIA MEJORADA: Busca ESENCIA en nombre O en categoría 🔥
                     if 'ESENCIA' in str(p.categoria).upper() or 'ESENCIA' in p.nombre.upper():
-                        # Prioridad 1: Buscar exactamente el envase de 1KG / 1L matemáticamente
                         p_1 = [d for d in p_padres if get_quantity_normalized(d['nombre']) == 1.0]
                         if p_1:
                             c_heredado_usd = p_1[0]['costo_usd']
@@ -672,59 +652,59 @@ def buscar():
                 base_pen = c_base_db; fab_pen = c_fab_db; coyun_pen = coyun_db
                 merma_pen = base_pen * merma_pct
                 ct_pen = base_pen + fab_pen + merma_pen
-
+                
                 if p.tipo_origen == 'FABRICADO' and coyun_pen > 0:
                     coyun_total_pen = coyun_pen + fab_pen + (coyun_pen * merma_pct)
                     c_ref_pen = coyun_total_pen
                 else:
                     coyun_total_pen = coyun_pen
                     c_ref_pen = coyun_pen if coyun_pen > 0 else ct_pen
-
+                    
                 p_lima_pen = c_ref_pen * (1 + mg)
-                p_prov_pen = p_lima_pen + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR * tc)
-
-                c_base_usd_send = base_pen / tc; c_fab_usd_send = fab_pen / tc
-                coyun_usd_send = coyun_total_pen / tc
-                merma_monto_usd_send = merma_pen / tc; ct_usd_send = ct_pen / tc
-                p_lima_usd_send = p_lima_pen / tc; p_prov_usd_send = p_prov_pen / tc
-                factor_display = tc
+                p_prov_pen = p_lima_pen + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR * 4.0)
+                
+                c_base_usd_send = base_pen / 4.0; c_fab_usd_send = fab_pen / 4.0
+                coyun_usd_send = coyun_total_pen / 4.0
+                merma_monto_usd_send = merma_pen / 4.0; ct_usd_send = ct_pen / 4.0
+                p_lima_usd_send = p_lima_pen / 4.0; p_prov_usd_send = p_prov_pen / 4.0
+                factor_display = 4.0
 
             elif is_mixto:
                 base_pen = c_base_db; fab_pen = c_fab_db * 4.0; coyun_pen = coyun_db
                 merma_pen = base_pen * merma_pct
                 ct_pen = base_pen + fab_pen + merma_pen
-
+                
                 if p.tipo_origen == 'FABRICADO' and coyun_pen > 0:
                     coyun_total_pen = coyun_pen + fab_pen + (coyun_pen * merma_pct)
                     c_ref_pen = coyun_total_pen
                 else:
                     coyun_total_pen = coyun_pen
                     c_ref_pen = coyun_pen if coyun_pen > 0 else ct_pen
-
+                    
                 p_lima_pen = c_ref_pen * (1 + mg)
-                p_prov_pen = p_lima_pen + 0.0
-
-                c_base_usd_send = base_pen / tc; c_fab_usd_send = fab_pen / tc
-                coyun_usd_send = coyun_total_pen / tc
-                merma_monto_usd_send = merma_pen / tc; ct_usd_send = ct_pen / tc
-                p_lima_usd_send = p_lima_pen / tc; p_prov_usd_send = p_prov_pen / tc
-                factor_display = tc
+                p_prov_pen = p_lima_pen + 0.0 
+                
+                c_base_usd_send = base_pen / 4.0; c_fab_usd_send = c_fab_db
+                coyun_usd_send = coyun_total_pen / 4.0
+                merma_monto_usd_send = merma_pen / 4.0; ct_usd_send = ct_pen / 4.0
+                p_lima_usd_send = p_lima_pen / 4.0; p_prov_usd_send = p_prov_pen / 4.0
+                factor_display = 4.0
 
             elif is_clasica:
-                c_base_usd_send = c_base_db * 4.0 / tc; c_fab_usd_send = c_fab_db * 4.0 / tc; coyun_base_usd = coyun_db * 4.0 / tc
+                c_base_usd_send = c_base_db; c_fab_usd_send = c_fab_db; coyun_base_usd = coyun_db
                 merma_monto_usd_send = c_base_usd_send * merma_pct
                 ct_usd_send = c_base_usd_send + c_fab_usd_send + merma_monto_usd_send
-
+                
                 if p.tipo_origen == 'FABRICADO' and coyun_base_usd > 0:
                     coyun_usd_send = coyun_base_usd + c_fab_usd_send + (coyun_base_usd * merma_pct)
                     c_ref_usd = coyun_usd_send
                 else:
                     coyun_usd_send = coyun_base_usd
                     c_ref_usd = coyun_usd_send if coyun_usd_send > 0 else ct_usd_send
-
+                    
                 p_lima_usd_send = c_ref_usd * (1 + mg)
                 p_prov_usd_send = p_lima_usd_send + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR)
-                factor_display = tc
+                factor_display = 4.0
 
             else:
                 c_base_usd_send = c_base_db; c_fab_usd_send = c_fab_db; coyun_base_usd = coyun_db
@@ -818,7 +798,6 @@ def exportar_excel():
                 posibles_padres = [d for d in data_comprados if d['core'] == core_fab]
                 if posibles_padres:
                     if 'ESENCIA' in str(p.categoria).upper() or 'ESENCIA' in p.nombre.upper():
-                        # 🔥 PRIORIDAD 1: Busca el de 1K o 1L matemáticamente 🔥
                         p_1 = [d for d in posibles_padres if get_quantity_normalized(d['nombre']) == 1.0]
                         if p_1:
                             c_heredado_usd = p_1[0]['costo_usd']
@@ -845,49 +824,47 @@ def exportar_excel():
             is_frag = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
             flete_usd = 0.0 if (prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag) else FLETE_ESTANDAR
 
-            tc_exp = get_tc_actual()
-
             if is_nativo:
                 base_final = c_base_db; fab_final = c_fab_db; coyun_base = coyun_db
                 merma_final = base_final * merma_pct
                 ct_final = base_final + fab_final + merma_final
-
+                
                 if p.tipo_origen == 'FABRICADO' and coyun_base > 0:
                     coyun_final = coyun_base + fab_final + (coyun_base * merma_pct)
                 else:
                     coyun_final = coyun_base
-
+                    
                 p_lima_final = (coyun_final if coyun_base > 0 else ct_final) * (1 + mg)
-                p_prov_final = p_lima_final + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else flete_usd * tc_exp)
+                p_prov_final = p_lima_final + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else flete_usd * 4.0)
                 txt_final = 'PEN'
-
+                
             elif is_mixto:
                 base_final = c_base_db; fab_final = c_fab_db * 4.0; coyun_base = coyun_db
                 merma_final = base_final * merma_pct
                 ct_final = base_final + fab_final + merma_final
-
+                
                 if p.tipo_origen == 'FABRICADO' and coyun_base > 0:
                     coyun_final = coyun_base + fab_final + (coyun_base * merma_pct)
                 else:
                     coyun_final = coyun_base
-
+                    
                 p_lima_final = (coyun_final if coyun_base > 0 else ct_final) * (1 + mg)
                 p_prov_final = p_lima_final + 0.0
                 txt_final = 'PEN'
-
+                
             else:
                 base_usd = c_base_db; fab_usd = c_fab_db; coyun_base = coyun_db
                 merma_usd = base_usd * merma_pct
                 ct_usd = base_usd + fab_usd + merma_usd
-
+                
                 if p.tipo_origen == 'FABRICADO' and coyun_base > 0:
                     coyun_usd_total = coyun_base + fab_usd + (coyun_base * merma_pct)
                 else:
                     coyun_usd_total = coyun_base
-
+                    
                 p_lima_usd = (coyun_usd_total if coyun_base > 0 else ct_usd) * (1 + mg)
                 p_prov_usd = p_lima_usd + flete_usd
-
+                
                 if is_clasica:
                     base_final = base_usd * 4.0; fab_final = fab_usd * 4.0
                     coyun_final = coyun_usd_total * 4.0
@@ -902,15 +879,26 @@ def exportar_excel():
                     txt_final = txt_real
             
             data.append({
-                "Producto": str(p.nombre), "Kilaje": str(get_quantity(p.nombre)), "Código": str(p.codigo), 
-                "Empresa": str(p.empresa), "Categoría": str(p.categoria), "Origen": str(p.tipo_origen), 
-                "Odoo": str(p.en_odoo) if p.en_odoo else "NO", "Moneda": txt_final,
-                "Costo Real": round(float(base_final), 2), "Costo Fab": round(float(fab_final), 2), "Merma (%)": round(float(merma_pct)*100, 2), 
-                "Costo Total": round(float(ct_final), 2), "Coyuntural": round(float(coyun_final), 2), "Margen (%)": round(float(mg)*100, 2), 
+                "Nombre": str(p.nombre),
+                "Referencia interna": str(p.codigo),
+                "Precio de venta": round(float(p_lima_final), 2),
+                "Kilaje": str(get_quantity(p.nombre)),
+                "Empresa": str(p.empresa),
+                "Categoría": str(p.categoria),
+                "Origen": str(p.tipo_origen), 
+                "Odoo": str(p.en_odoo) if p.en_odoo else "NO", 
+                "Moneda": txt_final,
+                "Costo Real": round(float(base_final), 2), 
+                "Costo Fab": round(float(fab_final), 2), 
+                "Merma (%)": round(float(merma_pct)*100, 2), 
+                "Costo Total": round(float(ct_final), 2), 
+                "Coyuntural": round(float(coyun_final), 2), 
+                "Margen (%)": round(float(mg)*100, 2), 
                 "PV Autorizado": str(format_discount(p.pv_str, p.dscto_pv_man, p.dscto_pv_ex)), 
                 "Dist Exclusivo": str(format_discount(p.dist_str, p.dscto_dist_man, p.dscto_dist_ex)),
-                "Precio LIMA": round(float(p_lima_final), 2), "Precio PROVINCIA": round(float(p_prov_final), 2), 
-                "Visible Ventas": "SÍ" if (p.visible_ventas if p.visible_ventas is not None else True) else "NO", "Nota": str(p.nota)
+                "Precio PROVINCIA": round(float(p_prov_final), 2), 
+                "Visible Ventas": "SÍ" if (p.visible_ventas if p.visible_ventas is not None else True) else "NO", 
+                "Nota": str(p.nota)
             })
         df = pd.DataFrame(data); output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer: df.to_excel(writer, index=False)
