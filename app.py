@@ -486,7 +486,12 @@ def crear_producto():
         pv_str_val = str(d.get('dscto_pv', '')).strip()[:10]
         dist_str_val = str(d.get('dscto_dist', '')).strip()[:10]
 
-        p = Producto.query.filter_by(nombre=limpiar_texto(nombre_original)).first() if nombre_original else Producto.query.filter_by(nombre=nombre).first()
+        # 🔥 SOLUCIÓN: Búsqueda exacta primero, limpia después 🔥
+        p = None
+        if nombre_original:
+            p = Producto.query.filter_by(nombre=nombre_original).first() or Producto.query.filter_by(nombre=limpiar_texto(nombre_original)).first()
+        else:
+            p = Producto.query.filter_by(nombre=nombre).first()
         
         if p:
             p.nombre = nombre; p.codigo = codigo_val; p.empresa = empresa_val
@@ -513,7 +518,8 @@ def crear_producto():
 def eliminar_producto():
     try:
         if not is_admin_api(): return jsonify({"error": "No"}), 403
-        p = Producto.query.filter_by(nombre=limpiar_texto(request.json['nombre'])).first()
+        nombre_req = request.json.get('nombre', '')
+        p = Producto.query.filter_by(nombre=nombre_req).first() or Producto.query.filter_by(nombre=limpiar_texto(nombre_req)).first()
         if p:
             if p.es_manual: db.session.delete(p)
             else: p.oculto = True
@@ -526,7 +532,8 @@ def eliminar_producto():
 def toggle_visibilidad():
     try:
         if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
-        p = Producto.query.filter_by(nombre=limpiar_texto(request.json['nombre'])).first()
+        nombre_req = request.json.get('nombre', '')
+        p = Producto.query.filter_by(nombre=nombre_req).first() or Producto.query.filter_by(nombre=limpiar_texto(nombre_req)).first()
         if p:
             estado_actual = p.visible_ventas if p.visible_ventas is not None else True
             p.visible_ventas = not estado_actual
@@ -539,7 +546,8 @@ def toggle_visibilidad():
 def toggle_nota_visibilidad():
     try:
         if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
-        p = Producto.query.filter_by(nombre=limpiar_texto(request.json['nombre'])).first()
+        nombre_req = request.json.get('nombre', '')
+        p = Producto.query.filter_by(nombre=nombre_req).first() or Producto.query.filter_by(nombre=limpiar_texto(nombre_req)).first()
         if p:
             p.nota_visible = not p.nota_visible
             db.session.commit()
@@ -551,7 +559,11 @@ def toggle_nota_visibilidad():
 def editar_celdas(tipo):
     try:
         if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
-        p = Producto.query.filter_by(nombre=limpiar_texto(request.json['nombre'])).first()
+        
+        # 🔥 SOLUCIÓN: Buscar exacto primero para evitar el 404 por espacios ocultos 🔥
+        nombre_req = request.json.get('nombre', '')
+        p = Producto.query.filter_by(nombre=nombre_req).first() or Producto.query.filter_by(nombre=limpiar_texto(nombre_req)).first()
+        
         if not p: return jsonify({"error": "No existe"}), 404
         
         val_str = str(request.json.get('valor', '')).strip()
@@ -565,7 +577,30 @@ def editar_celdas(tipo):
             elif tipo == 'merma': p.merma_pct_man = val / 100.0
             elif tipo == 'costo-real': p.costo_base_man = val if val >= 0 else None
             elif tipo == 'costo-fab': p.costo_fab_man = val if val >= 0 else None
-            elif tipo == 'costo-coyuntural': p.coyuntural_man = val if val > 0 else -1.0
+            elif tipo == 'costo-coyuntural': 
+                p.coyuntural_man = val if val > 0 else -1.0
+                
+                # 🔥 PUSH ACTIVO SOLO DESDE EL SACO "ORIGINAL" (ej. 20kg, 25kg, 30kg) 🔥
+                if p.tipo_origen == 'COMPRADO':
+                    core_actual = get_core_name(p.nombre)
+                    peso_actual = get_quantity_normalized(p.nombre)
+                    
+                    todos_comprados = Producto.query.filter_by(tipo_origen='COMPRADO').all()
+                    hermanos = [h for h in todos_comprados if get_core_name(h.nombre) == core_actual and not h.oculto]
+                    
+                    if hermanos:
+                        pesos = [get_quantity_normalized(h.nombre) for h in hermanos]
+                        # Filtramos los sacos gigantes (100kg o más) para encontrar el saco "Original"
+                        pesos_normales = [peso for peso in pesos if peso < 100.0]
+                        
+                        # Si hay sacos normales, el original es el de mayor peso entre ellos (ej. 25kg)
+                        peso_original = max(pesos_normales) if pesos_normales else (max(pesos) if pesos else 0.0)
+                        
+                        # SOLO empuja si el producto editado es exactamente ese Saco Original
+                        if peso_actual == peso_original:
+                            for hermano in hermanos:
+                                if hermano.id != p.id:
+                                    hermano.coyuntural_man = val if val > 0 else -1.0
             
         db.session.commit(); return jsonify({"success": True})
     except Exception as e: return jsonify({"error": str(e)}), 500
