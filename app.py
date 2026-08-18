@@ -465,6 +465,7 @@ def crear_producto():
         empresa_val = limpiar_texto(d.get('empresa', ''))
         if "NATAMICINA" in nombre.replace(' ', '') or "NISINA" in nombre.replace(' ', ''): empresa_val = "INTERINSUMOS"
         tipo_origen_val = limpiar_texto(d.get('origen', 'COMPRADO'))
+        en_odoo_val = 'SI' if str(d.get('en_odoo', '')).strip().upper() in ['SI', 'SÍ'] else 'NO'
         
         prov = detectar_proveedor_exacto(nombre, empresa_val)
         
@@ -486,7 +487,6 @@ def crear_producto():
         pv_str_val = str(d.get('dscto_pv', '')).strip()[:10]
         dist_str_val = str(d.get('dscto_dist', '')).strip()[:10]
 
-        # 🔥 SOLUCIÓN: Búsqueda exacta primero, limpia después 🔥
         p = None
         if nombre_original:
             p = Producto.query.filter_by(nombre=nombre_original).first() or Producto.query.filter_by(nombre=limpiar_texto(nombre_original)).first()
@@ -499,9 +499,10 @@ def crear_producto():
             p.costo_base_man = c_base; p.costo_fab_man = c_fab; p.coyuntural_man = coyun
             p.margen_man = margen; p.merma_pct_man = merma
             p.pv_str = pv_str_val; p.dist_str = dist_str_val; p.tipo_origen = tipo_origen_val
+            p.en_odoo = en_odoo_val
             p.oculto = False; p.es_manual = True
         else:
-            p = Producto(nombre=nombre, codigo=codigo_val, empresa=empresa_val, es_manual=True, oculto=False, tipo_origen=tipo_origen_val, usd_converted=True)
+            p = Producto(nombre=nombre, codigo=codigo_val, empresa=empresa_val, es_manual=True, oculto=False, tipo_origen=tipo_origen_val, usd_converted=True, en_odoo=en_odoo_val)
             p.proveedor = prov; p.moneda_simbolo = '$'; p.moneda_texto = 'USD'
             p.costo_base_man = c_base; p.costo_fab_man = c_fab; p.coyuntural_man = coyun
             p.margen_man = margen; p.merma_pct_man = merma
@@ -560,7 +561,6 @@ def editar_celdas(tipo):
     try:
         if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
         
-        # 🔥 SOLUCIÓN: Buscar exacto primero para evitar el 404 por espacios ocultos 🔥
         nombre_req = request.json.get('nombre', '')
         p = Producto.query.filter_by(nombre=nombre_req).first() or Producto.query.filter_by(nombre=limpiar_texto(nombre_req)).first()
         
@@ -580,7 +580,6 @@ def editar_celdas(tipo):
             elif tipo == 'costo-coyuntural': 
                 p.coyuntural_man = val if val > 0 else -1.0
                 
-                # 🔥 PUSH ACTIVO SOLO DESDE EL SACO "ORIGINAL" (ej. 20kg, 25kg, 30kg) 🔥
                 if p.tipo_origen == 'COMPRADO':
                     core_actual = get_core_name(p.nombre)
                     peso_actual = get_quantity_normalized(p.nombre)
@@ -590,13 +589,9 @@ def editar_celdas(tipo):
                     
                     if hermanos:
                         pesos = [get_quantity_normalized(h.nombre) for h in hermanos]
-                        # Filtramos los sacos gigantes (100kg o más) para encontrar el saco "Original"
                         pesos_normales = [peso for peso in pesos if peso < 100.0]
-                        
-                        # Si hay sacos normales, el original es el de mayor peso entre ellos (ej. 25kg)
                         peso_original = max(pesos_normales) if pesos_normales else (max(pesos) if pesos else 0.0)
                         
-                        # SOLO empuja si el producto editado es exactamente ese Saco Original
                         if peso_actual == peso_original:
                             for hermano in hermanos:
                                 if hermano.id != p.id:
@@ -625,8 +620,17 @@ def buscar():
                 p_base = get_val(c.costo_base_man, c.costo_base_ex, 0.0)
                 data_comprados.append({
                     'nombre': c.nombre, 'costo_usd': p_base, 'coyun_usd': p_coyun, 
-                    'core': parent_core, 'clean': c.nombre.replace(' ', '').upper()
+                    'core': parent_core, 'clean': c.nombre.replace(' ', '').upper(),
+                    'peso': get_quantity_normalized(c.nombre)
                 })
+
+        for d in data_comprados:
+            if d['coyun_usd'] <= 0:
+                hermanos_con_coyun = [h for h in data_comprados if h['core'] == d['core'] and h['coyun_usd'] > 0]
+                if hermanos_con_coyun:
+                    normales = [h for h in hermanos_con_coyun if h['peso'] < 100.0]
+                    hermano_original = max(normales, key=lambda x: x['peso']) if normales else max(hermanos_con_coyun, key=lambda x: x['peso'])
+                    d['coyun_usd'] = hermano_original['coyun_usd']
 
         for p in prods:
             if p.oculto: continue
@@ -642,23 +646,36 @@ def buscar():
             coyun_db = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
             editable_costo = True 
             
-            if p.tipo_origen == 'FABRICADO' and not es_excepcion_herencia(p.nombre):
+            if p.tipo_origen == 'COMPRADO':
+                resuelto = next((d for d in data_comprados if d['nombre'] == p.nombre), None)
+                if resuelto and coyun_db <= 0:
+                    coyun_db = resuelto['coyun_usd']
+                    
+            elif p.tipo_origen == 'FABRICADO' and not es_excepcion_herencia(p.nombre):
                 core_fab = get_core_name(p.nombre)
                 c_heredado_usd = 0.0
                 coyun_heredado_usd = 0.0
                 p_padres = [d for d in data_comprados if d['core'] == core_fab]
+                
                 if p_padres:
                     if 'ESENCIA' in str(p.categoria).upper() or 'ESENCIA' in p.nombre.upper():
-                        p_1 = [d for d in p_padres if get_quantity_normalized(d['nombre']) == 1.0]
-                        if p_1:
-                            c_heredado_usd = p_1[0]['costo_usd']
-                            coyun_heredado_usd = p_1[0]['coyun_usd']
-                        else:
-                            c_heredado_usd = p_padres[0]['costo_usd']
-                            coyun_heredado_usd = p_padres[0]['coyun_usd']
+                        p_1 = [d for d in p_padres if d['peso'] == 1.0]
+                        padres_con_coyun = [d for d in (p_1 if p_1 else p_padres) if d['coyun_usd'] > 0]
+                        padre_elegido = max(padres_con_coyun, key=lambda x: x['peso']) if padres_con_coyun else (p_1[0] if p_1 else p_padres[0])
+                        
+                        c_heredado_usd = padre_elegido['costo_usd']
+                        coyun_heredado_usd = padre_elegido['coyun_usd']
                     else: 
-                        c_heredado_usd = p_padres[0]['costo_usd']
-                        coyun_heredado_usd = p_padres[0]['coyun_usd']
+                        padres_con_coyun = [d for d in p_padres if d['coyun_usd'] > 0]
+                        if padres_con_coyun:
+                            normales = [p_ for p_ in padres_con_coyun if p_['peso'] < 100.0]
+                            padre_elegido = max(normales, key=lambda x: x['peso']) if normales else max(padres_con_coyun, key=lambda x: x['peso'])
+                        else:
+                            normales = [p_ for p_ in p_padres if p_['peso'] < 100.0]
+                            padre_elegido = max(normales, key=lambda x: x['peso']) if normales else max(p_padres, key=lambda x: x['peso'])
+                        
+                        c_heredado_usd = padre_elegido['costo_usd']
+                        coyun_heredado_usd = padre_elegido['coyun_usd']
                 
                 if c_heredado_usd > 0:
                     if p.costo_base_man is not None and p.costo_base_man > 0:
@@ -688,13 +705,12 @@ def buscar():
                 merma_pen = base_pen * merma_pct
                 ct_pen = base_pen + fab_pen + merma_pen
                 
-                if p.tipo_origen == 'FABRICADO' and coyun_pen > 0:
+                if coyun_pen > 0:
                     coyun_total_pen = coyun_pen + fab_pen + (coyun_pen * merma_pct)
-                    c_ref_pen = coyun_total_pen
                 else:
-                    coyun_total_pen = coyun_pen
-                    c_ref_pen = coyun_pen if coyun_pen > 0 else ct_pen
+                    coyun_total_pen = 0.0
                     
+                c_ref_pen = coyun_total_pen if coyun_total_pen > 0 else ct_pen
                 p_lima_pen = c_ref_pen * (1 + mg)
                 p_prov_pen = p_lima_pen + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR * 4.0)
                 
@@ -709,13 +725,12 @@ def buscar():
                 merma_pen = base_pen * merma_pct
                 ct_pen = base_pen + fab_pen + merma_pen
                 
-                if p.tipo_origen == 'FABRICADO' and coyun_pen > 0:
+                if coyun_pen > 0:
                     coyun_total_pen = coyun_pen + fab_pen + (coyun_pen * merma_pct)
-                    c_ref_pen = coyun_total_pen
                 else:
-                    coyun_total_pen = coyun_pen
-                    c_ref_pen = coyun_pen if coyun_pen > 0 else ct_pen
+                    coyun_total_pen = 0.0
                     
+                c_ref_pen = coyun_total_pen if coyun_total_pen > 0 else ct_pen
                 p_lima_pen = c_ref_pen * (1 + mg)
                 p_prov_pen = p_lima_pen + 0.0 
                 
@@ -730,13 +745,12 @@ def buscar():
                 merma_monto_usd_send = c_base_usd_send * merma_pct
                 ct_usd_send = c_base_usd_send + c_fab_usd_send + merma_monto_usd_send
                 
-                if p.tipo_origen == 'FABRICADO' and coyun_base_usd > 0:
+                if coyun_base_usd > 0:
                     coyun_usd_send = coyun_base_usd + c_fab_usd_send + (coyun_base_usd * merma_pct)
-                    c_ref_usd = coyun_usd_send
                 else:
-                    coyun_usd_send = coyun_base_usd
-                    c_ref_usd = coyun_usd_send if coyun_usd_send > 0 else ct_usd_send
+                    coyun_usd_send = 0.0
                     
+                c_ref_usd = coyun_usd_send if coyun_usd_send > 0 else ct_usd_send
                 p_lima_usd_send = c_ref_usd * (1 + mg)
                 p_prov_usd_send = p_lima_usd_send + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR)
                 factor_display = 4.0
@@ -746,13 +760,12 @@ def buscar():
                 merma_monto_usd_send = c_base_usd_send * merma_pct
                 ct_usd_send = c_base_usd_send + c_fab_usd_send + merma_monto_usd_send
                 
-                if p.tipo_origen == 'FABRICADO' and coyun_base_usd > 0:
+                if coyun_base_usd > 0:
                     coyun_usd_send = coyun_base_usd + c_fab_usd_send + (coyun_base_usd * merma_pct)
-                    c_ref_usd = coyun_usd_send
                 else:
-                    coyun_usd_send = coyun_base_usd
-                    c_ref_usd = coyun_usd_send if coyun_usd_send > 0 else ct_usd_send
+                    coyun_usd_send = 0.0
                     
+                c_ref_usd = coyun_usd_send if coyun_usd_send > 0 else ct_usd_send
                 p_lima_usd_send = c_ref_usd * (1 + mg)
                 p_prov_usd_send = p_lima_usd_send + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag else FLETE_ESTANDAR)
                 factor_display = 1.0
@@ -780,6 +793,7 @@ def buscar():
                 "costo_coyuntural_usd": float(coyun_usd_send), "precio_lima_usd": float(p_lima_usd_send),
                 "precio_provincia_usd": float(p_prov_usd_send), 
                 "es_pen_exception": (is_nativo or is_mixto or is_clasica),
+                "en_odoo": str(p.en_odoo) if p.en_odoo else "NO",
                 
                 "moneda_simbolo": str(p.moneda_simbolo), "moneda_texto": str(p.moneda_texto), 
                 "pv_str": str(format_discount(p.pv_str, p.dscto_pv_man, p.dscto_pv_ex)), 
@@ -816,8 +830,17 @@ def exportar_excel():
                     'nombre': c.nombre, 
                     'costo_usd': get_val(c.costo_base_man, c.costo_base_ex, 0.0), 
                     'coyun_usd': get_val(c.coyuntural_man, c.coyuntural_ex, 0.0),
-                    'core': get_core_name(c.nombre), 'clean': c.nombre.replace(' ', '').upper()
+                    'core': get_core_name(c.nombre), 'clean': c.nombre.replace(' ', '').upper(),
+                    'peso': get_quantity_normalized(c.nombre)
                 })
+                
+        for d in data_comprados:
+            if d['coyun_usd'] <= 0:
+                hermanos_con_coyun = [h for h in data_comprados if h['core'] == d['core'] and h['coyun_usd'] > 0]
+                if hermanos_con_coyun:
+                    normales = [h for h in hermanos_con_coyun if h['peso'] < 100.0]
+                    hermano_original = max(normales, key=lambda x: x['peso']) if normales else max(hermanos_con_coyun, key=lambda x: x['peso'])
+                    d['coyun_usd'] = hermano_original['coyun_usd']
         
         for p in prods:
             prov_real = detectar_proveedor_exacto(p.nombre, str(p.empresa or ''))
@@ -826,23 +849,36 @@ def exportar_excel():
             c_base_db = get_val(p.costo_base_man, p.costo_base_ex, 0.0)
             coyun_db = get_val(p.coyuntural_man, p.coyuntural_ex, 0.0)
             
-            if p.tipo_origen == 'FABRICADO' and not es_excepcion_herencia(p.nombre):
+            if p.tipo_origen == 'COMPRADO':
+                resuelto = next((d for d in data_comprados if d['nombre'] == p.nombre), None)
+                if resuelto and coyun_db <= 0:
+                    coyun_db = resuelto['coyun_usd']
+                    
+            elif p.tipo_origen == 'FABRICADO' and not es_excepcion_herencia(p.nombre):
                 core_fab = get_core_name(p.nombre)
                 c_heredado_usd = 0.0
                 coyun_heredado_usd = 0.0
                 posibles_padres = [d for d in data_comprados if d['core'] == core_fab]
+                
                 if posibles_padres:
                     if 'ESENCIA' in str(p.categoria).upper() or 'ESENCIA' in p.nombre.upper():
-                        p_1 = [d for d in posibles_padres if get_quantity_normalized(d['nombre']) == 1.0]
-                        if p_1:
-                            c_heredado_usd = p_1[0]['costo_usd']
-                            coyun_heredado_usd = p_1[0]['coyun_usd']
-                        else: 
-                            c_heredado_usd = posibles_padres[0]['costo_usd']
-                            coyun_heredado_usd = posibles_padres[0]['coyun_usd']
+                        p_1 = [d for d in posibles_padres if d['peso'] == 1.0]
+                        padres_con_coyun = [d for d in (p_1 if p_1 else posibles_padres) if d['coyun_usd'] > 0]
+                        padre_elegido = max(padres_con_coyun, key=lambda x: x['peso']) if padres_con_coyun else (p_1[0] if p_1 else posibles_padres[0])
+                        
+                        c_heredado_usd = padre_elegido['costo_usd']
+                        coyun_heredado_usd = padre_elegido['coyun_usd']
                     else: 
-                        c_heredado_usd = posibles_padres[0]['costo_usd']
-                        coyun_heredado_usd = posibles_padres[0]['coyun_usd']
+                        padres_con_coyun = [d for d in posibles_padres if d['coyun_usd'] > 0]
+                        if padres_con_coyun:
+                            normales = [p_ for p_ in padres_con_coyun if p_['peso'] < 100.0]
+                            padre_elegido = max(normales, key=lambda x: x['peso']) if normales else max(padres_con_coyun, key=lambda x: x['peso'])
+                        else:
+                            normales = [p_ for p_ in posibles_padres if p_['peso'] < 100.0]
+                            padre_elegido = max(normales, key=lambda x: x['peso']) if normales else max(posibles_padres, key=lambda x: x['peso'])
+                        
+                        c_heredado_usd = padre_elegido['costo_usd']
+                        coyun_heredado_usd = padre_elegido['coyun_usd']
                 
                 if c_heredado_usd > 0: 
                     c_base_db = p.costo_base_man if (p.costo_base_man is not None and p.costo_base_man > 0) else c_heredado_usd
@@ -859,32 +895,18 @@ def exportar_excel():
             is_frag = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
             flete_usd = 0.0 if (prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag) else FLETE_ESTANDAR
 
-            if is_nativo:
-                base_final = c_base_db; fab_final = c_fab_db; coyun_base = coyun_db
+            if is_nativo or is_mixto:
+                base_final = c_base_db; fab_final = c_fab_db * (1.0 if is_nativo else 4.0); coyun_base = coyun_db
                 merma_final = base_final * merma_pct
                 ct_final = base_final + fab_final + merma_final
                 
-                if p.tipo_origen == 'FABRICADO' and coyun_base > 0:
+                if coyun_base > 0:
                     coyun_final = coyun_base + fab_final + (coyun_base * merma_pct)
                 else:
-                    coyun_final = coyun_base
+                    coyun_final = 0.0
                     
-                p_lima_final = (coyun_final if coyun_base > 0 else ct_final) * (1 + mg)
-                p_prov_final = p_lima_final + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else flete_usd * 4.0)
-                txt_final = 'PEN'
-                
-            elif is_mixto:
-                base_final = c_base_db; fab_final = c_fab_db * 4.0; coyun_base = coyun_db
-                merma_final = base_final * merma_pct
-                ct_final = base_final + fab_final + merma_final
-                
-                if p.tipo_origen == 'FABRICADO' and coyun_base > 0:
-                    coyun_final = coyun_base + fab_final + (coyun_base * merma_pct)
-                else:
-                    coyun_final = coyun_base
-                    
-                p_lima_final = (coyun_final if coyun_base > 0 else ct_final) * (1 + mg)
-                p_prov_final = p_lima_final + 0.0
+                p_lima_final = (coyun_final if coyun_final > 0 else ct_final) * (1 + mg)
+                p_prov_final = p_lima_final + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else (0.0 if is_mixto else flete_usd * 4.0))
                 txt_final = 'PEN'
                 
             else:
@@ -892,12 +914,12 @@ def exportar_excel():
                 merma_usd = base_usd * merma_pct
                 ct_usd = base_usd + fab_usd + merma_usd
                 
-                if p.tipo_origen == 'FABRICADO' and coyun_base > 0:
+                if coyun_base > 0:
                     coyun_usd_total = coyun_base + fab_usd + (coyun_base * merma_pct)
                 else:
-                    coyun_usd_total = coyun_base
+                    coyun_usd_total = 0.0
                     
-                p_lima_usd = (coyun_usd_total if coyun_base > 0 else ct_usd) * (1 + mg)
+                p_lima_usd = (coyun_usd_total if coyun_usd_total > 0 else ct_usd) * (1 + mg)
                 p_prov_usd = p_lima_usd + flete_usd
                 
                 if is_clasica:
