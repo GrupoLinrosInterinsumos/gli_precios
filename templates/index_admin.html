@@ -227,20 +227,27 @@
                     <input type="text" id="varNombre" class="form-control border-secondary-subtle rounded" placeholder="Ej: Ácido Cítrico Fino...">
                     <input type="hidden" id="varNombreOriginal">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="modal-label">Origen</label>
                     <select id="varOrigen" class="form-select border-secondary-subtle rounded fw-bold text-primary">
                         <option value="COMPRADO">COMPRADO (Base)</option>
                         <option value="FABRICADO">FABRICADO (Hereda costo)</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="modal-label">Código Interno</label>
                     <input type="text" id="varCodigo" class="form-control border-secondary-subtle rounded" placeholder="S/C">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="modal-label">Empresa / Marca</label>
                     <input type="text" id="varEmpresa" class="form-control border-secondary-subtle rounded" placeholder="GLI, CRAMER, SACCO...">
+                </div>
+                <div class="col-md-3">
+                    <label class="modal-label">¿En Odoo?</label>
+                    <select id="varOdoo" class="form-select border-secondary-subtle rounded fw-bold">
+                        <option value="NO">NO</option>
+                        <option value="SI">SÍ</option>
+                    </select>
                 </div>
                 
                 <div class="col-12"><hr class="my-1 border-secondary"></div>
@@ -340,7 +347,6 @@
         modalEdicion.show();
     }
 
-    // 🔥 FUNCIÓN EDITAR ACTUALIZADA (Inteligente con la Moneda y el Porcentaje) 🔥
     function editarCelda(tipo, nombre, valorActual, monedaOriginal = 'USD') {
         editContext = { tipo: tipo, nombre: nombre };
         let input = document.getElementById('inputEdicionUniversal');
@@ -468,7 +474,6 @@
                 let btnCostoReal = '';
                 let safeName = p.nombre.replace(/'/g, "\\'");
                 
-                // 🔥 ENVIANDO LA MONEDA CORRECTA A LOS BOTONES DE EDICIÓN 🔥
                 let monedaEdicion = p.moneda_texto; 
 
                 if (p.tipo_origen === 'FABRICADO' && !p.editable_costo) {
@@ -574,6 +579,7 @@
         document.getElementById('alertaCrear').classList.add('d-none');
         ['varNombre','varCodigo','varEmpresa','varCostoReal','varCostoFab','varCoyuntural','varMerma','varDsctoPV','varDsctoDist','varNombreOriginal'].forEach(id => document.getElementById(id).value = '');
         document.getElementById('varMargen').value = '20';
+        document.getElementById('varOdoo').value = 'NO';
         poblarSelectPlantillas(); modalVar.show(); 
     }
     
@@ -589,6 +595,7 @@
         document.getElementById('varCodigo').value = p.codigo; 
         document.getElementById('varEmpresa').value = p.empresa; 
         document.getElementById('varOrigen').value = p.tipo_origen; 
+        document.getElementById('varOdoo').value = p.en_odoo || "NO";
         
         document.getElementById('varCostoReal').value = p.costo_base_usd; 
         document.getElementById('varCostoFab').value = p.costo_fab_usd; 
@@ -613,6 +620,7 @@
         
         document.getElementById('varCodigo').value = p.codigo; document.getElementById('varEmpresa').value = p.empresa; 
         document.getElementById('varOrigen').value = p.tipo_origen; 
+        document.getElementById('varOdoo').value = p.en_odoo || "NO";
         document.getElementById('varCostoReal').value = p.costo_base_usd; document.getElementById('varCostoFab').value = p.costo_fab_usd; 
         document.getElementById('varCoyuntural').value = p.costo_coyuntural_usd > 0 ? p.costo_coyuntural_usd : ''; 
         document.getElementById('varMerma').value = p.merma_porcentaje; document.getElementById('varMargen').value = p.margen;
@@ -626,6 +634,7 @@
             nombre_original: document.getElementById('varNombreOriginal').value,
             nombre: document.getElementById('varNombre').value, codigo: document.getElementById('varCodigo').value, 
             origen: document.getElementById('varOrigen').value, empresa: document.getElementById('varEmpresa').value, 
+            en_odoo: document.getElementById('varOdoo').value,
             costo_base: document.getElementById('varCostoReal').value, costo_fab: document.getElementById('varCostoFab').value, 
             coyuntural: document.getElementById('varCoyuntural').value, merma: document.getElementById('varMerma').value, 
             margen: document.getElementById('varMargen').value,
