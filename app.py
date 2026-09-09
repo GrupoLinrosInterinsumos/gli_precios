@@ -66,7 +66,8 @@ class Producto(db.Model):
     merma_pct_man = db.Column(db.Float, default=0.0)
     dscto_pv_man = db.Column(db.Float, nullable=True)
     dscto_dist_man = db.Column(db.Float, nullable=True)
-    
+    flete_man = db.Column(db.Float, nullable=True)
+
     pv_str = db.Column(db.String(10), default='')
     dist_str = db.Column(db.String(10), default='')
     
@@ -93,9 +94,13 @@ class Alerta(db.Model):
 
 with app.app_context(): 
     db.create_all()
-    try: 
+    try:
         db.session.execute(text("ALTER TABLE producto ADD COLUMN pv_str VARCHAR(10) DEFAULT ''"))
         db.session.execute(text("ALTER TABLE producto ADD COLUMN dist_str VARCHAR(10) DEFAULT ''"))
+        db.session.commit()
+    except: db.session.rollback()
+    try:
+        db.session.execute(text("ALTER TABLE producto ADD COLUMN flete_man FLOAT"))
         db.session.commit()
     except: db.session.rollback()
     
@@ -576,6 +581,7 @@ def editar_celdas(tipo):
             elif tipo == 'merma': p.merma_pct_man = val / 100.0
             elif tipo == 'costo-real': p.costo_base_man = val if val >= 0 else None
             elif tipo == 'costo-fab': p.costo_fab_man = val if val >= 0 else None
+            elif tipo == 'flete': p.flete_man = val if val >= 0 else None
             elif tipo == 'costo-coyuntural': 
                 p.coyuntural_man = val if val > 0 else -1.0
                 
@@ -711,8 +717,10 @@ def buscar():
                     
                 c_ref_pen = coyun_total_pen if coyun_total_pen > 0 else ct_pen
                 p_lima_pen = c_ref_pen * (1 + mg)
-                p_prov_pen = p_lima_pen + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR * 4.0)
-                
+                flete_pen_calc = 0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR * 4.0
+                flete_usd_send = get_val(p.flete_man, None, flete_pen_calc / 4.0)
+                p_prov_pen = p_lima_pen + (flete_usd_send * 4.0)
+
                 c_base_usd_send = base_pen / 4.0; c_fab_usd_send = fab_pen / 4.0
                 coyun_usd_send = coyun_total_pen / 4.0
                 merma_monto_usd_send = merma_pen / 4.0; ct_usd_send = ct_pen / 4.0
@@ -731,8 +739,9 @@ def buscar():
                     
                 c_ref_pen = coyun_total_pen if coyun_total_pen > 0 else ct_pen
                 p_lima_pen = c_ref_pen * (1 + mg)
-                p_prov_pen = p_lima_pen + 0.0 
-                
+                flete_usd_send = get_val(p.flete_man, None, 0.0)
+                p_prov_pen = p_lima_pen + (flete_usd_send * 4.0)
+
                 c_base_usd_send = base_pen / 4.0; c_fab_usd_send = c_fab_db
                 coyun_usd_send = coyun_total_pen / 4.0
                 merma_monto_usd_send = merma_pen / 4.0; ct_usd_send = ct_pen / 4.0
@@ -751,7 +760,9 @@ def buscar():
                     
                 c_ref_usd = coyun_usd_send if coyun_usd_send > 0 else ct_usd_send
                 p_lima_usd_send = c_ref_usd * (1 + mg)
-                p_prov_usd_send = p_lima_usd_send + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR)
+                flete_calc = 0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] else FLETE_ESTANDAR
+                flete_usd_send = get_val(p.flete_man, None, flete_calc)
+                p_prov_usd_send = p_lima_usd_send + flete_usd_send
                 factor_display = 4.0
 
             else:
@@ -766,7 +777,9 @@ def buscar():
                     
                 c_ref_usd = coyun_usd_send if coyun_usd_send > 0 else ct_usd_send
                 p_lima_usd_send = c_ref_usd * (1 + mg)
-                p_prov_usd_send = p_lima_usd_send + (0.0 if prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag else FLETE_ESTANDAR)
+                flete_calc = 0.0 if (prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag) else FLETE_ESTANDAR
+                flete_usd_send = get_val(p.flete_man, None, flete_calc)
+                p_prov_usd_send = p_lima_usd_send + flete_usd_send
                 factor_display = 1.0
 
             if coyun_usd_send > 0 and ct_usd_send > coyun_usd_send:
@@ -781,16 +794,17 @@ def buscar():
                 "costo_fab": float(c_fab_usd_send * factor_display), 
                 "merma_porcentaje": round(merma_pct * 100, 2), 
                 "merma_monto": float(merma_monto_usd_send * factor_display), 
-                "costo_actual": float(ct_usd_send * factor_display), 
+                "costo_actual": float(ct_usd_send * factor_display),
                 "costo_coyuntural": float(coyun_usd_send * factor_display),
-                "margen": round(mg * 100, 2), 
-                "precio_lima": float(p_lima_usd_send * factor_display), 
+                "margen": round(mg * 100, 2),
+                "precio_lima": float(p_lima_usd_send * factor_display),
                 "precio_provincia": float(p_prov_usd_send * factor_display),
-                
-                "costo_base_usd": float(c_base_usd_send), "costo_fab_usd": float(c_fab_usd_send), 
+                "flete": float(flete_usd_send * factor_display),
+
+                "costo_base_usd": float(c_base_usd_send), "costo_fab_usd": float(c_fab_usd_send),
                 "merma_monto_usd": float(merma_monto_usd_send), "costo_actual_usd": float(ct_usd_send),
                 "costo_coyuntural_usd": float(coyun_usd_send), "precio_lima_usd": float(p_lima_usd_send),
-                "precio_provincia_usd": float(p_prov_usd_send), 
+                "precio_provincia_usd": float(p_prov_usd_send), "flete_usd": float(flete_usd_send),
                 "es_pen_exception": (is_nativo or is_mixto or is_clasica),
                 "en_odoo": str(p.en_odoo) if p.en_odoo else "NO",
                 
@@ -892,7 +906,8 @@ def exportar_excel():
             is_mixto = es_proveedor_soles_mixto(p.nombre, prov_real)
             is_clasica = es_excepcion_soles_clasica(p.nombre)
             is_frag = 'FRAGANCIA' in str(p.categoria).upper() or 'FRAGANCIA' in p.nombre.upper()
-            flete_usd = 0.0 if (prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag) else FLETE_ESTANDAR
+            flete_usd_calc = 0.0 if (prov_real in ["CRAMER", "SACCO", "JM LUDAFA"] and not is_frag) else FLETE_ESTANDAR
+            flete_usd = get_val(p.flete_man, None, flete_usd_calc)
 
             if is_nativo or is_mixto:
                 base_final = c_base_db; fab_final = c_fab_db * (1.0 if is_nativo else 4.0); coyun_base = coyun_db

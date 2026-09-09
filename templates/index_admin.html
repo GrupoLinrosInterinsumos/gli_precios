@@ -31,7 +31,11 @@
         .table-container { border-radius: 6px; overflow: hidden; background: var(--white-pure); box-shadow: 0 4px 10px rgba(0,0,0,0.02); border: 1px solid #e5e7eb; width: 100%; }
         
         .scroll-wrapper { width: 100%; max-height: 70vh; overflow-y: auto; overflow-x: auto; }
-        .table-pro { table-layout: auto; min-width: 1500px; width: 100%; font-size: 0.72rem; margin-bottom: 0; border-collapse: separate; border-spacing: 0;}
+        .table-pro { table-layout: auto; min-width: 1600px; width: 100%; font-size: 0.72rem; margin-bottom: 0; border-collapse: separate; border-spacing: 0;}
+
+        .content-wrap { max-width: 1500px; width: 100%; margin: 0 auto; }
+        @media (min-width: 1700px) { .content-wrap { max-width: 96vw; } }
+        @media (min-width: 2200px) { .content-wrap { max-width: 1900px; } }
         .table-pro thead th { position: sticky; top: 0; background-color: #f1f3f5; z-index: 10; border-bottom: 1px solid #e5e7eb; color: var(--text-dark); font-size: 0.65rem; text-transform: uppercase; padding: 0.8rem 0.2rem; font-weight: 600; text-align: center;}
         .table-pro td { padding: 0.6rem 0.6rem; vertical-align: middle; border-bottom: 1px solid #f0f0f5; text-align: center; }
         
@@ -108,7 +112,7 @@
     </div>
 </nav>
 
-<main class="container-fluid py-3 px-4" style="max-width: 1500px;">
+<main class="container-fluid py-3 px-4 content-wrap">
     
     <div id="adminPanel" class="mb-4" style="display:none;">
         <div class="card-pro p-3 p-md-4 border-top border-4 border-secondary">
@@ -171,6 +175,7 @@
                         <th>% PV </th>
                         <th>% Dist. </th>
                         <th>Margen</th>
+                        <th>Flete</th>
                         <th class="text-end">Valor venta Lima</th>
                         <th class="text-end pe-4">Valor venta AQP/TRU </th>
                     </tr>
@@ -426,7 +431,7 @@
             document.getElementById('loading').style.display = 'none';
 
             if(allProductsData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="11" class="text-center py-5 text-muted fw-bold">No hay resultados.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="12" class="text-center py-5 text-muted fw-bold">No hay resultados.</td></tr>';
                 return;
             }
 
@@ -434,23 +439,23 @@
             allProductsData.forEach((p) => {
                 let sim = p.moneda_simbolo, txt = p.moneda_texto;
                 let vb = p.costo_base_usd, vf = p.costo_fab_usd, vmer = p.merma_monto_usd, vt = p.costo_actual_usd, vcy = p.costo_coyuntural_usd;
-                let vl = p.precio_lima_usd, vp = p.precio_provincia_usd;
+                let vl = p.precio_lima_usd, vp = p.precio_provincia_usd, vfl = p.flete_usd || 0;
 
                 if (modoMoneda === 'ORIGINAL') {
                     if (p.es_pen_exception) {
-                        vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; sim='S/'; txt='PEN';
+                        vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; vfl*=4.0; sim='S/'; txt='PEN';
                     }
-                } 
-                else if (modoMoneda === 'PEN') { 
+                }
+                else if (modoMoneda === 'PEN') {
                     if (p.es_pen_exception) {
-                        vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; sim='S/'; txt='PEN';
+                        vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; vfl*=4.0; sim='S/'; txt='PEN';
                     } else if (p.moneda_texto === 'PEN') {
-                        
+
                     } else {
-                        vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; sim='S/'; txt='PEN';
+                        vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; vfl*=tcGlobal; sim='S/'; txt='PEN';
                     }
-                } 
-                else if (modoMoneda === 'USD') { 
+                }
+                else if (modoMoneda === 'USD') {
                     if (p.es_pen_exception) {
                         vb = (vb * 4.0) / tcGlobal;
                         vf = (vf * 4.0) / tcGlobal;
@@ -459,11 +464,12 @@
                         vcy = (vcy * 4.0) / tcGlobal;
                         vl = (vl * 4.0) / tcGlobal;
                         vp = (vp * 4.0) / tcGlobal;
+                        vfl = (vfl * 4.0) / tcGlobal;
                         sim='$'; txt='USD';
                     } else if (p.moneda_texto === 'PEN') {
-                        vb/=tcGlobal; vf/=tcGlobal; vmer/=tcGlobal; vt/=tcGlobal; vcy/=tcGlobal; vl/=tcGlobal; vp/=tcGlobal; sim='$'; txt='USD';
+                        vb/=tcGlobal; vf/=tcGlobal; vmer/=tcGlobal; vt/=tcGlobal; vcy/=tcGlobal; vl/=tcGlobal; vp/=tcGlobal; vfl/=tcGlobal; sim='$'; txt='USD';
                     } else {
-                        sim='$'; txt='USD'; 
+                        sim='$'; txt='USD';
                     }
                 }
 
@@ -537,6 +543,7 @@
                     <td><button class="btn-accion text-primary fw-bold" onclick="editarCelda('dscto-dist', '${safeName}', '${txt_dist}')">${txt_dist}</button></td>
                     
                     <td><button class="${btnMargenClass}" onclick="editarCelda('margen', '${safeName}', ${p.margen})">${p.margen}%</button></td>
+                    <td><button class="btn-accion" onclick="editarCelda('flete', '${safeName}', ${p.flete_usd}, '${monedaEdicion}')">${vfl > 0 ? sim + vfl.toFixed(3) : '-'}</button></td>
                     <td class="text-end"><div class="price-tag">${sim} ${vl.toFixed(2)}</div><div class="text-muted small" style="font-size:0.55rem; font-weight:600;">LIMA (${txt})</div></td>
                     <td class="text-end pe-4"><div class="price-tag price-secondary">${sim} ${vp.toFixed(2)}</div><div class="text-muted small" style="font-size:0.55rem; font-weight:600;">AQP/TRU (${txt})</div></td>
                 </tr>`;
