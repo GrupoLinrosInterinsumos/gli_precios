@@ -22,7 +22,10 @@ app = Flask(__name__, template_folder='templates')
 CORS(app)
 Compress(app)
 
-app.config['SECRET_KEY'] = 'GLI_EXECUTIVE_PRO_2026'
+# La clave de sesión debe venir de la variable de entorno SECRET_KEY (Render). La antigua está publicada
+# en el repositorio, así que solo se usa como respaldo para no tumbar la app si falta la variable.
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'GLI_EXECUTIVE_PRO_2026'
+if not os.environ.get('SECRET_KEY'): app.logger.warning("SECRET_KEY no definida: usando la clave pública por defecto (inseguro)")
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///gli_database.sqlite')
 # SQLAlchemy 2.1+ usa psycopg (v3) por defecto para "postgresql://"; forzamos psycopg2, que es el instalado.
 for prefijo in ("postgres://", "postgresql://"):
