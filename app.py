@@ -11,7 +11,7 @@ from flask_compress import Compress
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import text, func
+from sqlalchemy import text, func, and_
 from sqlalchemy.exc import IntegrityError
 
 os.environ['TZ'] = 'America/Lima'
@@ -517,8 +517,11 @@ def registrar_precios(motivo):
     try:
         prods = Producto.query.all()
         ctx = construir_contexto(prods)
-        sub = db.session.query(func.max(HistorialPrecio.id)).group_by(HistorialPrecio.producto_id)
-        ultimos = {h.producto_id: h for h in HistorialPrecio.query.filter(HistorialPrecio.id.in_(sub))}
+        # Último registro por fecha (los importados de Excel antiguos tienen id mayor pero fecha anterior)
+        sub = db.session.query(HistorialPrecio.producto_id, func.max(HistorialPrecio.fecha).label('fecha')).group_by(HistorialPrecio.producto_id).subquery()
+        ultimos = {}
+        for h in HistorialPrecio.query.join(sub, and_(HistorialPrecio.producto_id == sub.c.producto_id, HistorialPrecio.fecha == sub.c.fecha)).order_by(HistorialPrecio.id):
+            ultimos[h.producto_id] = h
         usuario = usuario_actual()
         for p in prods:
             if p.oculto: continue
@@ -1011,7 +1014,7 @@ def exportar_excel():
 @login_required
 def historial_producto(producto_id):
     if not is_admin_api(): return jsonify({"error": "No autorizado"}), 403
-    precios = HistorialPrecio.query.filter_by(producto_id=producto_id).order_by(HistorialPrecio.id).all()
+    precios = HistorialPrecio.query.filter_by(producto_id=producto_id).order_by(HistorialPrecio.fecha, HistorialPrecio.id).all()
     cambios = HistorialCambio.query.filter_by(producto_id=producto_id).order_by(HistorialCambio.id.desc()).limit(200).all()
     return jsonify({
         "precios": [{"fecha": fecha_lima(h.fecha), "moneda": h.moneda, "costo_total": h.costo_total, "coyuntural": h.costo_coyuntural,
