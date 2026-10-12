@@ -4,6 +4,7 @@ exportaciones de la app (Precios_GLI*.xlsx) y la lista manual previa (PRECIOS GL
 Uso:
   .venv\Scripts\python scripts\importar_historial.py ARCHIVO [ARCHIVO ...]            -> solo muestra qué importaría
   .venv\Scripts\python scripts\importar_historial.py ARCHIVO [ARCHIVO ...] --aplicar   -> guarda en la SQLite local
+  ... --aplicar --produccion                                                         -> guarda en la BD de Render
 
 - Fecha de cada archivo: la del nombre (20260325, 2026.03.09) o, si no tiene, la de descarga del archivo.
 - Se emparejan por nombre de producto y, si no, por código (solo si el código es único).
@@ -26,7 +27,9 @@ from dotenv import load_dotenv
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 load_dotenv(os.path.join(ROOT, '.env'))
-os.environ['DATABASE_URL'] = 'sqlite:///gli_database.sqlite'
+# Por defecto, la SQLite local. Con --produccion escribe en la BD de Render (PROD_DATABASE_URL de .env):
+# solo agrega filas al historial de precios, no modifica productos.
+os.environ['DATABASE_URL'] = os.environ['PROD_DATABASE_URL'] if '--produccion' in sys.argv else 'sqlite:///gli_database.sqlite'
 
 from app import (app, db, Producto, HistorialPrecio, limpiar_texto, construir_contexto,  # noqa: E402
                  calcular_producto, moneda_reporte, registrar_precios)
@@ -95,7 +98,8 @@ def leer(ruta):
 
 def main(rutas, aplicar):
     with app.app_context():
-        prods = [p for p in Producto.query.all() if not p.oculto]
+        print(f"Destino: {db.engine.url.render_as_string(hide_password=True)}\n")
+        prods =[p for p in Producto.query.all() if not p.oculto]
         ctx = construir_contexto(prods)
         actuales = {p.id: calcular_producto(p, ctx) for p in prods}
         moneda_actual = {pid: moneda_reporte(r) for pid, r in actuales.items()}
@@ -173,6 +177,6 @@ def main(rutas, aplicar):
         print(f"Guardado. (Se reemplazaron {borrados} puntos importados antes.)")
 
 if __name__ == '__main__':
-    args = [a for a in sys.argv[1:] if a != '--aplicar']
+    args = [a for a in sys.argv[1:] if a not in ('--aplicar', '--produccion')]
     if not args: sys.exit(__doc__)
     main(args, '--aplicar' in sys.argv)
