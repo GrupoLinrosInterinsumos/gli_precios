@@ -70,7 +70,7 @@
                 <i class="bi bi-currency-exchange me-1"></i> <span id="lblMoneda">Original</span>
             </button>
             
-            {% if current_user.role in ['TC', 'Admin', 'SuperAdmin'] %}
+            {% if current_user.role == 'TC' %}
             <button class="btn btn-dark btn-sm rounded fw-bold shadow-sm px-3" onclick="abrirModalTC()">
                 TC: <span id="valTC">--</span> <i class="bi bi-pencil-fill ms-1" style="font-size:0.6rem;"></i>
             </button>
@@ -80,6 +80,11 @@
             </div>
             {% endif %}
 
+            {% if current_user.role in ['Admin', 'SuperAdmin'] %}
+            <a href="/admin" class="btn btn-dark btn-sm rounded px-3 fw-bold shadow-sm ms-2">
+                <i class="bi bi-arrow-left"></i> <span class="d-none d-md-inline ms-1">Volver al panel</span>
+            </a>
+            {% endif %}
             <a href="/logout" class="btn btn-light btn-sm border rounded px-2 text-dark ms-2">
                 <i class="bi bi-box-arrow-right"></i>
             </a>
@@ -87,12 +92,18 @@
     </div>
 </nav>
 
+{% if current_user.role in ['Admin', 'SuperAdmin'] %}
+<div class="alert alert-warning text-center rounded-0 border-0 border-bottom border-warning py-2 mb-0 fw-bold" style="font-size:0.8rem;">
+    <i class="bi bi-eye-fill me-1"></i> Vista previa: estás viendo exactamente lo que ve un vendedor.
+</div>
+{% endif %}
+
 <main class="container-fluid py-4 py-md-5 content-wrap">
     
     <div class="text-center mb-4">
         <div class="search-container px-2 px-md-0">
             <i class="bi bi-search search-icon"></i>
-            <input type="text" id="txtBuscar" class="form-control search-input" placeholder="Buscar producto o código..." onkeyup="buscar()">
+            <input type="text" id="txtBuscar" class="form-control search-input" placeholder="Buscar producto, código o marca..." oninput="buscar()">
         </div>
         <p class="text-muted mt-3 mb-0" style="font-size: 0.85rem;"><i class="bi bi-info-circle-fill text-secondary"></i> Ingresa un porcentaje en <b>% Dscto</b> para calcular precios al cliente al instante.</p>
     </div>
@@ -141,7 +152,11 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    let timerBusqueda, modoMoneda = 'ORIGINAL', tcGlobal = 3.80, allProductsData = [];
+    let timerBusqueda, modoMoneda = 'ORIGINAL', tcGlobal = 3.80, allProductsData = [], productosFiltrados = [];
+
+    // Escapa texto antes de insertarlo en el HTML
+    function esc(v) { return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+    const normalizar = s => String(s ?? '').toUpperCase().replace(/\s+/g, ' ').trim();
     
     let modalEdicion;
     document.addEventListener('DOMContentLoaded', () => { 
@@ -177,15 +192,15 @@
         }
     }
 
+    // La lista se descarga una vez; la búsqueda filtra en el navegador al instante.
     function buscar() {
         clearTimeout(timerBusqueda);
-        timerBusqueda = setTimeout(() => { ejecutarBusqueda(); }, 300);
+        timerBusqueda = setTimeout(renderTabla, 120);
     }
 
     async function ejecutarBusqueda() {
-        const q = document.getElementById('txtBuscar').value.trim();
         try {
-            const res = await fetch(`/buscar?q=${encodeURIComponent(q)}&_=${new Date().getTime()}`);
+            const res = await fetch(`/buscar?{{ 'como=vendedor&' if current_user.role in ['Admin', 'SuperAdmin'] else '' }}_=${new Date().getTime()}`);
             const json = await res.json();
             allProductsData = json.productos;
             tcGlobal = json.tc_actual;
@@ -196,13 +211,15 @@
 
     function renderTabla() {
         const tbody = document.getElementById('tablaResultados');
-        if(allProductsData.length === 0) {
+        const q = normalizar(document.getElementById('txtBuscar').value);
+        productosFiltrados = q ? allProductsData.filter(p => normalizar(p.nombre).includes(q) || normalizar(p.codigo).includes(q) || normalizar(p.empresa).includes(q)) : allProductsData;
+        if(productosFiltrados.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted fw-bold">No hay productos disponibles.</td></tr>';
             return;
         }
 
         let htmlContent = '';
-        allProductsData.forEach((p, index) => {
+        productosFiltrados.forEach((p, index) => {
             let sim = p.moneda_simbolo, txt = p.moneda_texto;
             let vl = p.precio_lima, vp = p.precio_provincia;
 
@@ -214,16 +231,16 @@
                 vl/=divisor; vp/=divisor; sim='$'; txt='USD'; 
             }
 
-            let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' ? `<span class="badge-custom mt-1"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
+            let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' ? `<span class="badge-custom mt-1"><i class="bi bi-upc-scan"></i> ${esc(p.codigo)}</span>` : '';
             
             // 🔥 CONTROL DE PRIVACIDAD EN EL LADO DEL VENDEDOR 🔥
             let htmlNota = '';
             if (p.nota && p.nota_visible) {
                 let isCuajo = p.nombre.toUpperCase().includes("CUAJO IL CASARO");
                 if (isCuajo) {
-                    htmlNota = `<div class="nota-cuajo mt-2"><i class="bi bi-exclamation-triangle-fill"></i> ${p.nota}</div>`;
+                    htmlNota = `<div class="nota-cuajo mt-2"><i class="bi bi-exclamation-triangle-fill"></i> ${esc(p.nota)}</div>`;
                 } else {
-                    htmlNota = `<div class="mt-2 p-1 px-2 rounded bg-warning-subtle border border-warning text-dark fw-bold d-inline-block" style="font-size:0.7rem;"><i class="bi bi-sticky-fill text-warning-emphasis"></i> ${p.nota}</div>`;
+                    htmlNota = `<div class="mt-2 p-1 px-2 rounded bg-warning-subtle border border-warning text-dark fw-bold d-inline-block" style="font-size:0.7rem;"><i class="bi bi-sticky-fill text-warning-emphasis"></i> ${esc(p.nota)}</div>`;
                 }
             }
             
@@ -233,16 +250,16 @@
 
             htmlContent += `
             <tr>
-                <td style="padding-left: 1.5rem;" title="${p.nombre}">
-                    <div class="fw-bold text-dark" style="font-size: 0.95rem; white-space: normal;">${p.nombre}</div>
-                    <div class="text-muted" style="font-size: 0.75rem; font-weight: 600;">${p.empresa} ${badgeCodigo}</div>
+                <td style="padding-left: 1.5rem;" title="${esc(p.nombre)}">
+                    <div class="fw-bold text-dark" style="font-size: 0.95rem; white-space: normal;">${esc(p.nombre)}</div>
+                    <div class="text-muted" style="font-size: 0.75rem; font-weight: 600;">${esc(p.empresa)} ${badgeCodigo}</div>
                     ${htmlNota}
                 </td>
                 <td class="text-center">
                     <input type="number" id="input_dscto_${rowId}" class="form-control form-control-sm input-simulador" placeholder="0" oninput="aplicarDescuentoVendedor('${rowId}', ${vl}, ${vp}, '${sim}')">
                 </td>
-                <td class="text-center fw-bold text-primary">${txt_pv}</td>
-                <td class="text-center fw-bold text-primary">${txt_dist}</td>
+                <td class="text-center fw-bold text-primary">${esc(txt_pv)}</td>
+                <td class="text-center fw-bold text-primary">${esc(txt_dist)}</td>
                 <td class="text-end">
                     <div id="precio_lima_${rowId}" class="price-tag">${sim} ${vl.toFixed(2)}</div>
                     <div class="text-muted sede-label">LIMA (${txt})</div>

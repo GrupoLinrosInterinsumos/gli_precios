@@ -96,11 +96,19 @@
             </div>
             {% endif %}
 
+            <a href="/vendedor" class="btn btn-outline-secondary btn-sm rounded px-3 fw-bold shadow-sm" title="Ver la app como la ve un vendedor">
+                <i class="bi bi-person-badge"></i> <span class="mobile-hide-text ms-1">Vista vendedor</span>
+            </a>
+
             {% if current_user.role == 'SuperAdmin' %}
             <a href="/usuarios" class="btn btn-outline-secondary btn-sm rounded px-3 fw-bold shadow-sm">
                 <i class="bi bi-people-fill"></i> <span class="mobile-hide-text ms-1">Personal</span>
             </a>
             {% endif %}
+
+            <button class="btn btn-outline-secondary btn-sm rounded px-3 fw-bold shadow-sm" onclick="abrirCambiosRecientes()">
+                <i class="bi bi-clock-history"></i> <span class="mobile-hide-text ms-1">Historial</span>
+            </button>
 
             <button class="btn btn-outline-dark btn-sm rounded px-3 fw-bold shadow-sm" onclick="toggleAdminPanel()">
                 <i class="bi bi-database-fill"></i> <span class="mobile-hide-text ms-1">Datos</span>
@@ -157,8 +165,9 @@
     <div class="text-center mb-3 mt-2">
         <div class="search-container px-2 px-md-0">
             <i class="bi bi-search search-icon"></i>
-            <input type="text" id="txtBuscar" class="form-control search-input" placeholder="Buscar producto, código o proveedor..." onkeyup="buscar()">
+            <input type="text" id="txtBuscar" class="form-control search-input" placeholder="Buscar producto, código o proveedor..." oninput="buscar()">
         </div>
+        <div id="contadorResultados" class="text-muted mt-2" style="font-size:0.75rem;"></div>
     </div>
 
     <div class="table-container shadow-sm mx-auto">
@@ -230,7 +239,7 @@
                 <div class="col-12">
                     <label class="modal-label">Nombre Completo del Producto</label>
                     <input type="text" id="varNombre" class="form-control border-secondary-subtle rounded" placeholder="Ej: Ácido Cítrico Fino...">
-                    <input type="hidden" id="varNombreOriginal">
+                    <input type="hidden" id="varId">
                 </div>
                 <div class="col-md-3">
                     <label class="modal-label">Origen</label>
@@ -321,14 +330,75 @@
     </div>
 </div>
 
+<div class="modal fade" id="modalHistorial" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+      <div class="modal-content border-0 shadow-lg rounded">
+        <div class="modal-header bg-dark text-white border-0">
+          <h6 class="modal-title fw-bold"><i class="bi bi-clock-history me-2"></i><span id="histTitulo">Historial</span></h6>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body bg-light p-3 p-md-4">
+          <div id="histVacio" class="alert alert-secondary small fw-bold d-none mb-3">Aún no hay historial de precios para este producto. Se registra automáticamente desde el primer cambio.</div>
+          <div class="card-pro p-3 mb-3" id="histGraficoBox"><div style="position:relative; height:260px;"><canvas id="histGrafico"></canvas></div></div>
+          <h6 class="fw-bold text-dark small text-uppercase mb-2">Evolución de precios</h6>
+          <div class="card-pro mb-3" style="max-height:240px; overflow:auto;">
+            <table class="table table-sm mb-0" style="font-size:0.75rem;">
+              <thead class="table-light"><tr><th>Fecha</th><th class="text-end">Lima</th><th class="text-end">AQP/TRU</th><th class="text-end">C. Total</th><th class="text-end">Coyuntural</th><th class="text-end">Margen</th><th>Usuario</th><th>Motivo</th></tr></thead>
+              <tbody id="histPrecios"></tbody>
+            </table>
+          </div>
+          <h6 class="fw-bold text-dark small text-uppercase mb-2">Cambios en este producto</h6>
+          <div class="card-pro" style="max-height:240px; overflow:auto;">
+            <table class="table table-sm mb-0" style="font-size:0.75rem;">
+              <thead class="table-light"><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Campo</th><th>Antes</th><th>Después</th></tr></thead>
+              <tbody id="histCambios"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalCambios" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+      <div class="modal-content border-0 shadow-lg rounded">
+        <div class="modal-header bg-dark text-white border-0">
+          <h6 class="modal-title fw-bold"><i class="bi bi-clock-history me-2"></i>Últimos cambios</h6>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body bg-light p-3 p-md-4">
+          <div class="mb-3 position-relative">
+              <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+              <input type="text" id="txtFiltroCambios" class="form-control rounded ps-5 py-2 border-secondary-subtle" placeholder="Filtrar por producto, usuario o campo..." oninput="renderCambiosRecientes()">
+          </div>
+          <div class="card-pro" style="overflow:auto;">
+            <table class="table table-sm table-hover mb-0" style="font-size:0.75rem;">
+              <thead class="table-light"><tr><th>Fecha</th><th>Usuario</th><th>Producto</th><th>Acción</th><th>Campo</th><th>Antes</th><th>Después</th></tr></thead>
+              <tbody id="tablaCambios"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-    let timerBusqueda, allProductsData = [], modoMoneda = 'ORIGINAL', tcGlobal = 3.80;
-    let editContext = { tipo: '', nombre: '' };
+    let timerBusqueda, allProductsData = [], productosFiltrados = [], alertasData = [], mapaProductos = new Map();
+    let modoMoneda = 'ORIGINAL', tcGlobal = 3.80;
+    let editContext = { tipo: '', id: null };
+    let graficoHistorial = null, cambiosRecientes = [];
     const modalEdicion = new bootstrap.Modal(document.getElementById('modalEdicionUniversal'));
     const modalVar = new bootstrap.Modal(document.getElementById('modalVariante'));
+    const modalHist = new bootstrap.Modal(document.getElementById('modalHistorial'));
+    const modalCambios = new bootstrap.Modal(document.getElementById('modalCambios'));
 
-    document.addEventListener('DOMContentLoaded', () => { ejecutarBusqueda(); });
+    // Escapa texto antes de insertarlo en el HTML (nombres o notas con comillas, <, >, etc.)
+    function esc(v) { return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+    const normalizar = s => String(s ?? '').toUpperCase().replace(/\s+/g, ' ').trim();
+
+    document.addEventListener('DOMContentLoaded', () => { cargarDatos(); });
 
     function toggleAdminPanel() {
         let p = document.getElementById('adminPanel');
@@ -340,11 +410,11 @@
         else if(modoMoneda === 'PEN') modoMoneda = 'USD';
         else modoMoneda = 'ORIGINAL';
         document.getElementById('lblMoneda').innerText = modoMoneda === 'ORIGINAL' ? "Original" : (modoMoneda === 'PEN' ? "Todo S/" : "Todo $");
-        ejecutarBusqueda();
+        renderTabla();
     }
 
     function abrirModalTC() {
-        editContext = { tipo: 'tc', nombre: 'Tipo de Cambio' };
+        editContext = { tipo: 'tc', id: null };
         document.getElementById('modalEdicionTitulo').innerText = "Modificar Tipo de Cambio";
         document.getElementById('modalEdicionLabel').innerText = "Nuevo valor de TC";
         let input = document.getElementById('inputEdicionUniversal');
@@ -352,8 +422,17 @@
         modalEdicion.show();
     }
 
-    function editarCelda(tipo, nombre, valorActual, monedaOriginal = 'USD') {
-        editContext = { tipo: tipo, nombre: nombre };
+    // Valor actual que se precarga al editar cada tipo de celda
+    const VALOR_ACTUAL = {
+        'costo-real': p => p.costo_base_usd, 'costo-fab': p => p.costo_fab_usd, 'merma': p => p.merma_porcentaje,
+        'costo-coyuntural': p => p.costo_coyuntural_usd, 'margen': p => p.margen, 'flete': p => p.flete_usd,
+        'dscto': p => p.pv_str || '-', 'dscto-dist': p => p.dist_str || '-', 'nota': p => p.nota || ''
+    };
+
+    function editarCelda(tipo, id) {
+        const p = mapaProductos.get(id);
+        if(!p) return;
+        editContext = { tipo: tipo, id: id };
         let input = document.getElementById('inputEdicionUniversal');
 
         if(tipo === 'nota') {
@@ -370,11 +449,11 @@
             input.type = 'number'; input.removeAttribute('maxlength'); input.placeholder = "0.00";
         } else {
             document.getElementById('modalEdicionTitulo').innerText = "Editar Costo";
-            document.getElementById('modalEdicionLabel').innerText = `Valor numérico (${monedaOriginal})`;
+            document.getElementById('modalEdicionLabel').innerText = `Valor numérico (${p.moneda_texto})`;
             input.type = 'number'; input.removeAttribute('maxlength'); input.placeholder = "0.00";
         }
-        
-        input.value = valorActual;
+
+        input.value = VALOR_ACTUAL[tipo](p);
         modalEdicion.show();
     }
 
@@ -384,176 +463,191 @@
 
         if(editContext.tipo === 'tc') {
             let res = await fetch('/api/update-tc', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tc: val})});
-            if(res.ok) { modalEdicion.hide(); ejecutarBusqueda(); } else alert("Error de permisos.");
+            if(res.ok) { modalEdicion.hide(); cargarDatos(); } else alert("Error de permisos.");
         } else {
-            let bodyData = { nombre: editContext.nombre, valor: val };
+            let bodyData = { id: editContext.id, valor: val };
             let res = await fetch(`/api/editar-${editContext.tipo}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(bodyData) });
-            if(res.ok) { modalEdicion.hide(); ejecutarBusqueda(); } else alert("Error al guardar.");
+            if(res.ok) { modalEdicion.hide(); cargarDatos(); } else alert("Error al guardar.");
         }
     }
 
+    // La búsqueda filtra en el navegador: los datos se piden al servidor solo al cargar y después de cada cambio.
     function buscar() {
         clearTimeout(timerBusqueda);
-        document.getElementById('tablaResultados').innerHTML = ''; 
-        document.getElementById('loading').style.display = 'block';
-        timerBusqueda = setTimeout(() => { ejecutarBusqueda(); }, 300);
+        timerBusqueda = setTimeout(renderTabla, 120);
     }
 
-    function irAProducto(nombre) { document.getElementById('txtBuscar').value = nombre; buscar(); }
-
-    async function toggleVisibilidad(nombre) {
-        let res = await fetch('/api/toggle-visibilidad', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre})});
-        if(res.ok) ejecutarBusqueda();
-    }
-    
-    async function toggleNotaVisibilidad(nombre) {
-        let res = await fetch('/api/toggle-nota', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre})});
-        if(res.ok) ejecutarBusqueda();
+    function irAProducto(id) {
+        const p = mapaProductos.get(id);
+        if(p) { document.getElementById('txtBuscar').value = p.nombre; renderTabla(); }
     }
 
-    async function ejecutarBusqueda() {
-        const q = document.getElementById('txtBuscar').value.trim();
+    async function toggleVisibilidad(id) {
+        let res = await fetch('/api/toggle-visibilidad', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})});
+        if(res.ok) cargarDatos();
+    }
+
+    async function toggleNotaVisibilidad(id) {
+        let res = await fetch('/api/toggle-nota', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})});
+        if(res.ok) cargarDatos();
+    }
+
+    async function cargarDatos() {
         const tbody = document.getElementById('tablaResultados');
-        
+        if(allProductsData.length === 0) document.getElementById('loading').style.display = 'block';
         try {
-            const res = await fetch(`/buscar?q=${encodeURIComponent(q)}&_=${new Date().getTime()}`);
+            const res = await fetch(`/buscar?_=${new Date().getTime()}`);
             const json = await res.json();
-            allProductsData = json.productos; tcGlobal = json.tc_actual;
-            
-            const alertasBox = document.getElementById('contenedorAlertas');
-            if(json.alertas && json.alertas.length > 0) {
-                let alHTML = `<div class="alert alert-secondary py-2 mb-3 shadow-sm border-secondary" style="font-size:0.8rem;"><strong class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> Alertas del Sistema:</strong> <div class="mt-2">`;
-                json.alertas.forEach(a => { alHTML += `<button class="btn btn-sm btn-outline-dark me-2 mb-2 py-0 px-2 fw-bold" onclick="irAProducto('${a.producto.replace(/'/g, "\\'")}')" title="${a.msg}">${a.producto} <span class="badge bg-danger ms-1">Revisar</span></button>`; });
-                alHTML += `</div></div>`; alertasBox.innerHTML = alHTML;
-            } else alertasBox.innerHTML = '';
-
+            if(!res.ok) throw new Error(json.error || 'Error al cargar');
+            allProductsData = json.productos; alertasData = json.alertas || []; tcGlobal = json.tc_actual;
+            mapaProductos = new Map(allProductsData.map(p => [p.id, p]));
             if(document.getElementById('valTC')) document.getElementById('valTC').innerText = tcGlobal.toFixed(2);
+            renderTabla();
+        } catch(e) {
+            console.error(e);
+            tbody.innerHTML = '<tr><td colspan="12" class="text-center py-5 text-danger fw-bold">No se pudieron cargar los productos. Recarga la página.</td></tr>';
+        } finally {
             document.getElementById('loading').style.display = 'none';
+        }
+    }
 
-            if(allProductsData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="12" class="text-center py-5 text-muted fw-bold">No hay resultados.</td></tr>';
-                return;
+    function renderAlertas() {
+        const visibles = new Set(productosFiltrados.map(p => p.id));
+        const alertas = alertasData.filter(a => visibles.has(a.id));
+        const alertasBox = document.getElementById('contenedorAlertas');
+        if(alertas.length === 0) { alertasBox.innerHTML = ''; return; }
+        let alHTML = `<div class="alert alert-secondary py-2 mb-3 shadow-sm border-secondary" style="font-size:0.8rem;"><strong class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> Alertas del Sistema:</strong> <div class="mt-2">`;
+        alertas.forEach(a => { alHTML += `<button class="btn btn-sm btn-outline-dark me-2 mb-2 py-0 px-2 fw-bold" onclick="irAProducto(${a.id})" title="${esc(a.msg)}">${esc(a.producto)} <span class="badge bg-danger ms-1">Revisar</span></button>`; });
+        alertasBox.innerHTML = alHTML + `</div></div>`;
+    }
+
+    function renderTabla() {
+        const tbody = document.getElementById('tablaResultados');
+        const q = normalizar(document.getElementById('txtBuscar').value);
+        productosFiltrados = q ? allProductsData.filter(p => normalizar(p.nombre).includes(q) || normalizar(p.codigo).includes(q) || normalizar(p.empresa).includes(q)) : allProductsData;
+        renderAlertas();
+        document.getElementById('contadorResultados').innerText = q ? `${productosFiltrados.length} de ${allProductsData.length} productos` : `${allProductsData.length} productos`;
+
+        if(productosFiltrados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="12" class="text-center py-5 text-muted fw-bold">No hay resultados.</td></tr>';
+            return;
+        }
+
+        let htmlContent = '';
+        productosFiltrados.forEach((p) => {
+            let sim = p.moneda_simbolo, txt = p.moneda_texto;
+            let vb = p.costo_base_usd, vf = p.costo_fab_usd, vmer = p.merma_monto_usd, vt = p.costo_actual_usd, vcy = p.costo_coyuntural_usd;
+            let vl = p.precio_lima_usd, vp = p.precio_provincia_usd, vfl = p.flete_usd || 0;
+
+            if (modoMoneda === 'ORIGINAL') {
+                if (p.es_pen_exception) {
+                    vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; vfl*=4.0; sim='S/'; txt='PEN';
+                }
+            }
+            else if (modoMoneda === 'PEN') {
+                if (p.es_pen_exception) {
+                    vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; vfl*=4.0; sim='S/'; txt='PEN';
+                } else if (p.moneda_texto === 'PEN') {
+
+                } else {
+                    vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; vfl*=tcGlobal; sim='S/'; txt='PEN';
+                }
+            }
+            else if (modoMoneda === 'USD') {
+                if (p.es_pen_exception) {
+                    vb = (vb * 4.0) / tcGlobal;
+                    vf = (vf * 4.0) / tcGlobal;
+                    vmer = (vmer * 4.0) / tcGlobal;
+                    vt = (vt * 4.0) / tcGlobal;
+                    vcy = (vcy * 4.0) / tcGlobal;
+                    vl = (vl * 4.0) / tcGlobal;
+                    vp = (vp * 4.0) / tcGlobal;
+                    vfl = (vfl * 4.0) / tcGlobal;
+                    sim='$'; txt='USD';
+                } else if (p.moneda_texto === 'PEN') {
+                    vb/=tcGlobal; vf/=tcGlobal; vmer/=tcGlobal; vt/=tcGlobal; vcy/=tcGlobal; vl/=tcGlobal; vp/=tcGlobal; vfl/=tcGlobal; sim='$'; txt='USD';
+                } else {
+                    sim='$'; txt='USD';
+                }
             }
 
-            let htmlContent = '';
-            allProductsData.forEach((p) => {
-                let sim = p.moneda_simbolo, txt = p.moneda_texto;
-                let vb = p.costo_base_usd, vf = p.costo_fab_usd, vmer = p.merma_monto_usd, vt = p.costo_actual_usd, vcy = p.costo_coyuntural_usd;
-                let vl = p.precio_lima_usd, vp = p.precio_provincia_usd, vfl = p.flete_usd || 0;
+            let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' ? `<span class="badge-custom"><i class="bi bi-upc-scan"></i> ${esc(p.codigo)}</span>` : '';
+            let badgeEmpresa = p.empresa && p.empresa !== "MANUAL" ? `<span class="badge-custom" style="background-color: #ffffff; color: #4b5563;"><i class="bi bi-building"></i> ${esc(p.empresa)}</span>` : '';
 
-                if (modoMoneda === 'ORIGINAL') {
-                    if (p.es_pen_exception) {
-                        vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; vfl*=4.0; sim='S/'; txt='PEN';
-                    }
+            let badgeOrigen = '';
+            let btnCostoReal = '';
+
+            if (p.tipo_origen === 'FABRICADO' && !p.editable_costo) {
+                badgeOrigen = `<span class="badge-custom bg-light border-success text-success"><i class="bi bi-diagram-2"></i> Fabricado</span>`;
+                btnCostoReal = `<button class="btn-accion text-success fw-bold" style="border-color:#198754; background:#f8fff9;" onclick="editarCelda('costo-real', ${p.id})">${vb > 0 ? sim + vb.toFixed(3) : '-'}</button>`;
+            } else {
+                if (p.tipo_origen === 'FABRICADO') {
+                    badgeOrigen = `<span class="badge-custom bg-light border-warning text-warning"><i class="bi bi-diagram-2"></i> Fab. (Manual)</span>`;
                 }
-                else if (modoMoneda === 'PEN') {
-                    if (p.es_pen_exception) {
-                        vb*=4.0; vf*=4.0; vmer*=4.0; vt*=4.0; vcy*=4.0; vl*=4.0; vp*=4.0; vfl*=4.0; sim='S/'; txt='PEN';
-                    } else if (p.moneda_texto === 'PEN') {
+                btnCostoReal = `<button class="btn-accion" onclick="editarCelda('costo-real', ${p.id})">${vb > 0 ? sim + vb.toFixed(3) : '-'}</button>`;
+            }
 
-                    } else {
-                        vb*=tcGlobal; vf*=tcGlobal; vmer*=tcGlobal; vt*=tcGlobal; vcy*=tcGlobal; vl*=tcGlobal; vp*=tcGlobal; vfl*=tcGlobal; sim='S/'; txt='PEN';
-                    }
-                }
-                else if (modoMoneda === 'USD') {
-                    if (p.es_pen_exception) {
-                        vb = (vb * 4.0) / tcGlobal;
-                        vf = (vf * 4.0) / tcGlobal;
-                        vmer = (vmer * 4.0) / tcGlobal;
-                        vt = (vt * 4.0) / tcGlobal;
-                        vcy = (vcy * 4.0) / tcGlobal;
-                        vl = (vl * 4.0) / tcGlobal;
-                        vp = (vp * 4.0) / tcGlobal;
-                        vfl = (vfl * 4.0) / tcGlobal;
-                        sim='$'; txt='USD';
-                    } else if (p.moneda_texto === 'PEN') {
-                        vb/=tcGlobal; vf/=tcGlobal; vmer/=tcGlobal; vt/=tcGlobal; vcy/=tcGlobal; vl/=tcGlobal; vp/=tcGlobal; vfl/=tcGlobal; sim='$'; txt='USD';
-                    } else {
-                        sim='$'; txt='USD';
-                    }
-                }
+            let hasCoyuntural = vcy > 0;
+            let isAlerta = hasCoyuntural && (vt > vcy);
+            let textCoyuntural = hasCoyuntural ? `${sim}${vcy.toFixed(3)}` : `${sim}${vt.toFixed(3)}`;
+            let btnCoyunturalClass = isAlerta ? 'btn-alerta btn-accion' : (hasCoyuntural ? 'btn-coyuntural-active btn-accion' : 'btn-coyuntural-inactive btn-accion');
+            let rowClass = isAlerta ? 'row-alerta' : (hasCoyuntural ? 'row-coyuntural' : '');
 
-                let badgeCodigo = p.codigo && p.codigo !== 'NAN' && p.codigo !== 'S/C' ? `<span class="badge-custom"><i class="bi bi-upc-scan"></i> ${p.codigo}</span>` : '';
-                let badgeEmpresa = p.empresa && p.empresa !== "MANUAL" ? `<span class="badge-custom" style="background-color: #ffffff; color: #4b5563;"><i class="bi bi-building"></i> ${p.empresa}</span>` : '';
-                
-                let badgeOrigen = '';
-                let btnCostoReal = '';
-                let safeName = p.nombre.replace(/'/g, "\\'");
-                
-                let monedaEdicion = p.moneda_texto; 
+            let notaIcon = p.nota_visible ? 'bi-eye-fill text-success' : 'bi-eye-slash-fill text-danger';
+            let notaTitle = p.nota_visible ? 'Visible para el vendedor' : 'Oculto para el vendedor (Privado)';
+            let btnVisNota = p.nota ? `<button class="btn btn-sm py-0 px-1 border-0 ms-2" onclick="toggleNotaVisibilidad(${p.id})" title="${notaTitle}"><i class="bi ${notaIcon} fs-6"></i></button>` : '';
 
-                if (p.tipo_origen === 'FABRICADO' && !p.editable_costo) {
-                    badgeOrigen = `<span class="badge-custom bg-light border-success text-success"><i class="bi bi-diagram-2"></i> Fabricado</span>`;
-                    btnCostoReal = `<button class="btn-accion text-success fw-bold" style="border-color:#198754; background:#f8fff9;" onclick="editarCelda('costo-real', '${safeName}', ${p.costo_base_usd}, '${monedaEdicion}')">${vb > 0 ? sim + vb.toFixed(3) : '-'}</button>`;
-                } else {
-                    if (p.tipo_origen === 'FABRICADO') {
-                        badgeOrigen = `<span class="badge-custom bg-light border-warning text-warning"><i class="bi bi-diagram-2"></i> Fab. (Manual)</span>`;
-                    }
-                    btnCostoReal = `<button class="btn-accion" onclick="editarCelda('costo-real', '${safeName}', ${p.costo_base_usd}, '${monedaEdicion}')">${vb > 0 ? sim + vb.toFixed(3) : '-'}</button>`;
-                }
+            let htmlNota = p.nota ? `<div class="mt-2 p-1 px-2 rounded bg-warning-subtle border border-warning text-dark fw-bold d-inline-flex align-items-center" style="font-size:0.7rem;"><span style="cursor:pointer;" onclick="editarCelda('nota', ${p.id})" title="Clic para editar"><i class="bi bi-sticky-fill text-warning-emphasis"></i> ${esc(p.nota)}</span> ${btnVisNota}</div>` : `<button class="btn btn-sm text-primary py-0 px-0 border-0 mt-1" onclick="editarCelda('nota', ${p.id})" style="font-size:0.65rem; background:transparent;"><i class="bi bi-pencil-square"></i> + Añadir nota</button>`;
 
-                let hasCoyuntural = vcy > 0;
-                let isAlerta = hasCoyuntural && (vt > vcy);
-                let textCoyuntural = hasCoyuntural ? `${sim}${vcy.toFixed(3)}` : `${sim}${vt.toFixed(3)}`;
-                let btnCoyunturalClass = isAlerta ? 'btn-alerta btn-accion' : (hasCoyuntural ? 'btn-coyuntural-active btn-accion' : 'btn-coyuntural-inactive btn-accion');
-                let rowClass = isAlerta ? 'row-alerta' : (hasCoyuntural ? 'row-coyuntural' : '');
-                
-                let escapedNota = (p.nota || "").replace(/"/g, '&quot;').replace(/'/g, "\\'");
-                
-                let notaIcon = p.nota_visible ? 'bi-eye-fill text-success' : 'bi-eye-slash-fill text-danger';
-                let notaTitle = p.nota_visible ? 'Visible para el vendedor' : 'Oculto para el vendedor (Privado)';
-                let btnVisNota = p.nota ? `<button class="btn btn-sm py-0 px-1 border-0 ms-2" onclick="toggleNotaVisibilidad('${safeName}')" title="${notaTitle}"><i class="bi ${notaIcon} fs-6"></i></button>` : '';
-                
-                let htmlNota = p.nota ? `<div class="mt-2 p-1 px-2 rounded bg-warning-subtle border border-warning text-dark fw-bold d-inline-flex align-items-center" style="font-size:0.7rem;"><span style="cursor:pointer;" onclick="editarCelda('nota', '${safeName}', '${escapedNota}')" title="Clic para editar"><i class="bi bi-sticky-fill text-warning-emphasis"></i> ${p.nota}</span> ${btnVisNota}</div>` : `<button class="btn btn-sm text-primary py-0 px-0 border-0 mt-1" onclick="editarCelda('nota', '${safeName}', '')" style="font-size:0.65rem; background:transparent;"><i class="bi bi-pencil-square"></i> + Añadir nota</button>`;
+            let isVisible = p.visible_ventas !== false;
+            let btnVisClass = isVisible ? 'text-success border-success-subtle' : 'text-danger border-danger-subtle bg-danger-subtle';
+            let btnVisIcon = isVisible ? 'bi-eye-fill' : 'bi-eye-slash-fill';
+            let rowOpacity = isVisible ? '1' : '0.55';
 
-                let isVisible = p.visible_ventas !== false;
-                let btnVisClass = isVisible ? 'text-success border-success-subtle' : 'text-danger border-danger-subtle bg-danger-subtle';
-                let btnVisIcon = isVisible ? 'bi-eye-fill' : 'bi-eye-slash-fill';
-                let rowOpacity = isVisible ? '1' : '0.55'; 
+            let txt_pv = p.pv_str || '-';
+            let txt_dist = p.dist_str || '-';
 
-                let txt_pv = p.pv_str || '-';
-                let txt_dist = p.dist_str || '-';
-                
-                let isMargenAlert = p.margen <= 0;
-                let btnMargenClass = isMargenAlert ? 'btn-edit-margen m-0 text-danger bg-danger-subtle border-danger' : 'btn-edit-margen m-0';
+            let isMargenAlert = p.margen <= 0;
+            let btnMargenClass = isMargenAlert ? 'btn-edit-margen m-0 text-danger bg-danger-subtle border-danger' : 'btn-edit-margen m-0';
 
-                htmlContent += `
-                <tr class="${rowClass}" style="opacity: ${rowOpacity}; transition: 0.3s;">
-                    <td class="text-start ps-2 w-prod">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div class="fw-bold text-dark pe-2" style="font-size: 0.85rem; white-space: normal;">${p.nombre}</div>
-                            
-                            <div class="text-end text-nowrap">
-                                <button class="btn btn-sm btn-light border p-1 py-0 ${btnVisClass}" onclick="toggleVisibilidad('${safeName}')"><i class="bi ${btnVisIcon}"></i></button>
-                                <button class="btn btn-sm btn-light border text-primary p-1 py-0 ms-1" onclick="editarProductoGeneral('${safeName}')"><i class="bi bi-pencil-fill"></i></button>
-                                <button class="btn btn-sm btn-light border text-secondary p-1 py-0 ms-1" onclick="clonarProducto('${safeName}')"><i class="bi bi-copy"></i></button>
-                                <button class="btn btn-sm btn-light border text-danger p-1 py-0 ms-1" onclick="eliminarProducto('${safeName}')"><i class="bi bi-trash-fill"></i></button>
-                            </div>
+            htmlContent += `
+            <tr class="${rowClass}" style="opacity: ${rowOpacity}; transition: 0.3s;">
+                <td class="text-start ps-2 w-prod">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <div class="fw-bold text-dark pe-2" style="font-size: 0.85rem; white-space: normal;">${esc(p.nombre)}</div>
+
+                        <div class="text-end text-nowrap">
+                            <button class="btn btn-sm btn-light border p-1 py-0 ${btnVisClass}" onclick="toggleVisibilidad(${p.id})" title="Visible para ventas"><i class="bi ${btnVisIcon}"></i></button>
+                            <button class="btn btn-sm btn-light border text-dark p-1 py-0 ms-1" onclick="verHistorial(${p.id})" title="Historial de precios y cambios"><i class="bi bi-clock-history"></i></button>
+                            <button class="btn btn-sm btn-light border text-primary p-1 py-0 ms-1" onclick="editarProductoGeneral(${p.id})" title="Editar"><i class="bi bi-pencil-fill"></i></button>
+                            <button class="btn btn-sm btn-light border text-secondary p-1 py-0 ms-1" onclick="clonarProducto(${p.id})" title="Clonar"><i class="bi bi-copy"></i></button>
+                            <button class="btn btn-sm btn-light border text-danger p-1 py-0 ms-1" onclick="eliminarProducto(${p.id})" title="Eliminar"><i class="bi bi-trash-fill"></i></button>
                         </div>
-                        <div class="badges-wrapper">${badgeEmpresa} ${badgeCodigo} ${badgeOrigen}</div>
-                        ${htmlNota}
-                    </td>
-                    <td>${btnCostoReal}</td>
-                    <td><button class="btn-accion" onclick="editarCelda('costo-fab', '${safeName}', ${p.costo_fab_usd}, '${monedaEdicion}')">${vf > 0 ? sim + vf.toFixed(3) : '-'}</button></td>
-                    <td><button class="btn-accion" onclick="editarCelda('merma', '${safeName}', ${p.merma_porcentaje})">${p.merma_porcentaje}%</button></td>
-                    <td class="fw-bold text-dark">${sim}${vt.toFixed(3)}</td>
-                    <td><button class="${btnCoyunturalClass}" onclick="editarCelda('costo-coyuntural', '${safeName}', ${p.costo_coyuntural_usd}, '${monedaEdicion}')">${textCoyuntural}</button></td>
-                    
-                    <td><button class="btn-accion text-primary fw-bold" onclick="editarCelda('dscto', '${safeName}', '${txt_pv}')">${txt_pv}</button></td>
-                    <td><button class="btn-accion text-primary fw-bold" onclick="editarCelda('dscto-dist', '${safeName}', '${txt_dist}')">${txt_dist}</button></td>
-                    
-                    <td><button class="${btnMargenClass}" onclick="editarCelda('margen', '${safeName}', ${p.margen})">${p.margen}%</button></td>
-                    <td><button class="btn-accion" onclick="editarCelda('flete', '${safeName}', ${p.flete_usd}, '${monedaEdicion}')">${vfl > 0 ? sim + vfl.toFixed(3) : '-'}</button></td>
-                    <td class="text-end"><div class="price-tag">${sim} ${vl.toFixed(2)}</div><div class="text-muted small" style="font-size:0.55rem; font-weight:600;">LIMA (${txt})</div></td>
-                    <td class="text-end pe-4"><div class="price-tag price-secondary">${sim} ${vp.toFixed(2)}</div><div class="text-muted small" style="font-size:0.55rem; font-weight:600;">AQP/TRU (${txt})</div></td>
-                </tr>`;
-            });
-            tbody.innerHTML = htmlContent;
-        } catch(e) { console.error(e); }
+                    </div>
+                    <div class="badges-wrapper">${badgeEmpresa} ${badgeCodigo} ${badgeOrigen}</div>
+                    ${htmlNota}
+                </td>
+                <td>${btnCostoReal}</td>
+                <td><button class="btn-accion" onclick="editarCelda('costo-fab', ${p.id})">${vf > 0 ? sim + vf.toFixed(3) : '-'}</button></td>
+                <td><button class="btn-accion" onclick="editarCelda('merma', ${p.id})">${p.merma_porcentaje}%</button></td>
+                <td class="fw-bold text-dark">${sim}${vt.toFixed(3)}</td>
+                <td><button class="${btnCoyunturalClass}" onclick="editarCelda('costo-coyuntural', ${p.id})">${textCoyuntural}</button></td>
+
+                <td><button class="btn-accion text-primary fw-bold" onclick="editarCelda('dscto', ${p.id})">${esc(txt_pv)}</button></td>
+                <td><button class="btn-accion text-primary fw-bold" onclick="editarCelda('dscto-dist', ${p.id})">${esc(txt_dist)}</button></td>
+
+                <td><button class="${btnMargenClass}" onclick="editarCelda('margen', ${p.id})">${p.margen}%</button></td>
+                <td><button class="btn-accion" onclick="editarCelda('flete', ${p.id})">${vfl > 0 ? sim + vfl.toFixed(3) : '-'}</button></td>
+                <td class="text-end"><div class="price-tag">${sim} ${vl.toFixed(2)}</div><div class="text-muted small" style="font-size:0.55rem; font-weight:600;">LIMA (${txt})</div></td>
+                <td class="text-end pe-4"><div class="price-tag price-secondary">${sim} ${vp.toFixed(2)}</div><div class="text-muted small" style="font-size:0.55rem; font-weight:600;">AQP/TRU (${txt})</div></td>
+            </tr>`;
+        });
+        tbody.innerHTML = htmlContent;
     }
 
-    function eliminarProducto(nombre) { 
-        if(confirm(`¿Eliminar ${nombre}?`)) fetch('/api/eliminar-producto', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre})}).then(()=> ejecutarBusqueda()); 
+    function eliminarProducto(id) {
+        const p = mapaProductos.get(id);
+        if(p && confirm(`¿Eliminar ${p.nombre}?`)) fetch('/api/eliminar-producto', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})}).then(()=> cargarDatos());
     }
 
     async function subirArchivo() {
@@ -562,8 +656,9 @@
         let fd = new FormData(); fd.append('archivo', input.files[0]);
         document.getElementById('status').innerText = "Procesando Maestro...";
         let res = await fetch('/subir-maestro', {method:'POST', body:fd});
-        if(res.ok) { document.getElementById('status').innerText = "✅ Listo"; ejecutarBusqueda(); } 
+        if(res.ok) { document.getElementById('status').innerText = "✅ Listo"; cargarDatos(); }
         else document.getElementById('status').innerText = "❌ Error";
+        input.value = '';
     }
 
     async function subirRelaciones() {
@@ -572,96 +667,84 @@
         let fd = new FormData(); fd.append('archivo', input.files[0]);
         document.getElementById('status').innerText = "Vinculando origen...";
         let res = await fetch('/api/subir-relaciones', {method:'POST', body:fd});
-        if(res.ok) { document.getElementById('status').innerText = "✅ Datos OK"; ejecutarBusqueda(); } 
+        if(res.ok) { document.getElementById('status').innerText = "✅ Datos OK"; cargarDatos(); }
         else document.getElementById('status').innerText = "❌ Error";
+        input.value = '';
     }
 
     function poblarSelectPlantillas() {
-        let select = document.getElementById('varPlantilla');
-        select.innerHTML = '<option value="">-- Cargar datos de producto existente --</option>';
-        allProductsData.forEach(p => { select.innerHTML += `<option value="${p.nombre.replace(/"/g, '&quot;')}">${p.nombre}</option>`; });
+        document.getElementById('varPlantilla').innerHTML = '<option value="">-- Cargar datos de producto existente --</option>' +
+            allProductsData.map(p => `<option value="${p.id}">${esc(p.nombre)}</option>`).join('');
     }
 
-    function abrirModalVariante() { 
+    function llenarFormulario(p) {
+        document.getElementById('varCodigo').value = p.codigo;
+        document.getElementById('varEmpresa').value = p.empresa;
+        document.getElementById('varOrigen').value = p.tipo_origen;
+        document.getElementById('varOdoo').value = p.en_odoo || "NO";
+        document.getElementById('varCostoReal').value = p.costo_base_usd;
+        document.getElementById('varCostoFab').value = p.costo_fab_usd;
+        document.getElementById('varCoyuntural').value = p.costo_coyuntural_usd > 0 ? p.costo_coyuntural_usd : '';
+        document.getElementById('varMerma').value = p.merma_porcentaje;
+        document.getElementById('varMargen').value = p.margen;
+        document.getElementById('varDsctoPV').value = p.pv_str;
+        document.getElementById('varDsctoDist').value = p.dist_str;
+    }
+
+    function abrirModalVariante() {
         document.getElementById('alertaCrear').classList.add('d-none');
-        ['varNombre','varCodigo','varEmpresa','varCostoReal','varCostoFab','varCoyuntural','varMerma','varDsctoPV','varDsctoDist','varNombreOriginal'].forEach(id => document.getElementById(id).value = '');
+        ['varNombre','varCodigo','varEmpresa','varCostoReal','varCostoFab','varCoyuntural','varMerma','varDsctoPV','varDsctoDist','varId'].forEach(id => document.getElementById(id).value = '');
         document.getElementById('varMargen').value = '20';
         document.getElementById('varOdoo').value = 'NO';
-        poblarSelectPlantillas(); modalVar.show(); 
+        poblarSelectPlantillas(); modalVar.show();
     }
-    
-    function editarProductoGeneral(nombre) {
-        let p = allProductsData.find(x => x.nombre === nombre);
+
+    function editarProductoGeneral(id) {
+        let p = mapaProductos.get(id);
         if(!p) return;
         document.getElementById('alertaCrear').classList.add('d-none');
-        poblarSelectPlantillas(); 
-        document.getElementById('varPlantilla').value = p.nombre;
-        
-        document.getElementById('varNombreOriginal').value = p.nombre;
-        document.getElementById('varNombre').value = p.nombre; 
-        document.getElementById('varCodigo').value = p.codigo; 
-        document.getElementById('varEmpresa').value = p.empresa; 
-        document.getElementById('varOrigen').value = p.tipo_origen; 
-        document.getElementById('varOdoo').value = p.en_odoo || "NO";
-        
-        document.getElementById('varCostoReal').value = p.costo_base_usd; 
-        document.getElementById('varCostoFab').value = p.costo_fab_usd; 
-        document.getElementById('varCoyuntural').value = p.costo_coyuntural_usd > 0 ? p.costo_coyuntural_usd : ''; 
-        document.getElementById('varMerma').value = p.merma_porcentaje; 
-        document.getElementById('varMargen').value = p.margen;
-        document.getElementById('varDsctoPV').value = p.pv_str; 
-        document.getElementById('varDsctoDist').value = p.dist_str;
-        
+        poblarSelectPlantillas();
+        document.getElementById('varPlantilla').value = p.id;
+        document.getElementById('varId').value = p.id;
+        document.getElementById('varNombre').value = p.nombre;
+        llenarFormulario(p);
         modalVar.show();
     }
 
     function cargarPlantilla() {
-        let nombrePlantilla = document.getElementById('varPlantilla').value;
-        if(!nombrePlantilla) return;
-        let p = allProductsData.find(x => x.nombre === nombrePlantilla);
+        let p = mapaProductos.get(parseInt(document.getElementById('varPlantilla').value));
         if(!p) return;
         document.getElementById('alertaCrear').classList.add('d-none');
-        
-        document.getElementById('varNombreOriginal').value = '';
-        document.getElementById('varNombre').value = p.nombre + " - NUEVA VERSIÓN"; 
-        
-        document.getElementById('varCodigo').value = p.codigo; document.getElementById('varEmpresa').value = p.empresa; 
-        document.getElementById('varOrigen').value = p.tipo_origen; 
-        document.getElementById('varOdoo').value = p.en_odoo || "NO";
-        document.getElementById('varCostoReal').value = p.costo_base_usd; document.getElementById('varCostoFab').value = p.costo_fab_usd; 
-        document.getElementById('varCoyuntural').value = p.costo_coyuntural_usd > 0 ? p.costo_coyuntural_usd : ''; 
-        document.getElementById('varMerma').value = p.merma_porcentaje; document.getElementById('varMargen').value = p.margen;
-        document.getElementById('varDsctoPV').value = p.pv_str; document.getElementById('varDsctoDist').value = p.dist_str;
+        document.getElementById('varId').value = '';
+        document.getElementById('varNombre').value = p.nombre + " - NUEVA VERSIÓN";
+        llenarFormulario(p);
     }
 
-    function clonarProducto(nombre) { poblarSelectPlantillas(); document.getElementById('varPlantilla').value = nombre; cargarPlantilla(); modalVar.show(); }
-    
+    function clonarProducto(id) { poblarSelectPlantillas(); document.getElementById('varPlantilla').value = id; cargarPlantilla(); modalVar.show(); }
+
     async function guardarVariante() {
-        let data = { 
-            nombre_original: document.getElementById('varNombreOriginal').value,
-            nombre: document.getElementById('varNombre').value, codigo: document.getElementById('varCodigo').value, 
-            origen: document.getElementById('varOrigen').value, empresa: document.getElementById('varEmpresa').value, 
+        let data = {
+            id: document.getElementById('varId').value || null,
+            nombre: document.getElementById('varNombre').value, codigo: document.getElementById('varCodigo').value,
+            origen: document.getElementById('varOrigen').value, empresa: document.getElementById('varEmpresa').value,
             en_odoo: document.getElementById('varOdoo').value,
-            costo_base: document.getElementById('varCostoReal').value, costo_fab: document.getElementById('varCostoFab').value, 
-            coyuntural: document.getElementById('varCoyuntural').value, merma: document.getElementById('varMerma').value, 
+            costo_base: document.getElementById('varCostoReal').value, costo_fab: document.getElementById('varCostoFab').value,
+            coyuntural: document.getElementById('varCoyuntural').value, merma: document.getElementById('varMerma').value,
             margen: document.getElementById('varMargen').value,
             dscto_pv: document.getElementById('varDsctoPV').value, dscto_dist: document.getElementById('varDsctoDist').value
         };
         let res = await fetch('/api/crear-producto', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
-        if(res.ok) { modalVar.hide(); ejecutarBusqueda(); } 
+        if(res.ok) { modalVar.hide(); cargarDatos(); }
         else { let err = await res.json(); let caja = document.getElementById('alertaCrear'); caja.innerText = "Error: " + err.error; caja.classList.remove('d-none'); }
     }
 
     function abrirModalExportar() {
         document.getElementById('txtBuscarExportar').value = '';
-        let divLista = document.getElementById('listaProductosExportar'); 
-        divLista.innerHTML = '';
-        allProductsData.forEach(p => { 
-            divLista.innerHTML += `<div class="form-check mb-1 border-bottom border-light item-exportar"><input class="form-check-input chk-exportar" type="checkbox" value="${p.nombre.replace(/"/g, '&quot;')}" checked> <label class="form-check-label text-dark fw-bold" style="font-size:0.85rem;">${p.nombre}</label></div>`; 
-        });
+        document.getElementById('listaProductosExportar').innerHTML = productosFiltrados.map(p =>
+            `<div class="form-check mb-1 border-bottom border-light item-exportar"><input class="form-check-input chk-exportar" type="checkbox" value="${p.id}" checked> <label class="form-check-label text-dark fw-bold" style="font-size:0.85rem;">${esc(p.nombre)}</label></div>`).join('');
         new bootstrap.Modal(document.getElementById('modalExportar')).show();
     }
-    
+
     function filtrarExportar() {
         let filtro = document.getElementById('txtBuscarExportar').value.toUpperCase();
         let items = document.querySelectorAll('.item-exportar');
@@ -674,8 +757,8 @@
             }
         });
     }
-    
-    function marcarTodosExportar(estado) { 
+
+    function marcarTodosExportar(estado) {
         let items = document.querySelectorAll('.item-exportar');
         items.forEach(item => {
             if (item.style.display !== "none") {
@@ -683,12 +766,93 @@
             }
         });
     }
-    
+
     async function procesarDescarga() {
-        let seleccionados = Array.from(document.querySelectorAll('.chk-exportar:checked')).map(c => c.value);
+        let seleccionados = Array.from(document.querySelectorAll('.chk-exportar:checked')).map(c => parseInt(c.value));
         if(seleccionados.length === 0) return alert("Selecciona productos");
-        let res = await fetch(`/api/exportar`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({productos: seleccionados}) });
+        let res = await fetch(`/api/exportar`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ids: seleccionados}) });
         if(res.ok) { let blob = await res.blob(); let a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `Precios_GLI.xlsx`; a.click(); }
+        else alert("No se pudo generar el Excel.");
+    }
+
+    // ===================== HISTORIAL =====================
+    const NOMBRES_CAMPO = {
+        costo_real: 'Costo real', costo_fab: 'Costo fab.', coyuntural: 'Coyuntural', margen: 'Margen', merma: 'Merma', flete: 'Flete',
+        pv: '% PV', dist: '% Dist.', nota: 'Nota', codigo: 'Código', empresa: 'Empresa', origen: 'Origen', odoo: 'Odoo',
+        categoria: 'Categoría', nombre: 'Nombre', visible_ventas: 'Visible ventas', nota_visible: 'Nota visible',
+        oculto: 'Oculto', tipo_cambio: 'Tipo de cambio', producto: 'Producto', crear: 'Creado'
+    };
+    const NOMBRES_ACCION = {
+        editar: 'Edición', crear: 'Creación', eliminar: 'Eliminación', ocultar: 'Ocultado', propagacion: 'Propagación',
+        visibilidad: 'Visibilidad', 'carga-maestro': 'Excel maestro', 'carga-atributos': 'Excel atributos',
+        'tipo-cambio': 'Tipo de cambio', usuario: 'Usuarios'
+    };
+    // Margen y merma se guardan como fracción (0.2) y se muestran como porcentaje (20%)
+    function valorCambio(campo, v) {
+        if((campo === 'margen' || campo === 'merma') && v !== '' && !isNaN(v)) return `${+(parseFloat(v) * 100).toFixed(2)}%`;
+        return v === '' ? '—' : v;
+    }
+    function filaCambio(c, conProducto) {
+        const prod = conProducto ? `<td>${c.producto_id && mapaProductos.has(c.producto_id) ? `<a href="#" onclick="modalCambios.hide(); verHistorial(${c.producto_id}); return false;">${esc(c.producto)}</a>` : esc(c.producto || '—')}</td>` : '';
+        return `<tr><td class="text-nowrap">${esc(c.fecha)}</td><td>${esc(c.usuario)}</td>${prod}<td>${esc(NOMBRES_ACCION[c.accion] || c.accion)}</td>` +
+               `<td>${esc(NOMBRES_CAMPO[c.campo] || c.campo)}</td><td class="text-muted">${esc(valorCambio(c.campo, c.antes))}</td><td class="fw-bold">${esc(valorCambio(c.campo, c.despues))}</td></tr>`;
+    }
+
+    async function verHistorial(id) {
+        const p = mapaProductos.get(id);
+        document.getElementById('histTitulo').innerText = p ? p.nombre : 'Historial';
+        const res = await fetch(`/api/historial/${id}`);
+        if(!res.ok) return alert("No se pudo cargar el historial.");
+        const h = await res.json();
+
+        const vacio = h.precios.length === 0;
+        document.getElementById('histVacio').classList.toggle('d-none', !vacio);
+        document.getElementById('histGraficoBox').classList.toggle('d-none', vacio);
+        const fmt = (m, v) => `${m === 'PEN' ? 'S/' : '$'} ${v.toFixed(2)}`;
+        document.getElementById('histPrecios').innerHTML = vacio ? '<tr><td colspan="8" class="text-muted text-center">Sin registros</td></tr>' :
+            [...h.precios].reverse().map(r => `<tr><td class="text-nowrap">${esc(r.fecha)}</td><td class="text-end fw-bold">${fmt(r.moneda, r.precio_lima)}</td>` +
+                `<td class="text-end">${fmt(r.moneda, r.precio_provincia)}</td><td class="text-end">${fmt(r.moneda, r.costo_total)}</td>` +
+                `<td class="text-end">${r.coyuntural > 0 ? fmt(r.moneda, r.coyuntural) : '—'}</td><td class="text-end">${r.margen}%</td>` +
+                `<td>${esc(r.usuario)}</td><td>${esc(r.motivo)}</td></tr>`).join('');
+        document.getElementById('histCambios').innerHTML = h.cambios.length === 0 ? '<tr><td colspan="6" class="text-muted text-center">Sin cambios registrados</td></tr>' :
+            h.cambios.map(c => filaCambio(c, false)).join('');
+
+        modalHist.show();
+        if(graficoHistorial) { graficoHistorial.destroy(); graficoHistorial = null; }
+        if(vacio || typeof Chart === 'undefined') return;
+        const moneda = h.precios[h.precios.length - 1].moneda === 'PEN' ? 'S/' : '$';
+        graficoHistorial = new Chart(document.getElementById('histGrafico'), {
+            type: 'line',
+            data: {
+                labels: h.precios.map(r => r.fecha),
+                datasets: [
+                    { label: 'Precio Lima', data: h.precios.map(r => r.precio_lima), borderColor: '#3b3874', backgroundColor: '#3b3874', tension: 0.2, stepped: 'before' },
+                    { label: 'Precio AQP/TRU', data: h.precios.map(r => r.precio_provincia), borderColor: '#9ca3af', backgroundColor: '#9ca3af', tension: 0.2, stepped: 'before' },
+                    { label: 'Costo total', data: h.precios.map(r => r.costo_total), borderColor: '#dc2626', backgroundColor: '#dc2626', borderDash: [5, 4], stepped: 'before' }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                plugins: { tooltip: { callbacks: { label: c => `${c.dataset.label}: ${moneda} ${c.parsed.y.toFixed(2)}` } } },
+                scales: { y: { ticks: { callback: v => `${moneda} ${v}` } } }
+            }
+        });
+    }
+
+    async function abrirCambiosRecientes() {
+        const res = await fetch('/api/historial?limite=500');
+        if(!res.ok) return alert("No se pudo cargar el historial.");
+        cambiosRecientes = (await res.json()).cambios;
+        document.getElementById('txtFiltroCambios').value = '';
+        renderCambiosRecientes();
+        modalCambios.show();
+    }
+
+    function renderCambiosRecientes() {
+        const q = normalizar(document.getElementById('txtFiltroCambios').value);
+        const filas = q ? cambiosRecientes.filter(c => normalizar(`${c.producto} ${c.usuario} ${NOMBRES_CAMPO[c.campo] || c.campo} ${NOMBRES_ACCION[c.accion] || c.accion}`).includes(q)) : cambiosRecientes;
+        document.getElementById('tablaCambios').innerHTML = filas.length === 0 ? '<tr><td colspan="7" class="text-muted text-center py-4">Aún no hay cambios registrados.</td></tr>' :
+            filas.map(c => filaCambio(c, true)).join('');
     }
 </script>
 </body>
